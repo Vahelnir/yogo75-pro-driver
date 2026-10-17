@@ -99,7 +99,12 @@ Statut : vérifié.
 
 - Rapports de sortie de 64 octets, report ID 0, sur l'interface `0xFF60`. Avec `node-hid`, on écrit `[0x00, ...64 octets]`.
 - Chaque requête porte un **code de requête** sur 16 bits que le clavier renvoie dans sa réponse. C'est ce code qui associe une réponse à sa requête. D'autres rapports d'entrée peuvent arriver entre-temps : on les ignore.
-- En 2.4 GHz, les paquets sont découpés autrement (`getKeyFunctionWireless`, `writeKeyFunctionWireless`) et le timeout passe à 3 s. Non implémenté (code).
+- **Sans-fil 2,4 GHz** (code, rien de testé ; non implémenté dans `yogo.ts`) :
+  - dongle `VID 0x373B` / **PID 4607**, même interface `0xFF60` / usage `0x61`, `connectType: 0` (2 en filaire) ;
+  - le contrôleur passe à `BUFFER_LEN = 32` (rapports de 32 octets), `DATA_LEN = 24` (24 octets de données par paquet), `matrixMaxSize = 16` (16 × 24 = 384 octets pour la keymap et les couleurs), puis appelle `applyWirelessTransport()` (pas encore lu). Point d'entrée : `isWireless&&(an.DATA_LEN=24` dans `demoMode.store-*.js` ;
+  - timeout de 3 s au lieu de 500 ms ;
+  - bloc de config : lecture en 3 paquets `0x14` (`len 24` @0, `len 24` @24, `len 27` @48) ; écriture en 3 paquets `0x15` (champs 0–23 @0, 24–47 @24, `len 16` @48). **Bug du configurateur** : sa troisième boucle remplit le deuxième tampon, il réécrit donc des zéros en positions 48–63. Ne pas le reproduire ;
+  - `get_keyboard_info` : 39 octets en 2 paquets (`len 24` puis `len 15`).
 
 ## Format des paquets
 
@@ -479,3 +484,4 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : effets 1 (défilement vers la droite, avec `colorful` = 1) et 7 (rotation antihoraire) observés ; `customColorIndex` 0 ou 1 ne change pas leur sens. Rétroéclairage remis : mode 4, vert, luminosité 90, vitesse 3, couleur unique.
 - 2026-10-17 : table des effets d'éclairage complétée avec les libellés et réglages du configurateur. Synchro musicale (`0x2E` / `0x2F`, mode 254) laissée non déterminée : propre à l'application de bureau, supposée fonctionner comme le flux de l'écran à points.
 - 2026-10-17 : revérification de l'effet 1 avec `colorful` = 0, par une seule écriture depuis le mode 4 : vague verte qui défile de gauche à droite, appliquée immédiatement (une écriture du bloc, en 2 paquets, suffit). Retour au mode 4.
+- 2026-10-17 : lecture du code sans-fil du configurateur (paquets de 32 octets, 24 de données, découpage du bloc de config, bug d'écriture des positions 48–63). Rien de testé : dongle pas encore branché.
