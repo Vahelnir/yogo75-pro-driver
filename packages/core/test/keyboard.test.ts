@@ -74,8 +74,9 @@ for (const size of [64, 32]) {
   test(`chunked reads reassemble each resource (${size}-byte reports)`, async () => {
     const { fake, kb } = setup(size);
     assert.deepEqual(await kb.readConfig(), BACKUP.config);
-    for (const l of [0, 1, 2, 3])
+    for (const l of [0, 1, 2, 3]) {
       assert.deepEqual(await kb.readKeymap(l), BACKUP[`keymap${l}`]);
+    }
     assert.deepEqual(await kb.readCustomLeds(), BACKUP.leds);
     assert.deepEqual(await kb.readMacros(), BACKUP.macros);
     assert.ok(fake.written.every((p) => p.length === size));
