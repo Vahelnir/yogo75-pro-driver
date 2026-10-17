@@ -7,7 +7,7 @@ Reverse engineering of the **ATK Yogo 75 PRO** keyboard and of its official web 
 ## What this repository is for
 
 1. **Protocol documentation** for anyone who wants to write a proper driver or tool. [`docs/protocol.md`](docs/protocol.md) describes the USB HID protocol, independently of any tool: packet format, every command, the config block and the keymap, macro and image formats. Each fact is tagged _verified_ (tested on a real keyboard), _code_ (read in the configurator's JavaScript, untested) or _hypothesis_.
-2. **A fully AI-written reimplementation**: [`yogo75`](apps/cli/yogo.ts), a small command-line tool that talks to the keyboard directly.
+2. **A fully AI-written reimplementation**: [`yogo75`](apps/cli/src/yogo.ts), a small command-line tool that talks to the keyboard directly.
 
 No driver needs to be installed: the official configurator is a website that talks to the keyboard over WebHID, using 64-byte reports on a vendor HID interface (usage page `0xFF60`), or 32-byte reports through the 2.4 GHz dongle. `yogo75` sends the same reports with [`node-hid`](https://github.com/node-hid/node-hid).
 
@@ -40,7 +40,7 @@ pnpm yogo75 restore            # write it all back, then read back and compare
 DEBUG=1 pnpm yogo75            # print every packet sent and received
 ```
 
-Until `--help` lands (#16), the list of commands is the dispatch in [`apps/cli/yogo.ts`](apps/cli/yogo.ts). Commands that write follow read → modify → write and save a local backup first (`*-backup.json`, git-ignored) with a matching restore command.
+Until `--help` lands (#16), the list of commands is the dispatch in [`apps/cli/src/yogo.ts`](apps/cli/src/yogo.ts). Commands that write follow read → modify → write and save a local backup first (`*-backup.json`, git-ignored) with a matching restore command.
 
 **Do not send** `0x31` (factory reset) or `0xA0`–`0xC0` (firmware flashing): they are documented but never used.
 
