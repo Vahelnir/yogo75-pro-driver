@@ -205,9 +205,9 @@ Table `fieldMap` : position dans le bloc.
 | 40 | winLock | verrouillage de la touche Windows : 1 = verrouillée (Win + Espace n'ouvre plus Spotlight sous macOS) | vérifié |
 | 41 | wasd | 1 = WASD et flèches échangés, dans les deux sens | vérifié |
 | 42 | scanDelay | 0 = mode faible latence, 2 = normal (le configurateur n'écrit que ces deux valeurs) | code |
-| 43 | layer | couche active | code |
-| 44 | fkeyChange | | code |
-| 45 | wheelMode | molette / encodeur | code |
+| 43 | layer | à 2, rien ne change, même après un rebranchement (la couche 0 reste active) ; la valeur est conservée. Rôle inconnu | vérifié (sans effet visible) |
+| 44 | fkeyChange | aucun effet observé à 1, en mode Windows comme en mode Mac (F1, F12 avec et sans Fn) ; rôle inconnu | vérifié (sans effet visible) |
+| 45 | wheelMode | 0 = la rotation de la molette règle le volume ; 1 ou 2 = la rotation ne fait plus rien de visible (ni volume, ni défilement, ni éclairage, ni écran à points), l'appui reste lecture/pause. Mettre volume ± dans les emplacements 46–47 n'y change rien | vérifié (effet partiel) |
 | 46–48 | sleepL/M/H | délai de mise en veille sur 24 bits, LE, en secondes (choix du configurateur : 60, 180, 300, 600, 1800, « jamais » = 65535 ; valeur relevée : 180). En USB, aucune mise en veille observée avec 60 : probablement réservé au sans-fil (hypothèse de l'utilisateur) | code |
 | 49–51 | dsSleepL/M/H | veille de l'écran à points | code |
 | 52–57 | lcdPower, lcdMode, lcdGif, lcdGifCount, lcdLanguage, lcdUsb | ce clavier n'a pas d'écran LCD | code |
@@ -313,7 +313,7 @@ node yogo.ts keymap-restore          # réécrit la sauvegarde
 |---|---|---|
 | 0 | 0–15 | Esc, F1…F12, Impr. écran, Inser, Suppr |
 | 1 | 16–31 | `²`, 1…0, `-`, `=`, Retour arrière, Début, Fin |
-| 2 | 32–47 | Tab, Q…P, `[`, `]`, `\`, puis 46–47 : codes spéciaux `30 cb 01` et `30 cf 00` (le configurateur les masque ; peut-être la molette) |
+| 2 | 32–47 | Tab, Q…P, `[`, `]`, `\`, puis 46–47 : en usine `30 cb 01` et `30 cf 00` (le configurateur les masque) ; sur ce clavier `10 00 56` et `10 00 46`. Ce n'est pas la rotation de la molette (vérifié) |
 | 3 | 48–63 | Verr. maj, A…L, `;`, `'`, (60 : `#` ISO, absente), Entrée, Page préc., Page suiv. |
 | 4 | 64–79 | Maj gauche, (65 : `<` ISO, absente), Z…M, `,`, `.`, `/`, (vide), Maj droite, Flèche haut, (vide) |
 | 5 | 80–95 | Ctrl gauche, Win, Alt, (vide ×2), Espace, (vide ×3), Alt droit, Fn, (vide), Ctrl droit, ←, ↓, → |
@@ -407,7 +407,7 @@ Dans la keymap, avec le contrôleur de ce clavier (`Ui`) :
 
 Utilisées quand `ledMode = 253` (« custom »).
 
-**Table touche → LED** (`0x32`, 384 octets, lecture par paquets de 56 ; vérifié). Les 96 premiers octets donnent, pour chaque index de touche, son numéro de LED ; `ff` = pas de LED. 84 LED, numérotées 0 à 83. Touches sans LED : 46–47 (`30 cb 01`, `30 cf 00` : probablement la molette, hypothèse), 60 et 65 (touches ISO absentes) et les emplacements vides. Le reste des 384 octets contient d'autres tables (une suite `54`…`77`, puis ce qui ressemble à des couleurs) : rôle inconnu.
+**Table touche → LED** (`0x32`, 384 octets, lecture par paquets de 56 ; vérifié). Les 96 premiers octets donnent, pour chaque index de touche, son numéro de LED ; `ff` = pas de LED. 84 LED, numérotées 0 à 83. Touches sans LED : 46–47 (codes masqués par le configurateur ; pas la rotation de la molette, vérifié), 60 et 65 (touches ISO absentes) et les emplacements vides. Le reste des 384 octets contient d'autres tables (une suite `54`…`77`, puis ce qui ressemble à des couleurs) : rôle inconnu.
 
 **Matrice de couleurs** (`0x22` lecture / `0x23` écriture ; 6 paquets de 56 octets, offset 0 à 280). Un triplet RGB par numéro de LED : la couleur de la touche `i` est à l'octet `3 × led[i]`. Comme pour la keymap, le configurateur réécrit toujours la matrice entière.
 
@@ -457,3 +457,6 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : veille à 60 s en USB : aucune extinction observée ; l'utilisateur pense qu'elle ne joue qu'en Bluetooth / 2.4 GHz. `sleepL` remis à 180. Le clavier a un interrupteur physique Win/Mac.
 - 2026-10-17 : l'interrupteur physique Win/Mac fait passer `macWin` à 1 puis à 0 (relu, seul octet modifié du bloc).
 - 2026-10-17 : `sixN` vérifié : à 0, 8 touches appuyées ensemble ne donnent que 6 lettres ; à 1 (valeur d'origine, rétablie), les 8.
+- 2026-10-17 : `fkeyChange` = 1 : aucun changement observé (mode Windows : la couche Fn de la rangée F est personnalisée en F1–F12, donc F12 et Fn + F12 donnent F12 dans les deux cas ; mode Mac : F1 et Fn + F1 baissent la luminosité dans les deux cas). Remis à 0, `macWin` remis à 0. Test de `wheelMode` = 1.
+- 2026-10-17 : `wheelMode` 1 et 2 : la rotation de la molette ne fait plus rien de visible, l'appui reste lecture/pause. Hypothèse « la molette envoie alors les emplacements 46–47 » infirmée (volume ± écrit en 46–47, sans effet). Keymap restaurée, `wheelMode` remis à 0.
+- 2026-10-17 : `layer` = 2 : la couche 0 reste active (Verr. maj → Ctrl, Suppr à sa place personnalisée), même après rebranchement ; valeur relue à 2 après rebranchement. Remis à 0.
