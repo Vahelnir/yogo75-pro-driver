@@ -40,7 +40,7 @@ pnpm yogo75 restore            # write it all back, then read back and compare
 DEBUG=1 pnpm yogo75            # print every packet sent and received
 ```
 
-Every command is listed with an example in [`docs/cli.md`](docs/cli.md) (in French). Commands that write follow read → modify → write and save a local backup first (`*-backup.json`, git-ignored) with a matching restore command.
+Until `--help` lands (#16), the list of commands is the dispatch in [`apps/cli/yogo.ts`](apps/cli/yogo.ts). Commands that write follow read → modify → write and save a local backup first (`*-backup.json`, git-ignored) with a matching restore command.
 
 **Do not send** `0x31` (factory reset) or `0xA0`–`0xC0` (firmware flashing): they are documented but never used.
 
