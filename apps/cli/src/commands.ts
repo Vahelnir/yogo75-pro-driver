@@ -3,13 +3,13 @@
  * argument parsers (args.ts) validate everything before an action opens the keyboard.
  */
 import { Command } from "@commander-js/extra-typings";
-import { registerBackupCommands } from "./commands/backup.ts";
 import { registerConfigCommands } from "./commands/config.ts";
 import { registerDotCommands } from "./commands/dot.ts";
 import { registerKeyCommands } from "./commands/key.ts";
 import { registerLightingCommands } from "./commands/lighting.ts";
 import { registerMacroCommands } from "./commands/macros.ts";
 import { registerRawCommands } from "./commands/raw.ts";
+import { registerStateCommands } from "./commands/state.ts";
 
 /** Registers every command on `program`; settings made on it before (exitOverride…) reach every subcommand. */
 export function yogo75(program: Command = new Command()): Command {
@@ -26,7 +26,7 @@ export function yogo75(program: Command = new Command()): Command {
   registerDotCommands(program);
   registerKeyCommands(program);
   registerMacroCommands(program);
-  registerBackupCommands(program);
+  registerStateCommands(program);
   registerRawCommands(program);
 
   return program;

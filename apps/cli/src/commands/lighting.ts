@@ -1,17 +1,17 @@
 import type { Command } from "@commander-js/extra-typings";
-import { fromHex, hex, KEYS, MATRIX_BYTES } from "@yogo75/core";
-import { intArg, KEY_DESCRIPTION, rgbArg } from "../args.ts";
+import { hex, KEYS } from "@yogo75/core";
+import { intArg, KEY_DESCRIPTION, rgbArg, SAVE_FIRST } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
-import { printTriplets, readJson, saveOnce } from "../io.ts";
+import { printTriplets } from "../io.ts";
 import { at } from "./config.ts";
 
-const LEDS_BACKUP = "leds-backup.json";
 const NO_LED = 0xff;
 
 export function registerLightingCommands(program: Command): void {
   program
     .command("color")
     .description("Set the backlight colour, and optionally its mode")
+    .addHelpText("after", SAVE_FIRST)
     .argument("<color>", "RRGGBB", rgbArg)
     .argument(
       "[mode]",
@@ -45,9 +45,8 @@ export function registerLightingCommands(program: Command): void {
 
   program
     .command("setled")
-    .description(
-      `Set one key's colour (shown in mode 253); saves ${LEDS_BACKUP} first`,
-    )
+    .description("Set one key's colour (shown in mode 253)")
+    .addHelpText("after", SAVE_FIRST)
     .argument("<key>", KEY_DESCRIPTION, intArg(0, KEYS - 1))
     .argument("<color>", "RRGGBB", rgbArg)
     .action(async (index, rgb) => {
@@ -58,28 +57,11 @@ export function registerLightingCommands(program: Command): void {
         }
 
         const leds = await k.readCustomLeds();
-        saveOnce(LEDS_BACKUP, leds, "colours");
-
         console.log(
           `key ${index} -> LED ${led}: ${hex(leds.subarray(led * 3, led * 3 + 3))} -> ${hex(rgb).replaceAll(" ", "")}`,
         );
         leds.set(rgb, led * 3);
         await k.writeCustomLeds(leds);
-      });
-    });
-
-  program
-    .command("leds-restore")
-    .description(`Write the per-key colours back from ${LEDS_BACKUP}`)
-    .action(async () => {
-      const leds = fromHex(readJson(LEDS_BACKUP));
-      if (leds.length !== MATRIX_BYTES) {
-        throw new Error(`bad ${LEDS_BACKUP}`);
-      }
-
-      await withKeyboard(async (k) => {
-        await k.writeCustomLeds(leds);
-        console.log(`colours restored from ${LEDS_BACKUP}`);
       });
     });
 }

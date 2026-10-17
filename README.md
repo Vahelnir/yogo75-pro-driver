@@ -37,13 +37,13 @@ pnpm yogo75 info                      # device info and current config
 pnpm yogo75 color 00ff00 4            # steady green backlight
 pnpm yogo75 key list --layer 1        # the Fn layer, as key names
 pnpm yogo75 key set CAPS FN           # Fn on Caps Lock (QMK names; `key reset CAPS` undoes it)
-pnpm yogo75 backup                    # config, 4 layers, per-key colours, macros -> full-backup.json
-pnpm yogo75 restore                   # write it all back, then read back and compare
+pnpm yogo75 save gaming.json          # config, 4 layers, per-key colours, macros -> gaming.json (--force overwrites)
+pnpm yogo75 load gaming.json          # write it all back, then read back and compare
 pnpm yogo75 raw 0x32 0 56             # send one packet and print the reply data (here: the start of the LED matrix)
 DEBUG=1 pnpm yogo75 info              # print every packet sent and received
 ```
 
-`pnpm yogo75 --help` is the command reference. Backup files are read and written in the working directory. Commands that write follow read → modify → write and save a local backup first (`*-backup.json`, git-ignored) with a matching restore command.
+`pnpm yogo75 --help` is the command reference. Commands that write follow read → modify → write, but back nothing up: run `save` first to keep the current state.
 
 **Do not send** `0x31` (factory reset) or `0xA0`–`0xC0` (firmware flashing): they are documented but never used. `yogo75 raw` refuses them without `--force`.
 

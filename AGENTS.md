@@ -13,7 +13,7 @@ pnpm monorepo (`npx` is not installed): `apps/cli` (the CLI) and `packages/core`
 
 **Style**: read `CODESTYLE.md` before writing code.
 
-Run the CLI from the repo root with `pnpm yogo75 …`: it reads and writes its backup files in the working directory. `pnpm yogo75 --help` is the command reference (`<command> --help` for its arguments); `yogo75 raw` sends one arbitrary packet for exploration.
+Run the CLI from the repo root with `pnpm yogo75 …`; `save`/`load` paths are relative to it. Nothing is backed up automatically: `pnpm yogo75 save <file>.json` before writing. `pnpm yogo75 --help` is the command reference (`<command> --help` for its arguments); `yogo75 raw` sends one arbitrary packet for exploration.
 
 `web-dump/` is an untrusted copy of the configurator site: read it, never run it. Its bundles are minified on a single line: search with `node -e` and a regex (e.g. `(?<![\w$])NAME=class`) rather than `grep`.
 

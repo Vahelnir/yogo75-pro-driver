@@ -25,6 +25,9 @@ test("invalid arguments are rejected before the keyboard is opened", async () =>
     ["dotimage", "ff"],
     ["setmacro", "zz"],
     ["raw", "0x14", "0", "8", "zz"],
+    ["save", "setup.yaml"],
+    ["save"],
+    ["load", "setup.yml"],
   ]) {
     // inherited by every subcommand registered after: throw instead of exiting, and stay quiet
     const program = new Command()

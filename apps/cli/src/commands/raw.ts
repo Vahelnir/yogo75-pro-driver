@@ -1,6 +1,6 @@
 import { Argument, type Command } from "@commander-js/extra-typings";
 import { hex, isDangerous } from "@yogo75/core";
-import { hexArg, intArg } from "../args.ts";
+import { hexArg, intArg, SAVE_FIRST } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
 
 export function registerRawCommands(program: Command): void {
@@ -9,6 +9,7 @@ export function registerRawCommands(program: Command): void {
     .description(
       "Send one packet (after the start packet) and print the reply's data bytes; a resource larger than one packet (56 bytes over USB, 24 wireless) takes one call per offset",
     )
+    .addHelpText("after", SAVE_FIRST)
     .argument("<cmd>", "Command byte, e.g. 0x32", intArg(0, 255))
     .argument("[offset]", "0-65535", intArg(0, 0xffff), 0)
     .argument("[len]", "0-255", intArg(0, 255), 0)

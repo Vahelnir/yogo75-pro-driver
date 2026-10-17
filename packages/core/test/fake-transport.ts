@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { readU16le } from "../src/bytes.ts";
 import { fromHex, type Transport } from "../src/index.ts";
 
-// Captured with `pnpm yogo75 backup` on a real Yogo 75 PRO.
+// Captured with `pnpm yogo75 backup` (now `save`) on a real Yogo 75 PRO.
 export const BACKUP: Record<string, Uint8Array> = Object.fromEntries(
   Object.entries(
     JSON.parse(

@@ -31,6 +31,7 @@ import {
   isError,
   withoutDongleByte,
 } from "./packet.ts";
+import { stateDiff, type KeyboardState } from "./state.ts";
 
 /** HID link to the keyboard (node-hid, WebHID…). Timeouts are its business. */
 export interface Transport {
@@ -44,6 +45,8 @@ export type PacketLogger = (direction: "tx" | "rx", packet: Uint8Array) => void;
 
 /** Input reports read for one request before giving up: others (key presses…) can come first. */
 const MAX_REPORTS = 20;
+/** The keyboard acks a write before applying it: reads within ~5 ms return the old values. */
+const APPLY_DELAY_MS = 50;
 /** The hub reads only this many info bytes through the dongle. */
 const WIRELESS_INFO_BYTES = 39;
 
@@ -208,6 +211,36 @@ export class Keyboard {
   /** Writes a `macroBlob` as the hub does: last packet zero-padded. */
   writeMacros(blob: Uint8Array) {
     return this.#writeChunks(CMD_SET_MACRO, blob);
+  }
+
+  /** Reads every resource, one request at a time (the keyboard answers in order). */
+  async readState(): Promise<KeyboardState> {
+    const config = await this.readConfig();
+    const keymaps = [];
+    for (const layer of CMD_GET_KEYMAP.keys()) {
+      keymaps.push(await this.readKeymap(layer));
+    }
+
+    return {
+      config,
+      keymaps,
+      leds: await this.readCustomLeds(),
+      macros: await this.readMacros(),
+    };
+  }
+
+  /** Rewrites every resource, in `readState`'s order, then reads them back: resolves with those that differ. */
+  async writeState(state: KeyboardState): Promise<string[]> {
+    await this.writeConfig(state.config);
+    for (const [layer, map] of state.keymaps.entries()) {
+      await this.writeKeymap(layer, map);
+    }
+
+    await this.writeCustomLeds(state.leds);
+    await this.writeMacros(state.macros);
+
+    await new Promise((resolve) => setTimeout(resolve, APPLY_DELAY_MS));
+    return stateDiff(await this.readState(), state);
   }
 
   /** 6×6 RGB888 image, row by row, shown by dot screen mode 6. There is no read command. */

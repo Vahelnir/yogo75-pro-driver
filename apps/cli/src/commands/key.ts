@@ -7,7 +7,7 @@ import {
   keyNames,
   ROWS,
 } from "@yogo75/core";
-import { coreArg, intArg, LAST_LAYER } from "../args.ts";
+import { coreArg, intArg, LAST_LAYER, SAVE_FIRST } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
 
 const LAYER_FLAGS = "--layer <layer>";
@@ -56,6 +56,7 @@ export function registerKeyCommands(program: Command): void {
     .description(
       "Bind one key, e.g. `key set CAPS FN`; prints the old and new binding",
     )
+    .addHelpText("after", SAVE_FIRST)
     .argument("<position>", POSITION_DESCRIPTION, coreArg(keyIndex))
     .argument(
       "<action>",
@@ -72,6 +73,7 @@ export function registerKeyCommands(program: Command): void {
   key
     .command("reset")
     .description("Put one key back to its factory binding")
+    .addHelpText("after", SAVE_FIRST)
     .argument("<position>", POSITION_DESCRIPTION, coreArg(keyIndex))
     .option(LAYER_FLAGS, LAYER_DESCRIPTION, intArg(0, LAST_LAYER), 0)
     .action(async (index, { layer }) => {
