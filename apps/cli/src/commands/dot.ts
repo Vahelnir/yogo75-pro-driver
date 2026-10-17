@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import type { Command } from "@commander-js/extra-typings";
-import { hexArg, intArg, rgbArg } from "../args.ts";
+import { hexArg, intArg, rgbArg, SAVE_FIRST } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
 import { at } from "./config.ts";
 
@@ -16,6 +16,7 @@ export function registerDotCommands(program: Command): void {
   program
     .command("dot")
     .description("Set the dot screen mode, and optionally its colour")
+    .addHelpText("after", SAVE_FIRST)
     .argument(
       "<mode>",
       `0-${LAST_MODE} (6 = the uploaded image), or off`,

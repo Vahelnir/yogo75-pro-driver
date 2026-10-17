@@ -1,6 +1,6 @@
 import { Argument, type Command } from "@commander-js/extra-typings";
 import { FIELDS, hex } from "@yogo75/core";
-import { intArg } from "../args.ts";
+import { intArg, SAVE_FIRST } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
 
 /** Offset of a config field. */
@@ -37,6 +37,7 @@ export function registerConfigCommands(program: Command): void {
   program
     .command("set")
     .description("Set one config field (raw byte) by name")
+    .addHelpText("after", SAVE_FIRST)
     .addArgument(new Argument("<field>", "Config field").choices(FIELDS))
     .argument(
       "<value>",

@@ -2,8 +2,3 @@ node_modules/
 # Copy of ATK's configurator: proprietary code, download it again (see docs/protocol.md)
 web-dump/
 .DS_Store
-# Local backups of the keyboard's state
-config-backup.txt
-leds-backup.json
-macros-backup.json
-full-backup.json

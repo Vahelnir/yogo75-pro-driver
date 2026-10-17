@@ -3,10 +3,9 @@ import {
   type Command,
 } from "@commander-js/extra-typings";
 import { fromHex, hex, macroBlob, type Macro } from "@yogo75/core";
+import { SAVE_FIRST } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
-import { readJson, saveOnce } from "../io.ts";
 
-const MACROS_BACKUP = "macros-backup.json";
 const MAX_MACROS = 4;
 const MACRO_DELAY = 20; // per action; unit assumed to be ms
 
@@ -33,9 +32,8 @@ function macrosArg(value: string): Macro[] {
 export function registerMacroCommands(program: Command): void {
   program
     .command("setmacro")
-    .description(
-      `Write up to ${MAX_MACROS} macros (replacing all of them); saves ${MACROS_BACKUP} first`,
-    )
+    .description(`Write up to ${MAX_MACROS} macros (replacing all of them)`)
+    .addHelpText("after", SAVE_FIRST)
     .argument(
       "<macros>",
       'macro[,macro…]; macro = HID codes[@delay], e.g. e10b0c@20 for "HI"',
@@ -43,23 +41,9 @@ export function registerMacroCommands(program: Command): void {
     )
     .action(async (macros) => {
       await withKeyboard(async (k) => {
-        saveOnce(MACROS_BACKUP, await k.readMacros(), "macros");
-
         const blob = macroBlob(macros);
         await k.writeMacros(blob);
         console.log(`${macros.length} macro(s) written: ${hex(blob)}`);
-      });
-    });
-
-  program
-    .command("macros-restore")
-    .description(`Write the macros back from ${MACROS_BACKUP}`)
-    .action(async () => {
-      const blob = fromHex(readJson(MACROS_BACKUP));
-
-      await withKeyboard(async (k) => {
-        await k.writeMacros(blob);
-        console.log(`macros restored from ${MACROS_BACKUP}`);
       });
     });
 }

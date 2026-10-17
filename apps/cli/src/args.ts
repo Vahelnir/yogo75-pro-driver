@@ -56,3 +56,18 @@ export function rgbArg(value: string): Uint8Array {
 
   return fromHex(value);
 }
+
+/** Save/load file: the format follows the extension, and only JSON exists for now. */
+export function stateFileArg(value: string): string {
+  if (!value.toLowerCase().endsWith(".json")) {
+    throw new InvalidArgumentError(
+      "must be a .json file (the only format supported)",
+    );
+  }
+
+  return value;
+}
+
+/** Help footer of every command that writes to the keyboard. */
+export const SAVE_FIRST =
+  "\nNothing is backed up automatically: run `yogo75 save <file>` first to keep the current state.";
