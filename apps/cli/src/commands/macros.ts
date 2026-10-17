@@ -1,6 +1,8 @@
+import {
+  InvalidArgumentError,
+  type Command,
+} from "@commander-js/extra-typings";
 import { fromHex, hex, macroBlob, type Macro } from "@yogo75/core";
-import { defineCommand } from "citty";
-import { UsageError } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
 import { readJson, saveOnce } from "../io.ts";
 
@@ -14,49 +16,50 @@ function parseMacro(spec: string): Macro {
   return { keys: [...fromHex(codes)], delay: Number(delay) };
 }
 
-const setmacro = defineCommand({
-  meta: {
-    description: `Write up to ${MAX_MACROS} macros (replacing all of them); saves ${MACROS_BACKUP} first`,
-  },
-  args: {
-    macros: {
-      type: "positional",
-      required: true,
-      description:
-        'macro[,macro…]; macro = HID codes[@delay], e.g. e10b0c@20 for "HI"',
-    },
-  },
-  async run({ args }) {
-    const specs = args.macros.split(",");
-    if (
-      !specs.every((m) => /^([0-9a-f]{2})+(@\d+)?$/i.test(m)) ||
-      specs.length > MAX_MACROS
-    ) {
-      throw new UsageError(
-        `macros: 1 to ${MAX_MACROS} of HID codes[@delay], comma-separated`,
-      );
-    }
+function macrosArg(value: string): Macro[] {
+  const specs = value.split(",");
+  if (
+    !specs.every((m) => /^([0-9a-f]{2})+(@\d+)?$/i.test(m)) ||
+    specs.length > MAX_MACROS
+  ) {
+    throw new InvalidArgumentError(
+      `1 to ${MAX_MACROS} of HID codes[@delay], comma-separated`,
+    );
+  }
 
-    await withKeyboard(async (k) => {
-      saveOnce(MACROS_BACKUP, await k.readMacros(), "macros");
+  return specs.map(parseMacro);
+}
 
-      const blob = macroBlob(specs.map(parseMacro));
-      await k.writeMacros(blob);
-      console.log(`${specs.length} macro(s) written: ${hex(blob)}`);
+export function registerMacroCommands(program: Command): void {
+  program
+    .command("setmacro")
+    .description(
+      `Write up to ${MAX_MACROS} macros (replacing all of them); saves ${MACROS_BACKUP} first`,
+    )
+    .argument(
+      "<macros>",
+      'macro[,macro…]; macro = HID codes[@delay], e.g. e10b0c@20 for "HI"',
+      macrosArg,
+    )
+    .action(async (macros) => {
+      await withKeyboard(async (k) => {
+        saveOnce(MACROS_BACKUP, await k.readMacros(), "macros");
+
+        const blob = macroBlob(macros);
+        await k.writeMacros(blob);
+        console.log(`${macros.length} macro(s) written: ${hex(blob)}`);
+      });
     });
-  },
-});
 
-const macrosRestore = defineCommand({
-  meta: { description: `Write the macros back from ${MACROS_BACKUP}` },
-  async run() {
-    const blob = fromHex(readJson(MACROS_BACKUP));
+  program
+    .command("macros-restore")
+    .description(`Write the macros back from ${MACROS_BACKUP}`)
+    .action(async () => {
+      const blob = fromHex(readJson(MACROS_BACKUP));
 
-    await withKeyboard(async (k) => {
-      await k.writeMacros(blob);
-      console.log(`macros restored from ${MACROS_BACKUP}`);
+      await withKeyboard(async (k) => {
+        await k.writeMacros(blob);
+        console.log(`macros restored from ${MACROS_BACKUP}`);
+      });
     });
-  },
-});
-
-export const macroCommands = { setmacro, "macros-restore": macrosRestore };
+}

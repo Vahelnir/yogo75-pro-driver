@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
+import type { Command } from "@commander-js/extra-typings";
 import {
   CONFIG_BYTES,
   fromHex,
@@ -8,7 +9,6 @@ import {
   MACROS_BYTES,
   MATRIX_BYTES,
 } from "@yogo75/core";
-import { defineCommand } from "citty";
 import { LAYERS } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
 import { readJson, writeJson } from "../io.ts";
@@ -39,76 +39,67 @@ async function readAll(k: Keyboard): Promise<Record<string, string>> {
   return all;
 }
 
-const file = {
-  type: "positional",
-  required: false,
-  default: FULL_BACKUP,
-  description: "Backup file",
-} as const;
-
-const backup = defineCommand({
-  meta: { description: "Save config, layers 0-3, per-key colours and macros" },
-  args: { file },
-  async run({ args }) {
-    if (existsSync(args.file)) {
-      throw new Error(
-        `${args.file} already exists; remove it or pick another name`,
-      );
-    }
-
-    await withKeyboard(async (k) => {
-      writeJson(args.file, await readAll(k));
-      console.log(
-        `config, layers 0-3, per-key colours and macros saved to ${args.file}`,
-      );
-    });
-  },
-});
-
-const restore = defineCommand({
-  meta: { description: "Write a backup back, then read it back and compare" },
-  args: { file },
-  async run({ args }) {
-    const backup: Record<string, string> = readJson(args.file);
-    const data = Object.fromEntries(
-      Object.entries(FULL_SIZES).map(([name, size]) => {
-        const b = fromHex(backup[name] ?? "");
-        if (b.length !== size) {
-          throw new Error(
-            `bad ${name} in ${args.file}: ${b.length} bytes, expected ${size}`,
-          );
-        }
-
-        return [name, b];
-      }),
-    );
-
-    await withKeyboard(async (k) => {
-      await k.writeConfig(data.config);
-      for (const l of LAYERS) {
-        await k.writeKeymap(l, data[`keymap${l}`]);
-      }
-
-      await k.writeCustomLeds(data.leds);
-      await k.writeMacros(data.macros);
-
-      await sleep(APPLY_DELAY_MS);
-
-      const now = await readAll(k);
-      const bad = Object.keys(FULL_SIZES).filter(
-        (name) => now[name] !== hex(data[name]),
-      );
-      if (bad.length) {
+export function registerBackupCommands(program: Command): void {
+  program
+    .command("backup")
+    .description("Save config, layers 0-3, per-key colours and macros")
+    .argument("[file]", "Backup file", FULL_BACKUP)
+    .action(async (file) => {
+      if (existsSync(file)) {
         throw new Error(
-          `read-back differs from ${args.file} for: ${bad.join(", ")}`,
+          `${file} already exists; remove it or pick another name`,
         );
       }
 
-      console.log(
-        `everything restored from ${args.file} and read back identical`,
-      );
+      await withKeyboard(async (k) => {
+        writeJson(file, await readAll(k));
+        console.log(
+          `config, layers 0-3, per-key colours and macros saved to ${file}`,
+        );
+      });
     });
-  },
-});
 
-export const backupCommands = { backup, restore };
+  program
+    .command("restore")
+    .description("Write a backup back, then read it back and compare")
+    .argument("[file]", "Backup file", FULL_BACKUP)
+    .action(async (file) => {
+      const backup: Record<string, string> = readJson(file);
+      const data = Object.fromEntries(
+        Object.entries(FULL_SIZES).map(([name, size]) => {
+          const b = fromHex(backup[name] ?? "");
+          if (b.length !== size) {
+            throw new Error(
+              `bad ${name} in ${file}: ${b.length} bytes, expected ${size}`,
+            );
+          }
+
+          return [name, b];
+        }),
+      );
+
+      await withKeyboard(async (k) => {
+        await k.writeConfig(data.config);
+        for (const l of LAYERS) {
+          await k.writeKeymap(l, data[`keymap${l}`]);
+        }
+
+        await k.writeCustomLeds(data.leds);
+        await k.writeMacros(data.macros);
+
+        await sleep(APPLY_DELAY_MS);
+
+        const now = await readAll(k);
+        const bad = Object.keys(FULL_SIZES).filter(
+          (name) => now[name] !== hex(data[name]),
+        );
+        if (bad.length) {
+          throw new Error(
+            `read-back differs from ${file} for: ${bad.join(", ")}`,
+          );
+        }
+
+        console.log(`everything restored from ${file} and read back identical`);
+      });
+    });
+}
