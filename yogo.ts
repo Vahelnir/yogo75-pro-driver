@@ -168,14 +168,19 @@ try {
   } else if (cmd === "dotlive") {
     // Music-visualiser frame (start_sync_dot): same 6×6 layout as dotimage, but RGB565 LE, 72 bytes.
     const img = Buffer.from((arg ?? "").replaceAll(" ", ""), "hex");
-    if (img.length !== 108) throw new Error("usage: node yogo.ts dotlive <36 RRGGBB pixels, row by row>");
+    if (img.length !== 108) throw new Error("usage: node yogo.ts dotlive <36 RRGGBB pixels, row by row> [seconds]");
     const frame: number[] = [];
     for (let i = 0; i < img.length; i += 3) {
       const v = ((img[i] >> 3) << 11) | ((img[i + 1] >> 2) << 5) | (img[i + 2] >> 3);
       frame.push(v & 0xff, v >> 8);
     }
-    k.transfer(CMD_SYNC_DOT, DATA_LEN, 0, frame.slice(0, DATA_LEN));
-    k.transfer(CMD_SYNC_DOT, 16, DATA_LEN, frame.slice(DATA_LEN));
+    // A single frame only flashes; the hub streams one per audio frame, so repeat for `seconds`.
+    const until = Date.now() + Number(modeArg ?? 0) * 1000;
+    do {
+      k.transfer(CMD_SYNC_DOT, DATA_LEN, 0, frame.slice(0, DATA_LEN));
+      k.transfer(CMD_SYNC_DOT, 16, DATA_LEN, frame.slice(DATA_LEN));
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
+    } while (Date.now() < until);
     console.log("live frame sent (stop with: node yogo.ts dotlive-end)");
   } else if (cmd === "dotlive-end") {
     k.transfer(CMD_END_SYNC_DOT);

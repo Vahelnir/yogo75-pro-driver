@@ -234,7 +234,7 @@ Liste `Ns` dans `keyboard-info.util-*.js`. Les noms viennent des clés de traduc
 
 ## Écran à points : modes intégrés
 
-Réglés par le bloc de config, positions 29–37 (`setDotLight` / `getDotLight` du configurateur). Le configurateur force `LedTFTOnOff = 0` et `LedTFTColorful = 0`, et inverse la vitesse comme pour le rétroéclairage : `LedTFTSpeed = abs(6 - vitesse)` (code). Vérifié : `LedTFTBrightness` 5 / 30 / 90 change nettement la luminosité ; `LedTFTSpeed` brut 6 ralentit nettement l'animation par rapport à 2 (donc valeur brute basse = rapide). La couleur (`LedTFTColorR/G/B`) n'est pas testée. Valeurs d'origine relevées : mode 8, luminosité 30, vitesse brute 2, couleur `ff0000`.
+Réglés par le bloc de config, positions 29–37 (`setDotLight` / `getDotLight` du configurateur). Le configurateur force `LedTFTOnOff = 0` et `LedTFTColorful = 0`, et inverse la vitesse comme pour le rétroéclairage : `LedTFTSpeed = abs(6 - vitesse)` (code). Vérifié : `LedTFTBrightness` 5 / 30 / 90 change nettement la luminosité ; `LedTFTSpeed` brut 6 ralentit nettement l'animation par rapport à 2 (donc valeur brute basse = rapide). Couleur vérifiée : en mode 0 (« star »), `00ff00` rend les étoiles vertes au lieu du rouge d'origine (`ff0000`). Valeurs d'origine relevées : mode 8, luminosité 30, vitesse brute 2, couleur `ff0000`.
 
 Écrire `LedTFTMode` change bien l'animation (vérifié : 8 → 12, l'écran a quitté les feux d'artifice ; que ce soit précisément « YOGO » n'a pas été confirmé visuellement). Liste `Os` dans `keyboard-info.util-*.js` (code, sauf 8 et 12) :
 
@@ -272,7 +272,7 @@ Deux mécanismes distincts dans le configurateur (code) :
 
 L'appli Electron d'ATK (pas le site) anime l'écran en renvoyant `0x3B` en boucle, par paquets de 24 octets (offsets 0, 24, … ; fonction `r8e`) : la même commande sert donc aussi à l'affichage en direct (code).
 
-**Visualiseur musical, `0x3C` / `0x3D`** (`startSyncDotScreen`, `endSyncDotScreen`, classes `X_` / `nW`). Une image de 6 × 6 en **RGB565, LE**, 72 octets, en deux paquets (`len 56` à l'offset 0, `len 16` à l'offset 56), envoyée à chaque trame audio. Il n'y a pas de commande de démarrage séparée : `0x3C` porte directement les pixels. Vérifié : une trame seule s'affiche une fraction de seconde (bon ordre des pixels, couleurs justes), puis l'écran reste noir ; `0x3C` ne modifie pas la config. Il faut donc envoyer des trames en continu.
+**Visualiseur musical, `0x3C` / `0x3D`** (`startSyncDotScreen`, `endSyncDotScreen`, classes `X_` / `nW`). Une image de 6 × 6 en **RGB565, LE**, 72 octets, en deux paquets (`len 56` à l'offset 0, `len 16` à l'offset 56), envoyée à chaque trame audio. Il n'y a pas de commande de démarrage séparée : `0x3C` porte directement les pixels. Vérifié : une trame seule s'affiche une fraction de seconde (bon ordre des pixels, couleurs justes), puis l'écran reste noir ; `0x3C` ne modifie pas la config. Il faut donc envoyer des trames en continu : une même trame renvoyée toutes les ~50 ms pendant 60 s est restée affichée sans interruption (vérifié, `node yogo.ts dotlive <pixels> 60`).
 
 `0x3D` arrête le flux et **remet `LedTFTMode` à 0** (vérifié : 8 → 0, l'écran repart sur l'animation « star »). D'où le comportement du configurateur, qui réécrit le bloc de config juste après (`setDotLight`).
 
@@ -393,3 +393,4 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : image test envoyée avec `0x3B` (coin haut-gauche blanc, rangée du haut rouge, colonne de gauche verte) puis mode 6 : affichage conforme, ni miroir ni rotation. Le clavier accuse les deux paquets `len 56` (`55`). Retour au mode 8, relu ; l'image test reste stockée pour le mode 6 (l'utilisateur n'en avait pas).
 - 2026-10-17 : `0x3C` : une trame RGB565 (diagonale bleue, coin haut-droit rouge) s'affiche brièvement puis l'écran passe au noir ; config inchangée. `0x3D` remet `LedTFTMode` à 0 (relu après chaque commande). Mode 8 réécrit. Test du mode −1 : `LedTFTMode` relu à 255, test visuel en attente.
 - 2026-10-17 : mode −1 (`0xFF`) : écran éteint (vérifié). Luminosité : comparaison 90 → 5 sur l'image du mode 6, nettement plus sombre. Vitesse brute 2 → 6 → 2 sur le mode 8 : plus lent puis plus rapide. Écran remis à l'état d'origine (mode 8, luminosité 30, vitesse 2) et relu. Nouvelle commande générique `node yogo.ts set <champ> <valeur>`.
+- 2026-10-17 : couleur de l'écran à points vérifiée (mode 0, vert au lieu de rouge). Flux `0x3C` continu (~20 trames/s, 60 s) : image stable tout du long. Puis `0x3D` et réécriture du mode 8, couleur `ff0000` ; relu.
