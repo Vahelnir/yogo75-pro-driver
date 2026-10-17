@@ -202,7 +202,7 @@ Table `fieldMap` : position dans le bloc.
 | 5 | colorful | 1 = multicolore (en mode 4 : arc-en-ciel figé), 0 = couleur unique | vérifié |
 | 6 | colorIndex | | code |
 | 7–9 | colorR, colorG, colorB | couleur du rétroéclairage | vérifié |
-| 10 | customColorIndex | « direction » de l'effet dans le configurateur (choix « de gauche à droite » / « de droite à gauche ») ; 0 et 1 ne changent rien sur les effets 1 et 7 | vérifié (sans effet visible) |
+| 10 | customColorIndex | « direction » de l'effet dans le configurateur (choix « de gauche à droite » / « de droite à gauche ») ; 0 et 1 ne changent rien sur les effets 1, 7 et 8 | vérifié (sans effet visible) |
 | 11–19 | logo : onOff, mode, brightness, speed, colorful, colorIndex, R, G, B | ce clavier n'a pas de logo (`hasLogoLight = 0`) | code |
 | 20–28 | bande latérale : mêmes champs | `hasSideLight = 0` | code |
 | 29–37 | écran à points (« LedTFT ») : mêmes champs | voir [écran à points](#écran-à-points-modes-intégrés) | vérifié (mode, luminosité, vitesse) / code (le reste) |
@@ -220,29 +220,29 @@ Table `fieldMap` : position dans le bloc.
 
 ## Modes d'éclairage (`ledMode`)
 
-Liste `Ns` dans `keyboard-info.util-*.js`. Noms : libellés anglais du configurateur. Réglages : ce que l'interface propose pour l'effet (L = luminosité, V = vitesse, C = couleur, M = multicolore `colorful`) ; le firmware accepte peut-être plus. Le comportement des effets non vérifiés n'est connu que par leur nom.
+Liste `Ns` dans `keyboard-info.util-*.js`. Noms : libellés anglais du configurateur. Réglages : ce que l'interface propose pour l'effet (L = luminosité, V = vitesse, C = couleur, M = multicolore `colorful`) ; le firmware accepte peut-être plus. Tous les modes 0–20 ont été vérifiés au clavier : on note s'il réagit à la frappe et les réglages qui ont un effet visible (« effectifs », testés avec Fn + W / S pour C et M, Fn + E / D pour V). Le mode 2 ignore Fn + W / S (la config ne change pas).
 
 | Valeur | Nom | Réglages | Statut |
 |---|---|---|---|
 | 0 | tout éteint | | vérifié |
 | 1 | Rainbow Flow 1 : vague qui défile de gauche à droite, en arc-en-ciel avec `colorful = 1`, dans la couleur choisie (aspect de respiration qui se déplace) avec `colorful = 0` | L, V, C (M non proposé, mais nécessaire à l'arc-en-ciel) | vérifié |
-| 2 | Color Breathing | L | code |
+| 2 | Color Breathing ; réagit à la frappe : non | L ; effectifs : V | vérifié |
 | 3 | Monochrome Breath : respiration de la couleur choisie | L, V, C, M | vérifié |
 | 4 | Rainbow (icône « normal ») : **fixe**, une couleur avec `colorful = 0`, arc-en-ciel figé avec `colorful = 1` | L, C, M | vérifié |
-| 5 | Single Light Up | L, V, C, M | code |
-| 6 | Colorful Vortex 1 | L, V, C, M | code |
+| 5 | Single Light Up ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
+| 6 | Colorful Vortex 1 ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
 | 7 | Rainbow Flow 2 : arc-en-ciel qui tourne autour du centre du clavier, sens antihoraire | L, V, C, M | vérifié |
-| 8 | Rainbow Flow 4 | L, V, C, M | code |
-| 9–11 | Spectral Fluctuation 1–3 | L, V, C, M | code |
-| 12 | Neon | L, V | code |
-| 13 | Cloud Burst | L, V, C, M | code |
-| 14 | Colorful Vortex 2 | L, V, C, M | code |
-| 15 | Colorful Ribbon Fluttering 1 | L, V, C, M | code |
-| 16 | Spectral Diffusion 1 | L, V, C, M | code |
-| 17 | Rainbow Intersection | L, V, C, M | code |
-| 18 | Spectral Diffusion 2 | L, V, C, M | code |
-| 19 | Rainbow Flow 3 | L, V, C, M | code |
-| 20 | Dynamic Rainbow | L, V, C, M | code |
+| 8 | Rainbow Flow 4 ; réagit à la frappe : non | L, V, C, M ; effectifs : V, C, M | vérifié |
+| 9–11 | Spectral Fluctuation 1–3 ; réagit à la frappe : non | L, V, C, M ; effectifs : V, C, M | vérifié |
+| 12 | Neon ; réagit à la frappe : non | L, V ; effectifs : V (toujours multicolore ; C et M modifient la config sans effet visible) | vérifié |
+| 13 | Cloud Burst ; réagit à la frappe : non | L, V, C, M ; effectifs : V, C, M | vérifié |
+| 14 | Colorful Vortex 2 ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
+| 15 | Colorful Ribbon Fluttering 1 ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
+| 16 | Spectral Diffusion 1 ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
+| 17 | Rainbow Intersection ; réagit à la frappe : non | L, V, C, M ; effectifs : V, C, M | vérifié |
+| 18 | Spectral Diffusion 2 ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
+| 19 | Rainbow Flow 3 ; réagit à la frappe : non | L, V, C, M ; effectifs : V, C, M | vérifié |
+| 20 | Dynamic Rainbow ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
 | 253 | custom : couleur par touche, voir [couleurs par touche](#couleurs-par-touche) | L, C | vérifié |
 | 254 | Music Rhythm : éclairage synchronisé sur la musique, couleurs de premier plan et de fond. Flux `0x2E` / `0x2F` envoyé par l'application de bureau ATK, pas par le site ; on suppose qu'il fonctionne comme le flux de l'écran à points. **Non déterminé** | C | non déterminé |
 
@@ -365,7 +365,7 @@ Testés au clavier en remettant les codes d'usine dans la couche Fn (vérifié) 
 Lue avec `0x17` (vérifié pour les codes ; les fonctions viennent des tables ci-dessus) :
 
 - F1 / F2 : luminosité de l'écran − / + (`30 70 00`, `30 6f 00`) ; F3 : Win+Tab ; F4 : recherche (`30 21 02`) ; F5 : Win+H ; F7 / F8 / F9 : précédent / lecture-pause / suivant ; F10 : muet ; F11 / F12 : volume − / +.
-- Inser : éclairage marche/arrêt. Q / A : mode − / + ; W / S : teinte − / + ; E / D : vitesse + / − ; R / F : luminosité + / −. Le guide papier annonce l'inverse (Q / W / E = **+**, A / S / D = **−**) ; le clavier donne raison au configurateur pour Q : depuis le mode 0, Fn + Q passe au mode 20 (vérifié). L'ordre visuel en reculant : éteint, uni, respiration, couleur qui change sur toutes les touches, vague de gauche à droite. W / S, E / D, R / F vérifiés dans le sens du configurateur (lecture du bloc de config après chaque appui). Palette de W / S : indice 0 = couleur personnalisée (`colorR/G/B` d'origine), 1 = rouge `ff 00 00`, …, 5 = bleu `00 81 ff`, puis l'arc-en-ciel en dernier (`colorful` = 1), et la palette boucle : W depuis 0 donne l'arc-en-ciel. Les touches réécrivent `colorIndex`, `colorful` et `colorR/G/B`. Le guide ne mentionne pas R / F.
+- Inser : éclairage marche/arrêt. Q / A : mode − / + ; W / S : teinte − / + ; E / D : vitesse + / − ; R / F : luminosité + / −. Le guide papier annonce l'inverse (Q / W / E = **+**, A / S / D = **−**) ; le clavier donne raison au configurateur pour Q : depuis le mode 0, Fn + Q passe au mode 20 (vérifié). W / S, E / D, R / F vérifiés dans le sens du configurateur (lecture du bloc de config après chaque appui). Palette de W / S (vérifié) : 0 = couleur personnalisée, 1 = rouge `ff 00 00`, 2 = jaune, 3 = bleu, 4 = rose `ff 25 9b`, 5 = arc-en-ciel (`colorful` = 1 ; `colorR/G/B` relus à `00 81 ff`, non affichés), et la palette boucle : W depuis 0 donne l'arc-en-ciel. Les touches réécrivent `colorIndex`, `colorful` et `colorR/G/B`. Le guide ne mentionne pas R / F.
 - Guide papier, autres points cohérents avec la keymap : F3 « fenêtre multitâche » (Win+Tab), F5 « dictée » (Win+H), F6 = F6 sous Windows et « mode Concentration » sous Mac. Molette : rotation = volume, clic = muet.
 - Maj droite : batterie. ← / → : couleur / effet de l'écran à points ; ↑ / ↓ : luminosité de l'écran à points.
 
@@ -504,3 +504,4 @@ Réécrire ces quatre ressources telles quelles, puis les relire dans une nouvel
 - 2026-10-17 : Fn + H (`3e`) sans effet aussi en mode Mac. En Bluetooth, Fn + 1, 2, 3 (`34`–`36`) choisissent l'appareil 1, 2, 3 (appui long : appairage) ; Fn + 4 (`37`) sans effet observé.
 - 2026-10-17 : deux affirmations trouvées en ligne infirmées : Fn + 4 (`37`) ne bascule pas Win/Mac et Fn + H (`3e`) ne change pas l'écran à points.
 - 2026-10-17 : en 2,4 GHz, Fn + H et Fn + 4 (appui bref) : rien de visible, pas de mise en veille. Pistes « batterie » et « veille » écartées.
+- 2026-10-17 : modes d'éclairage 2, 5, 6, 8–20 vérifiés au clavier (réaction à la frappe, réglages effectifs). Palette de Fn + W / S corrigée (5 = arc-en-ciel, pas bleu). `customColorIndex` sans effet aussi sur le mode 8.
