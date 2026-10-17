@@ -35,6 +35,8 @@ pnpm install
 node yogo.ts                    # device info and current config
 node yogo.ts color 00ff00 4     # steady green backlight
 node yogo.ts keymap 0           # dump layer 0
+node yogo.ts backup             # config, 4 layers, per-key colours, macros -> full-backup.json
+node yogo.ts restore            # write it all back, then read back and compare
 DEBUG=1 node yogo.ts            # print every packet sent and received
 ```
 

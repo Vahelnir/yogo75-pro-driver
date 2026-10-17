@@ -8,3 +8,4 @@ config-backup.txt
 keymap-backup.json
 leds-backup.json
 macros-backup.json
+full-backup.json

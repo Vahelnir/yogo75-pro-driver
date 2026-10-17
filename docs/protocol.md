@@ -194,7 +194,7 @@ Un bloc de 64 octets, échangé en **deux paquets** (vérifié) :
 
 **Écriture** : on écrit le bloc entier, sans commande de validation (vérifié). Toujours faire lire → modifier → réécrire pour ne pas écraser les autres réglages. Le configurateur écrit des zéros dans le second paquet ; `yogo.ts` y réécrit ce qu'il vient de lire.
 
-**Piège** (vérifié) : une relecture dans la **même session**, juste après une écriture, renvoie encore l'ancienne valeur. Il faut relire dans une nouvelle session (`node yogo.ts`). Cause inconnue.
+**Piège** (vérifié) : une relecture dans la **même session**, juste après une écriture, renvoie encore l'ancienne valeur. Il faut relire dans une nouvelle session : un nouveau `node yogo.ts`, ou, dans le même processus, fermer puis rouvrir l'appareil HID et renvoyer `0x10` (vérifié avec `restore` : `sleepL` passé à 179, puis restauré et relu à 180 par la nouvelle connexion). Cause inconnue.
 
 Table `fieldMap` : position dans le bloc.
 
@@ -442,6 +442,17 @@ node yogo.ts color 00ff00 253      # passe le rétroéclairage en mode couleurs 
 node yogo.ts leds-restore          # réécrit la sauvegarde
 ```
 
+## Sauvegarde complète
+
+`backup` lit, en une fois, le bloc de config (64 octets), les 4 couches de keymap, les couleurs par touche (336 octets chacune) et la zone des macros (224 octets). Il les enregistre en hex dans un seul JSON, `full-backup.json` par défaut (local, non versionné), et refuse d'écraser un fichier existant. L'image fixe de l'écran à points n'y est pas : aucune commande ne permet de la relire.
+
+`restore` vérifie d'abord la taille de chaque partie : un fichier invalide est refusé avant tout envoi. Il réécrit ensuite le tout, puis rouvre la connexion et relit tout. Si une partie relue diffère de la sauvegarde, il s'arrête en erreur en la nommant. Vérifié en USB.
+
+```sh
+node yogo.ts backup [fichier]       # tout sauvegarder
+node yogo.ts restore [fichier]      # tout réécrire, puis relire et comparer
+```
+
 ## Questions ouvertes
 
 
@@ -499,3 +510,4 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : batterie par le dongle : `52 00` (82 %) sans câble, `52 01` câble de charge branché. L'état 1 signifie donc « en charge » ; `yogo.ts power` le traite comme tel (toute valeur non nulle).
 - 2026-10-17 : le mode de connexion se choisit avec un sélecteur physique (Bluetooth / câble / 2,4 GHz) ; sur 2,4 GHz, le câble ne sert qu'à charger.
 - 2026-10-17 : retour en filaire avec le nouveau code. Lectures identiques aux sauvegardes ; config, keymap, couleurs et macros réécrites telles quelles en paquets de 56 octets, puis relues à l'identique.
+- 2026-10-17 : `backup` / `restore` complets (issue #1). En USB : le contenu de `backup` est identique aux sauvegardes séparées ; `restore` d'un fichier tronqué est refusé sans rien écrire ; `restore` après `set sleepL 179` remet 180, relu identique. Une nouvelle connexion HID dans le même processus suffit pour relire les nouvelles valeurs.

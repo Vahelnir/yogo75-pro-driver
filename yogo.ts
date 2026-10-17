@@ -30,6 +30,7 @@ const CMD_GET_MACRO = 0x2c; // blob: "aa 55", total len LE, count LE, offsets ta
 const CMD_SET_MACRO = 0x2d;
 const MACROS_BACKUP = "macros-backup.json";
 const MACROS_BYTES = 224; // 4 packets: header + 4 macros fit easily
+const FULL_BACKUP = "full-backup.json";
 const MACRO_DELAY = 20; // per action; unit assumed to be ms
 const CMD_SYNC_DOT = 0x3c; // start_sync_dot: one live music-visualiser frame
 const CMD_END_SYNC_DOT = 0x3d;
@@ -167,8 +168,19 @@ function writeMacros(k: Yogo, blob: number[]) {
   k.writeChunks(CMD_SET_MACRO, blob);
 }
 
+/** Everything `backup` saves, as hex strings (the dot screen image has no read command). */
+function readAll(k: Yogo): Record<string, string> {
+  return {
+    config: hex(k.readConfig()),
+    ...Object.fromEntries([0, 1, 2, 3].map((l) => [`keymap${l}`, hex(k.readKeymap(l))])),
+    leds: hex(k.readChunks(CMD_GET_CUSTOM_LEDS, MATRIX_BYTES)),
+    macros: hex(k.readChunks(CMD_GET_MACRO, MACROS_BYTES)),
+  };
+}
+const FULL_SIZES: Record<string, number> = { config: 64, keymap0: MATRIX_BYTES, keymap1: MATRIX_BYTES, keymap2: MATRIX_BYTES, keymap3: MATRIX_BYTES, leds: MATRIX_BYTES, macros: MACROS_BYTES };
+
 const [cmd, arg, modeArg, codeArg] = process.argv.slice(2);
-const k = new Yogo();
+let k = new Yogo();
 try {
   k.transfer(CMD_START);
   if (cmd === "color") {
@@ -306,6 +318,31 @@ try {
       k.writeKeymap(Number(layer), map);
     }
     console.log(`layers ${Object.keys(backup).join(", ")} restored from ${KEYMAP_BACKUP}`);
+  } else if (cmd === "backup") {
+    const file = arg ?? FULL_BACKUP;
+    if (existsSync(file)) throw new Error(`${file} already exists; remove it or pick another name`);
+    writeFileSync(file, JSON.stringify(readAll(k), null, 2) + "\n");
+    console.log(`config, layers 0-3, per-key colours and macros saved to ${file}`);
+  } else if (cmd === "restore") {
+    const file = arg ?? FULL_BACKUP;
+    const backup: Record<string, string> = JSON.parse(readFileSync(file, "utf8"));
+    const data = Object.fromEntries(Object.entries(FULL_SIZES).map(([name, size]) => {
+      const b = Buffer.from((backup[name] ?? "").replaceAll(" ", ""), "hex");
+      if (b.length !== size) throw new Error(`bad ${name} in ${file}: ${b.length} bytes, expected ${size}`);
+      return [name, b];
+    }));
+    k.writeConfig(data.config);
+    for (const l of [0, 1, 2, 3]) k.writeKeymap(l, data[`keymap${l}`]);
+    k.writeCustomLeds(data.leds);
+    writeMacros(k, [...data.macros]);
+    // Reads in the same session as a write return stale values, so check through a fresh connection.
+    k.close();
+    k = new Yogo();
+    k.transfer(CMD_START);
+    const now = readAll(k);
+    const bad = Object.keys(FULL_SIZES).filter((name) => now[name] !== hex(data[name]));
+    if (bad.length) throw new Error(`read-back differs from ${file} for: ${bad.join(", ")}`);
+    console.log(`everything restored from ${file} and read back identical`);
   } else {
     const info = k.readChunks(CMD_KB_INFO, WIRELESS ? 39 : DATA_LEN); // the hub reads 39 bytes wireless
     const h = (n: number) => n.toString(16).padStart(2, "0");
