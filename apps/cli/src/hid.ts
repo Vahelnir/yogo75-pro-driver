@@ -17,19 +17,25 @@ export async function openKeyboard(): Promise<{
   const device = [PID_USB, PID_DONGLE]
     .map((pid) => HID.devices(VID, pid).find((d) => d.usagePage === USAGE_PAGE))
     .find((d) => d);
-  if (!device?.path)
+  if (!device?.path) {
     throw new Error(
       "Yogo 75 PRO not found (USB or 2.4 GHz dongle, interface 0xFF60)",
     );
+  }
+
   const wireless = device.productId === PID_DONGLE;
   const dev = await HID.HIDAsync.open(device.path);
   const transport: Transport = {
     reportSize: wireless ? 32 : 64,
     async transfer(report) {
-      if (report) await dev.write([0x00, ...report]); // report id 0
+      if (report) {
+        await dev.write([0x00, ...report]); // report id 0
+      }
+
       const r = await dev.read(wireless ? 3000 : 500);
       return r?.length ? r : undefined;
     },
   };
+
   return { transport, close: () => dev.close() };
 }

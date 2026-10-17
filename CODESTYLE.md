@@ -6,6 +6,8 @@ Prettier handles formatting (`pnpm format`); this file covers the rest.
 
 - _Erasable-only_ TypeScript: Node 24 strips types without a build, so no `enum`, `namespace` or parameter properties (`constructor(private x)`). Private fields are `#field`.
 - Functions exported by a module are declared with `function`, with an explicit return type. Arrow functions are for callbacks and small local helpers that are not exported.
+- Every `if`, `else`, `for`, `while` and `do` body goes in braces on its own lines, even a single `return` or `throw`.
+- Separate the logical blocks of a function with a blank line (validate, read, modify, write, print…), so its steps show at a glance.
 - Bit operations and magic numbers sit behind a function or constant whose name says what they do (`u16le(offset)`, `rgb565(r, g, b)`, `HEADER_BYTES`), not inline in the logic.
 
 ## Layout

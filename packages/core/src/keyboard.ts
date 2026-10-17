@@ -81,16 +81,24 @@ export class Keyboard {
       data,
     });
     this.#log?.("tx", pkt);
+
     for (let i = 0; i < MAX_REPORTS; i++) {
       const report = await this.#transport.transfer(i ? undefined : pkt);
-      if (!report) break;
+      if (!report) {
+        break;
+      }
+
       const reply = withoutDongleByte(report);
       this.#log?.("rx", reply);
-      if (!answers(reply, request)) continue;
-      if (isError(reply))
+      if (!answers(reply, request)) {
+        continue;
+      }
+      if (isError(reply)) {
         throw new Error(`${cmdName(cmd)} error: ${hex(reply)}`);
+      }
       return reply;
     }
+
     throw new Error(`no reply to ${cmdName(cmd)}`);
   }
 

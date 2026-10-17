@@ -28,6 +28,7 @@ function actions({ keys, delay }: Macro): number[] {
     ...action(delay, code, ACTION_KEY, true),
     ...action(delay, code, ACTION_KEY, false),
   ];
+
   return [
     ...mods.flatMap((m) => action(delay, m, ACTION_MODIFIER, true)),
     ...keys.filter((c) => !isModifier(c)).flatMap(tap),
@@ -44,11 +45,13 @@ export function macroBlob(macros: Macro[]): Uint8Array {
   const headerBytes = 8 + macros.length * 2;
   const offsets: number[] = [];
   const body: number[] = [];
+
   for (const macro of macros) {
     const acts = actions(macro);
     offsets.push(headerBytes + body.length);
     body.push(...u16le(acts.length / 4), 0, 0, ...acts);
   }
+
   return Uint8Array.from([
     0xaa,
     0x55,

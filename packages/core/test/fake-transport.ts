@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { readU16le } from "../src/bytes.ts";
 import { fromHex, type Transport } from "../src/index.ts";
 
 // Captured with `pnpm yogo75 backup` on a real Yogo 75 PRO.
@@ -58,25 +59,24 @@ export class FakeKeyboard implements Transport {
   async transfer(report?: Uint8Array) {
     if (report) {
       this.written.push(report);
-      const [cmd, off, len] = [
-        report[1],
-        report[2] | (report[3] << 8),
-        report[4],
-      ];
+      const [cmd, off, len] = [report[1], readU16le(report, 2), report[4]];
+
       const reply = new Uint8Array(this.reportSize);
       reply.set(report.subarray(0, 8));
+
       const written = this.data[WRITES[cmd]];
       const read = this.data[READS[cmd]];
-      if (written)
-        written.set(
-          report.subarray(8, 8 + Math.min(len, written.length - off)),
-          off,
-        );
-      // len 0 (power info) still answers with the data, as the keyboard does
-      else if (read)
+      if (written) {
+        const end = Math.min(len, written.length - off); // padded last chunk
+        written.set(report.subarray(8, 8 + end), off);
+      } else if (read) {
+        // len 0 (power info) still answers with the data, as the keyboard does
         reply.set(read.subarray(off, off + (len || read.length)), 8);
+      }
+
       this.#pending.push(...this.replies(reply));
     }
+
     return this.#pending.shift();
   }
 }
