@@ -137,7 +137,7 @@ Table `oo` du configurateur.
 | `0x22`…`0x2A` (pairs) | get_custom_led_matrix 1–5 | couleurs par touche (mode 253), voir [couleurs par touche](#couleurs-par-touche) ; le configurateur n'utilise que `0x22` | vérifié (`0x22`) |
 | `0x23`…`0x2B` (impairs) | write_custom_led_matrix 1–5 | écrit les couleurs par touche ; le configurateur n'utilise que `0x23` | vérifié (`0x23`) |
 | `0x2C` / `0x2D` | get_macro / write_macro | macros, voir [macros](#macros) | vérifié |
-| `0x2E` / `0x2F` | open/close_sync_led = start/end_sync_music | synchro de l'éclairage avec la musique | code |
+| `0x2E` / `0x2F` | open/close_sync_led = start/end_sync_music | synchro de l'éclairage avec la musique (mode 254), envoyée par l'application de bureau ATK ; fonctionnement supposé proche de `0x3C` / `0x3D` | non déterminé |
 | `0x30` | power_info | paquet sans longueur ; `[0]` = niveau de batterie en %, `[1] == 2` = en charge (le configurateur borne à 100). Relevé en USB : `5b 01` = 91 %, état 1 | vérifié (lecture) |
 | `0x31` | **reset_device** | **remet le clavier en config d'usine**. Ne pas envoyer sans accord explicite | code |
 | `0x32` | get_led_matrix | correspondance touche → LED (384 octets) | vérifié |
@@ -214,24 +214,31 @@ Table `fieldMap` : position dans le bloc.
 
 ## Modes d'éclairage (`ledMode`)
 
-Liste `Ns` dans `keyboard-info.util-*.js`. Les noms viennent des clés de traduction du configurateur.
+Liste `Ns` dans `keyboard-info.util-*.js`. Noms : libellés anglais du configurateur. Réglages : ce que l'interface propose pour l'effet (L = luminosité, V = vitesse, C = couleur, M = multicolore `colorful`) ; le firmware accepte peut-être plus. Le comportement des effets non vérifiés n'est connu que par leur nom.
 
-| Valeur | Nom | Statut |
-|---|---|---|
-| 0 | allClose : tout éteint | vérifié |
-| 1 | Rainbow Flow 1 : arc-en-ciel qui défile vers la droite ; avec `colorful = 0`, ressemble à une respiration de la couleur choisie | vérifié |
-| 2 | colorBreathing | code |
-| 3 | Monochrome Breath : respiration de la couleur choisie | vérifié |
-| 4 | rainbow (icône « normal ») : **fixe, une couleur** quand `colorful = 0` | vérifié |
-| 5 | singleLightUp | code |
-| 6 | colorfulVortex1 | code |
-| 7 | Rainbow Flow 2 : arc-en-ciel qui tourne autour du centre du clavier, sens antihoraire | vérifié |
-| 8–11 | Rainbow Flow 4, Spectral Fluctuation 1–3 | code |
-| 12 | neon | code |
-| 13–19 | cloudBurst, colorfulVortex2, colorfulRibbonFluttering1, spectralDiffusion1, rainbowIntersection, spectralDiffusion2, rainbowFlowingLight3 | code |
-| 20 | dynamicRainbow | code |
-| 253 | custom : couleur par touche, voir [couleurs par touche](#couleurs-par-touche) | vérifié |
-| 254 | musicRhythm | code |
+| Valeur | Nom | Réglages | Statut |
+|---|---|---|---|
+| 0 | tout éteint | | vérifié |
+| 1 | Rainbow Flow 1 : arc-en-ciel qui défile vers la droite ; avec `colorful = 0`, ressemble à une respiration de la couleur choisie | L, V, C (M non proposé, mais nécessaire à l'arc-en-ciel) | vérifié |
+| 2 | Color Breathing | L | code |
+| 3 | Monochrome Breath : respiration de la couleur choisie | L, V, C, M | vérifié |
+| 4 | Rainbow (icône « normal ») : **fixe**, une couleur avec `colorful = 0`, arc-en-ciel figé avec `colorful = 1` | L, C, M | vérifié |
+| 5 | Single Light Up | L, V, C, M | code |
+| 6 | Colorful Vortex 1 | L, V, C, M | code |
+| 7 | Rainbow Flow 2 : arc-en-ciel qui tourne autour du centre du clavier, sens antihoraire | L, V, C, M | vérifié |
+| 8 | Rainbow Flow 4 | L, V, C, M | code |
+| 9–11 | Spectral Fluctuation 1–3 | L, V, C, M | code |
+| 12 | Neon | L, V | code |
+| 13 | Cloud Burst | L, V, C, M | code |
+| 14 | Colorful Vortex 2 | L, V, C, M | code |
+| 15 | Colorful Ribbon Fluttering 1 | L, V, C, M | code |
+| 16 | Spectral Diffusion 1 | L, V, C, M | code |
+| 17 | Rainbow Intersection | L, V, C, M | code |
+| 18 | Spectral Diffusion 2 | L, V, C, M | code |
+| 19 | Rainbow Flow 3 | L, V, C, M | code |
+| 20 | Dynamic Rainbow | L, V, C, M | code |
+| 253 | custom : couleur par touche, voir [couleurs par touche](#couleurs-par-touche) | L, C | vérifié |
+| 254 | Music Rhythm : éclairage synchronisé sur la musique, couleurs de premier plan et de fond. Flux `0x2E` / `0x2F` envoyé par l'application de bureau ATK, pas par le site ; on suppose qu'il fonctionne comme le flux de l'écran à points. **Non déterminé** | C | non déterminé |
 
 ## Écran à points : modes intégrés
 
@@ -470,3 +477,4 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : rétroéclairage : luminosité (90 → 10), `colorful` = 1 (arc-en-ciel figé en mode 4) et vitesse (mode 3, brut 0 ≈ 1 s, brut 6 ≈ 8 s) vérifiés ; tout remis (mode 4, luminosité 90, vitesse 3, couleur unique). Test de `ledOnOff` = 1.
 - 2026-10-17 : `ledOnOff` = 1 éteint le rétroéclairage, l'écran à points reste allumé (vérifié). Remis à 0.
 - 2026-10-17 : effets 1 (défilement vers la droite, avec `colorful` = 1) et 7 (rotation antihoraire) observés ; `customColorIndex` 0 ou 1 ne change pas leur sens. Rétroéclairage remis : mode 4, vert, luminosité 90, vitesse 3, couleur unique.
+- 2026-10-17 : table des effets d'éclairage complétée avec les libellés et réglages du configurateur. Synchro musicale (`0x2E` / `0x2F`, mode 254) laissée non déterminée : propre à l'application de bureau, supposée fonctionner comme le flux de l'écran à points.
