@@ -5,7 +5,7 @@ Reverse engineering du clavier ATK Yogo 75 PRO et de son configurateur web (`htt
 ## Documentation
 
 - **Protocole** (commandes, champs de config, transports, configurateur) : lire `docs/protocol.md` avant d'envoyer quoi que ce soit au clavier ou de chercher dans `web-dump/`. Chaque découverte y entre dès qu'elle est faite (lecture du configurateur, test sur le clavier, hypothèse infirmée), avec son statut (vérifié / code / hypothèse) et une ligne au journal. Elle décrit le protocole seul, sans nos outils.
-- **Langue** : docs en français ; README, commits, issues et PR en anglais.
+- **Langue** : docs, README, commits, issues et PR en anglais.
 
 ## Code
 
