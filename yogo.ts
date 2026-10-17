@@ -274,16 +274,16 @@ try {
     k.writeCustomLeds(leds);
     console.log(`colours restored from ${LEDS_BACKUP}`);
   } else if (cmd === "keymap-backup") {
-    // Only layers 0 (base) and 1 (Fn) are in use on this keyboard.
-    const backup = { 0: hex(k.readKeymap(0)), 1: hex(k.readKeymap(1)) };
+    const backup = Object.fromEntries([0, 1, 2, 3].map((l) => [l, hex(k.readKeymap(l))]));
     writeFileSync(KEYMAP_BACKUP, JSON.stringify(backup, null, 2) + "\n");
-    console.log(`layers 0 and 1 saved to ${KEYMAP_BACKUP}`);
+    console.log(`layers 0-3 saved to ${KEYMAP_BACKUP}`);
   } else if (cmd === "setkey") {
     const [layer, index] = [Number(arg), Number(modeArg)];
-    if (!(layer === 0 || layer === 1) || !(index >= 0 && index < 96) || !/^[0-9a-f]{6}$/i.test(codeArg ?? "")) {
-      throw new Error("usage: node yogo.ts setkey <0|1> <index 0-95> <TTXXYY>");
+    if (!(layer >= 0 && layer <= 3) || !(index >= 0 && index < 96) || !/^[0-9a-f]{6}$/i.test(codeArg ?? "")) {
+      throw new Error("usage: node yogo.ts setkey <layer 0-3> <index 0-95> <TTXXYY>");
     }
     if (!existsSync(KEYMAP_BACKUP)) throw new Error(`run \`node yogo.ts keymap-backup\` first`);
+    if (!(layer in JSON.parse(readFileSync(KEYMAP_BACKUP, "utf8")))) throw new Error(`layer ${layer} is not in ${KEYMAP_BACKUP}`);
     const map = k.readKeymap(layer);
     console.log(`layer ${layer} key ${index}: ${hex(map.subarray(index * 3, index * 3 + 3))} -> ${codeArg}`);
     map.set(Buffer.from(codeArg, "hex"), index * 3);

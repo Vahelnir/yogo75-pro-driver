@@ -303,7 +303,7 @@ node yogo.ts keymap-restore          # réécrit la sauvegarde
 |---|---|---|
 | 0 | couche de base par défaut (`layer` = 0 dans le bloc de config) | vérifié |
 | 1 | couche Fn (le configurateur la lit avec `0x1C`) | vérifié |
-| 2, 3 | identiques à la couche 0 d'usine, sur ce clavier comme en usine ; usage inconnu | vérifié (contenu) |
+| 2, 3 | identiques à la couche 0 d'usine ; le configurateur ne s'en sert pas. Accessibles avec une touche `50 03 00` / `50 04 00` (tant qu'elle est tenue) ou comme couche de base via `layer`. Le mode Mac ne les utilise pas | vérifié |
 
 ### Position d'une touche
 
@@ -333,7 +333,8 @@ Fonctions `0x50` connues (libellés de `keyboard-info.util-*.js` et `keymap-*.js
 
 | Code | Fonction | Code | Fonction |
 |---|---|---|---|
-| `02` | Fn | `2b` | écran à points : effet suivant |
+| `02` | Fn (couche 1, tant que la touche est tenue) ; plusieurs touches peuvent porter ce code (vérifié : Verr. maj → `50 02 00` agit comme Fn, la touche Fn d'origine aussi) | `2b` | écran à points : effet suivant |
+| `03` | couche 2 tant que la touche est tenue (vérifié ; absent du configurateur) | `04` | couche 3 tant que la touche est tenue (vérifié ; absent du configurateur) |
 | `09` | éclairage marche/arrêt | `2d` | écran à points : couleur suivante |
 | `0a` / `0b` | mode d'éclairage + / − | `2f` / `30` | écran à points : luminosité + / − |
 | `0c` / `0d` | teinte + / − | `39` | afficher le niveau de batterie |
@@ -426,7 +427,7 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 
 - Que signifie exactement `ledOnOff` ? Que vaut l'octet 7 de la réponse (`0x55`) ?
 - Pourquoi la relecture dans la même session est-elle en retard ?
-- Rôle des couches 2 et 3, des emplacements 46–47 (`30 cb 01`, `30 cf 00`) et des fonctions `0x50` inconnues.
+- Rôle des emplacements 46–47 (`30 cb 01`, `30 cf 00`) et des fonctions `0x50` inconnues.
 
 ## Journal
 
@@ -461,3 +462,6 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : `wheelMode` 1 et 2 : la rotation de la molette ne fait plus rien de visible, l'appui reste lecture/pause. Hypothèse « la molette envoie alors les emplacements 46–47 » infirmée (volume ± écrit en 46–47, sans effet). Keymap restaurée, `wheelMode` remis à 0.
 - 2026-10-17 : `layer` = 2 : la couche 0 reste active (Verr. maj → Ctrl, Suppr à sa place personnalisée), même après rebranchement ; valeur relue à 2 après rebranchement. Remis à 0.
 - 2026-10-17 : `layer` élucidé, test proposé par l'utilisateur : Ins de la couche 1 → `x`, `layer` = 1. Ins seule tape le code de la couche 0 jusqu'au premier Fn + Ins ; ensuite Ins seule tape `x` et B (lecture/pause sur la couche 1) agit sans Fn ; Fn seul ne ramène pas la couche 0. Après `layer` = 0, B reste sur lecture/pause jusqu'au prochain appui-relâchement de Fn, puis tape `b`. Donc `layer` = couche de base, appliquée au relâchement de Fn (cela explique le test précédent à 2, fait sans toucher à Fn). Keymap restaurée.
+- 2026-10-17 : Verr. maj → `50 02 00` : deuxième touche Fn fonctionnelle. Verr. maj → `50 03 00` avec Inser → `x` en couche 2 : Verr. maj + Inser tape `x`, Verr. maj + B tape `b` (la couche 1 n'est pas utilisée), rien ne reste bloqué. `50 03` = couche 2 tant que la touche est tenue. `setkey` accepte maintenant les couches 0–3.
+- 2026-10-17 : hypothèse « le mode Mac utilise les couches 2 et 3 » infirmée : en mode Mac, Inser (`x` en couche 2 seulement) ne tape pas `x`, et Fn + B reste lecture/pause (couche 1). `macWin` remis à 0.
+- 2026-10-17 : `50 04 00` = couche 3 tant que la touche est tenue (vérifié : Inser → `x` en couche 3 seulement, Verr. maj + Inser tape `x`). Keymap des 4 couches restaurée et relue identique à la sauvegarde ; `keymap-backup` sauvegarde désormais les 4 couches.
