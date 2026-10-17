@@ -1,101 +1,39 @@
 /**
- * Probe for the ATK Yogo 75 PRO: argument handling, local backup files and the node-hid transport.
+ * Probe for the ATK Yogo 75 PRO: argument handling and local backup files (node-hid transport in hid.ts).
  * The protocol itself lives in @yogo75/core.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
   CONFIG_BYTES,
   FIELDS,
+  fromHex,
   hex,
   Keyboard,
+  macroBlob,
   MACROS_BYTES,
   MATRIX_BYTES,
-  type Transport,
+  type Macro,
 } from "@yogo75/core";
-import HID from "node-hid";
+import { openKeyboard } from "./hid.ts";
 
-const VID = 0x373b;
-const PID_USB = 0x119b;
-const PID_DONGLE = 0x11ff; // 4607
 const KEYMAP_BACKUP = "keymap-backup.json";
 const LEDS_BACKUP = "leds-backup.json";
 const MACROS_BACKUP = "macros-backup.json";
 const FULL_BACKUP = "full-backup.json";
 const MACRO_DELAY = 20; // per action; unit assumed to be ms
+const DOT_IMAGE_BYTES = 108; // 6×6 pixels, RGB888, row by row
 
-// USB cable first, else the dongle. The hub only changes the packet size and the timeout for wireless.
-const DEVICE = [PID_USB, PID_DONGLE]
-  .map((pid) => HID.devices(VID, pid).find((d) => d.usagePage === 0xff60))
-  .find((d) => d);
-if (!DEVICE?.path)
-  throw new Error(
-    "Yogo 75 PRO not found (USB or 2.4 GHz dongle, interface 0xFF60)",
-  );
-const WIRELESS = DEVICE.productId === PID_DONGLE;
-
-const dev = await HID.HIDAsync.open(DEVICE.path);
-const transport: Transport = {
-  reportSize: WIRELESS ? 32 : 64,
-  async transfer(report) {
-    if (report) await dev.write([0x00, ...report]); // report id 0
-    const r = await dev.read(WIRELESS ? 3000 : 500);
-    return r?.length ? r : undefined;
-  },
-};
+const { transport, close } = await openKeyboard();
 const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
-/**
- * Macro blob as the hub's setMacro builds it: "aa 55", total len LE, count LE, 0 0, an offset (LE) per macro,
- * then per macro: action count LE, 0 0, and 4-byte actions (delay LE, code, type | 0x80 when pressed).
- * Spec: HID codes tapped in turn; modifiers (e0-e7) are held around the rest, as type 2 with their bitmask.
- */
-function macroBlob(specs: string[]): number[] {
-  const body: number[] = [];
-  const offsets: number[] = [];
-  for (const spec of specs) {
-    const [codes, delay = String(MACRO_DELAY)] = spec.split("@");
-    const d = Number(delay);
-    const keys = [...Buffer.from(codes, "hex")];
-    const mods = keys
-      .filter((c) => c >= 0xe0 && c <= 0xe7)
-      .map((c) => 1 << (c - 0xe0));
-    const act = (code: number, type: number, down: boolean) => [
-      d & 0xff,
-      d >> 8,
-      code,
-      type | (down ? 0x80 : 0),
-    ];
-    const actions = [
-      ...mods.flatMap((m) => act(m, 2, true)),
-      ...keys
-        .filter((c) => c < 0xe0 || c > 0xe7)
-        .flatMap((c) => [...act(c, 1, true), ...act(c, 1, false)]),
-      ...mods.flatMap((m) => act(m, 2, false)),
-    ];
-    offsets.push(8 + specs.length * 2 + body.length);
-    body.push(actions.length / 4, 0, 0, 0, ...actions);
-  }
-  const total = 8 + specs.length * 2 + body.length;
-  return [
-    0xaa,
-    0x55,
-    total & 0xff,
-    total >> 8,
-    specs.length,
-    0,
-    0,
-    0,
-    ...offsets.flatMap((o) => [o & 0xff, o >> 8]),
-    ...body,
-  ];
+/** Macro argument: HID codes in hex, then an optional "@delay", e.g. e10b0c@20 for "HI". */
+function parseMacro(spec: string): Macro {
+  const [codes, delay = String(MACRO_DELAY)] = spec.split("@");
+  return { keys: [...fromHex(codes)], delay: Number(delay) };
 }
-// Self-check against the blob verified on the keyboard (macro "hi" typed correctly).
-if (
-  hex(Uint8Array.from(macroBlob(["0b0c"]))) !==
-  "aa 55 1e 00 01 00 00 00 0a 00 04 00 00 00 14 00 0b 81 14 00 0b 01 14 00 0c 81 14 00 0c 01"
-) {
-  throw new Error("macroBlob regression");
-}
+
+const readJson = (file: string) => JSON.parse(readFileSync(file, "utf8"));
+const at = (field: string) => FIELDS.indexOf(field);
 
 /** Everything `backup` saves, as hex strings (the dot screen image has no read command). */
 async function readAll(k: Keyboard): Promise<Record<string, string>> {
@@ -127,10 +65,9 @@ try {
     if (!/^[0-9a-f]{6}$/i.test(arg ?? ""))
       throw new Error("usage: pnpm yogo75 color RRGGBB [mode]");
     const cfg = await k.readConfig();
-    const at = (f: string) => FIELDS.indexOf(f);
     cfg[at("ledOnOff")] = 0; // 0 = on, as the hub sets it
     cfg[at("colorful")] = 0; // single colour instead of rainbow
-    cfg.set(Buffer.from(arg, "hex"), at("colorR"));
+    cfg.set(fromHex(arg), at("colorR"));
     // Modes from the hub: 0 = all off, 4 = steady, 253 = per-key custom, 254 = music.
     if (modeArg !== undefined) cfg[at("ledMode")] = Number(modeArg);
     await k.writeConfig(cfg);
@@ -144,11 +81,9 @@ try {
       throw new Error("usage: pnpm yogo75 dot <mode -1..12> [RRGGBB]");
     }
     const cfg = await k.readConfig();
-    const at = (f: string) => FIELDS.indexOf(f);
     cfg[at("LedTFTOnOff")] = 0; // as the hub's setDotLight
     cfg[at("LedTFTMode")] = mode & 0xff; // the hub's "all off" is -1, written by setUint8 as 0xff
-    if (modeArg !== undefined)
-      cfg.set(Buffer.from(modeArg, "hex"), at("LedTFTColorR"));
+    if (modeArg !== undefined) cfg.set(fromHex(modeArg), at("LedTFTColorR"));
     await k.writeConfig(cfg);
     console.log(`dot screen set to mode ${mode}`);
   } else if (cmd === "set") {
@@ -165,8 +100,8 @@ try {
     await k.writeConfig(cfg);
   } else if (cmd === "dotimage") {
     // 6×6 RGB888, row by row; there is no read command, so this overwrites the stored image for good.
-    const img = Buffer.from((arg ?? "").replaceAll(" ", ""), "hex");
-    if (img.length !== 108)
+    const img = fromHex(arg ?? "");
+    if (img.length !== DOT_IMAGE_BYTES)
       throw new Error(
         "usage: pnpm yogo75 dotimage <36 RRGGBB pixels, row by row>",
       );
@@ -175,9 +110,8 @@ try {
       "dot screen image written (shown in mode 6: pnpm yogo75 dot 6)",
     );
   } else if (cmd === "dotlive") {
-    // Music-visualiser frame (start_sync_dot): same 6×6 layout as dotimage, but RGB565 LE, 72 bytes.
-    const img = Buffer.from((arg ?? "").replaceAll(" ", ""), "hex");
-    if (img.length !== 108)
+    const img = fromHex(arg ?? "");
+    if (img.length !== DOT_IMAGE_BYTES)
       throw new Error(
         "usage: pnpm yogo75 dotlive <36 RRGGBB pixels, row by row> [seconds]",
       );
@@ -223,18 +157,11 @@ try {
       );
       console.log(`current macros saved to ${MACROS_BACKUP}`);
     }
-    const blob = macroBlob(specs);
-    await k.writeMacros(Uint8Array.from(blob));
-    console.log(
-      `${specs.length} macro(s) written: ${hex(Uint8Array.from(blob))}`,
-    );
+    const blob = macroBlob(specs.map(parseMacro));
+    await k.writeMacros(blob);
+    console.log(`${specs.length} macro(s) written: ${hex(blob)}`);
   } else if (cmd === "macros-restore") {
-    await k.writeMacros(
-      Buffer.from(
-        JSON.parse(readFileSync(MACROS_BACKUP, "utf8")).replaceAll(" ", ""),
-        "hex",
-      ),
-    );
+    await k.writeMacros(fromHex(readJson(MACROS_BACKUP)));
     console.log(`macros restored from ${MACROS_BACKUP}`);
   } else if (cmd === "ledmap") {
     const map = await k.readLedMatrix();
@@ -258,13 +185,10 @@ try {
     console.log(
       `key ${index} -> LED ${led}: ${hex(leds.subarray(led * 3, led * 3 + 3))} -> ${modeArg}`,
     );
-    leds.set(Buffer.from(modeArg, "hex"), led * 3);
+    leds.set(fromHex(modeArg), led * 3);
     await k.writeCustomLeds(leds);
   } else if (cmd === "leds-restore") {
-    const leds = Buffer.from(
-      JSON.parse(readFileSync(LEDS_BACKUP, "utf8")).replaceAll(" ", ""),
-      "hex",
-    );
+    const leds = fromHex(readJson(LEDS_BACKUP));
     if (leds.length !== MATRIX_BYTES) throw new Error(`bad ${LEDS_BACKUP}`);
     await k.writeCustomLeds(leds);
     console.log(`colours restored from ${LEDS_BACKUP}`);
@@ -286,20 +210,18 @@ try {
     }
     if (!existsSync(KEYMAP_BACKUP))
       throw new Error(`run \`pnpm yogo75 keymap-backup\` first`);
-    if (!(layer in JSON.parse(readFileSync(KEYMAP_BACKUP, "utf8"))))
+    if (!(layer in readJson(KEYMAP_BACKUP)))
       throw new Error(`layer ${layer} is not in ${KEYMAP_BACKUP}`);
     const map = await k.readKeymap(layer);
     console.log(
       `layer ${layer} key ${index}: ${hex(map.subarray(index * 3, index * 3 + 3))} -> ${codeArg}`,
     );
-    map.set(Buffer.from(codeArg, "hex"), index * 3);
+    map.set(fromHex(codeArg), index * 3);
     await k.writeKeymap(layer, map);
   } else if (cmd === "keymap-restore") {
-    const backup: Record<string, string> = JSON.parse(
-      readFileSync(KEYMAP_BACKUP, "utf8"),
-    );
+    const backup: Record<string, string> = readJson(KEYMAP_BACKUP);
     for (const [layer, data] of Object.entries(backup)) {
-      const map = Buffer.from(data.replaceAll(" ", ""), "hex");
+      const map = fromHex(data);
       if (map.length !== MATRIX_BYTES)
         throw new Error(`bad backup for layer ${layer}`);
       await k.writeKeymap(Number(layer), map);
@@ -317,12 +239,10 @@ try {
     );
   } else if (cmd === "restore") {
     const file = arg ?? FULL_BACKUP;
-    const backup: Record<string, string> = JSON.parse(
-      readFileSync(file, "utf8"),
-    );
+    const backup: Record<string, string> = readJson(file);
     const data = Object.fromEntries(
       Object.entries(FULL_SIZES).map(([name, size]) => {
-        const b = Buffer.from((backup[name] ?? "").replaceAll(" ", ""), "hex");
+        const b = fromHex(backup[name] ?? "");
         if (b.length !== size)
           throw new Error(
             `bad ${name} in ${file}: ${b.length} bytes, expected ${size}`,
@@ -357,5 +277,5 @@ try {
     FIELDS.forEach((name, i) => console.log(`  ${name.padEnd(20)} ${fn[i]}`));
   }
 } finally {
-  await dev.close();
+  await close();
 }
