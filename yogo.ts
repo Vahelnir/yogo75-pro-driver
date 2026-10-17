@@ -24,6 +24,11 @@ const CMD_SET_CUSTOM_LEDS = 0x23;
 const CMD_GET_LED_MATRIX = 0x32; // first 96 bytes: key index -> LED number (0xff = no LED)
 const LEDS_BACKUP = "leds-backup.json";
 const CMD_SET_DOT_IMAGE = 0x3b; // set_dotscreen_matrix: 6×6 RGB888 image shown by dot screen mode 6
+const CMD_GET_MACRO = 0x2c; // blob: "aa 55", total len LE, count LE, offsets table, then the macros
+const CMD_SET_MACRO = 0x2d;
+const MACROS_BACKUP = "macros-backup.json";
+const MACROS_BYTES = 224; // 4 packets: header + 4 macros fit easily
+const MACRO_DELAY = 20; // per action; unit assumed to be ms
 const CMD_SYNC_DOT = 0x3c; // start_sync_dot: one live music-visualiser frame
 const CMD_END_SYNC_DOT = 0x3d;
 const KEYMAP_CHUNKS = 6; // matrixMaxSize: 6 × 56 bytes, 3 bytes per key
@@ -120,6 +125,11 @@ class Yogo {
   }
 }
 
+/** Writes the macro blob as the hub does: 56-byte packets, len byte always 56 (last one zero-padded). */
+function writeMacros(k: Yogo, blob: number[]) {
+  for (let off = 0; off < blob.length; off += DATA_LEN) k.transfer(CMD_SET_MACRO, DATA_LEN, off, blob.slice(off, off + DATA_LEN));
+}
+
 const [cmd, arg, modeArg, codeArg] = process.argv.slice(2);
 const k = new Yogo();
 try {
@@ -190,6 +200,26 @@ try {
     if (!(layer >= 0 && layer <= 3)) throw new Error("usage: node yogo.ts keymap [0-3] [factory]");
     const map = k.readKeymap(layer, modeArg === "factory");
     for (let i = 0; i < map.length; i += 3) console.log(String(i / 3).padStart(3), hex(map.subarray(i, i + 3)));
+  } else if (cmd === "macros") {
+    console.log(hex(k.readChunks(CMD_GET_MACRO, Number(arg ?? 4) * DATA_LEN)));
+  } else if (cmd === "setmacro") {
+    // shortcut: writes a single macro (slot 0) that taps each HID key in turn; extend if more slots are needed.
+    const keys = Buffer.from(arg ?? "", "hex");
+    if (!/^([0-9a-f]{2})+$/i.test(arg ?? "") || keys.length > 30) throw new Error("usage: node yogo.ts setmacro <HID codes, e.g. 0b0c for \"hi\">");
+    if (!existsSync(MACROS_BACKUP)) {
+      writeFileSync(MACROS_BACKUP, JSON.stringify(hex(k.readChunks(CMD_GET_MACRO, MACROS_BYTES))) + "\n");
+      console.log(`current macros saved to ${MACROS_BACKUP}`);
+    }
+    // Action: delay LE16, code, type (1 = key) | 0x80 when pressed (hub: KeyDown = 0 -> bit set).
+    const actions = [...keys].flatMap((code) => [MACRO_DELAY, 0, code, 0x81, MACRO_DELAY, 0, code, 0x01]);
+    const macro = [actions.length / 4, 0, 0, 0, ...actions];
+    const total = 8 + 2 + macro.length; // header, offsets table (1 macro), macro
+    const blob = [0xaa, 0x55, total & 0xff, total >> 8, 1, 0, 0, 0, 10, 0, ...macro];
+    writeMacros(k, blob);
+    console.log(`macro 0 written: ${hex(Uint8Array.from(blob))}`);
+  } else if (cmd === "macros-restore") {
+    writeMacros(k, [...Buffer.from(JSON.parse(readFileSync(MACROS_BACKUP, "utf8")).replaceAll(" ", ""), "hex")]);
+    console.log(`macros restored from ${MACROS_BACKUP}`);
   } else if (cmd === "ledmap") {
     const map = k.readChunks(CMD_GET_LED_MATRIX, 384);
     console.log(hex(map));

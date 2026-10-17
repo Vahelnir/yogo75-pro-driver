@@ -136,7 +136,7 @@ Table `oo` du configurateur.
 | `0x1B`, `0x1D`, `0x1F`, `0x21` | set_current_key_matrix 1–4 | écrit la keymap, couches 0–3, voir [écriture](#écriture) | vérifié (`0x1B`, `0x1D`) / code (`0x1F`, `0x21`) |
 | `0x22`…`0x2A` (pairs) | get_custom_led_matrix 1–5 | couleurs par touche (mode 253), voir [couleurs par touche](#couleurs-par-touche) ; le configurateur n'utilise que `0x22` | vérifié (`0x22`) |
 | `0x23`…`0x2B` (impairs) | write_custom_led_matrix 1–5 | écrit les couleurs par touche ; le configurateur n'utilise que `0x23` | vérifié (`0x23`) |
-| `0x2C` / `0x2D` | get_macro / write_macro | macros (4 emplacements selon les infos) | code |
+| `0x2C` / `0x2D` | get_macro / write_macro | macros, voir [macros](#macros) | vérifié |
 | `0x2E` / `0x2F` | open/close_sync_led = start/end_sync_music | synchro de l'éclairage avec la musique | code |
 | `0x30` | power_info | `[0]` = niveau de batterie, `[1] == 2` = en charge | code |
 | `0x31` | **reset_device** | **remet le clavier en config d'usine**. Ne pas envoyer sans accord explicite | code |
@@ -351,6 +351,57 @@ Relevée avec `node yogo.ts keymap 1 factory` (vérifié pour les codes ; les fo
 - Inser : éclairage marche/arrêt. Q / A : mode − / + ; W / S : teinte − / + ; E / D : vitesse + / − ; R / F : luminosité + / −.
 - Maj droite : batterie. ← / → : couleur / effet de l'écran à points ; ↑ / ↓ : luminosité de l'écran à points.
 
+## Macros
+
+Lecture `0x2C`, écriture `0x2D` (`getMacro`, `setMacro`, classes `tW` / `vI`). `get_keyboard_info` annonce 4 macros.
+
+**Le configurateur ne relit pas les macros du clavier** : il garde la liste de son côté (stockage local / compte) et se contente de l'écrire. Son `getMacro` ne lit qu'un paquet à l'offset 0 et n'en fait rien. Relevé du 2026-10-17 avec `node yogo.ts macros 8` (vérifié) : 16 octets `ff`, puis des zéros jusqu'à 448 octets, donc aucune macro.
+
+### Format du bloc (vérifié pour une macro de touches clavier)
+
+Le configurateur écrit toute la liste d'un coup, par paquets de 56 octets (offset 0, 56…), l'octet de longueur valant toujours 56.
+
+| Octets | Contenu |
+|---|---|
+| 0–1 | `aa 55` |
+| 2–3 | longueur totale du bloc, LE |
+| 4–5 | nombre de macros, LE |
+| 6–7 | 0 |
+| 8… | table : pour chaque macro, son offset depuis le début du bloc (LE 16 bits) |
+| puis | chaque macro : nombre d'actions (LE 16 bits), `00 00`, puis 4 octets par action |
+
+Une action : `délai (LE 16 bits)`, `code`, `type | appui << 7`. **Bit 7 = 1 pour un appui, 0 pour un relâchement** (vérifié à nos dépens : le configurateur calcule `keyStatus ? 0 : 1` avec `KeyDown = 0`, `KeyUp = 1`). Avec le bit inversé, la macro « hi » tapait `h` puis laissait `i` enfoncé, et la touche I physique ne répondait plus.
+
+| Type | Action | Code |
+|---|---|---|
+| 1 | touche clavier | code HID |
+| 2 | modificateur | masque, comme dans la keymap (`01` Ctrl G… `80` Win D) |
+| 3, 5, 7 | autres types de l'interface (4, 5, 6 ; probablement souris) | inconnu |
+
+Unité du délai : probablement la milliseconde (hypothèse ; à 20, la frappe semble instantanée). La relecture par `0x2C` renvoie exactement le bloc écrit (vérifié).
+
+```sh
+node yogo.ts macros [paquets]       # bloc brut (4 paquets par défaut)
+node yogo.ts setmacro 0b0c          # macro 0 = taper h puis i ; sauvegarde la zone dans macros-backup.json au premier appel
+node yogo.ts setkey 0 14 600000     # Inser -> macro 0, mode 0
+node yogo.ts macros-restore         # réécrit la sauvegarde
+```
+
+### Lier une touche à une macro (vérifié pour `60 n 0` ; code pour le reste)
+
+Dans la keymap, avec le contrôleur de ce clavier (`Ui`) :
+
+- `60 <n° de macro> <mode>` pour les modes 0 à 3 ;
+- `61 <n° de macro> <nombre d'exécutions>` pour le mode 4.
+
+| Mode | Comportement (libellés du configurateur) |
+|---|---|
+| 0 | une seule exécution |
+| 1 | boucle jusqu'au relâchement, en finissant le tour |
+| 2 | tenir pour répéter, appuyer de nouveau pour finir le tour et arrêter |
+| 3 | tenir pour répéter, relâcher pour arrêter |
+| 4 | exécuter N fois (N de 1 à 249 dans l'interface) |
+
 ## Couleurs par touche
 
 Utilisées quand `ledMode = 253` (« custom »).
@@ -374,7 +425,6 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 
 - Que signifie exactement `ledOnOff` ? Que vaut l'octet 7 de la réponse (`0x55`) ?
 - Pourquoi la relecture dans la même session est-elle en retard ?
-- Les réglages survivent-ils à un débranchement ?
 - Rôle des couches 2 et 3, des emplacements 46–47 (`30 cb 01`, `30 cf 00`) et des fonctions `0x50` inconnues.
 
 ## Journal
@@ -395,3 +445,7 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : mode −1 (`0xFF`) : écran éteint (vérifié). Luminosité : comparaison 90 → 5 sur l'image du mode 6, nettement plus sombre. Vitesse brute 2 → 6 → 2 sur le mode 8 : plus lent puis plus rapide. Écran remis à l'état d'origine (mode 8, luminosité 30, vitesse 2) et relu. Nouvelle commande générique `node yogo.ts set <champ> <valeur>`.
 - 2026-10-17 : couleur de l'écran à points vérifiée (mode 0, vert au lieu de rouge). Flux `0x3C` continu (~20 trames/s, 60 s) : image stable tout du long. Puis `0x3D` et réécriture du mode 8, couleur `ff0000` ; relu.
 - 2026-10-17 : après la fin du flux `0x3C`, l'écran est resté noir jusqu'au `0x3D` (vérifié par l'utilisateur).
+- 2026-10-17 : macros : format du bloc `0x2D`, codage des actions, liaison touche → macro (`60 n mode` / `61 n N`) et modes d'exécution lus dans le configurateur. Lecture `0x2C` : aucune macro sur le clavier.
+- 2026-10-17 : premier test de macro (« hi » sur Inser via `60 00 00`) : `h` tapé puis `i` répété en continu, la touche I physique ne répond plus. Cause : bit 7 inversé (1 = appui). L'hypothèse « dernière action ignorée » est infirmée (un relâchement ajouté à la fin n'y changeait rien, puisque c'était en fait un appui). Inser et macros restaurés et relus (`10 00 49`, zone des macros à `ff`×16 puis zéros). La liaison touche → macro `60 n mode` et l'écriture `0x2D` sont vérifiées.
+- 2026-10-17 : touche I bloquée jusqu'au débranchement / rebranchement USB (état du firmware en mémoire vive, keymap intacte). Après rebranchement, config, écran à points et keymap sont intacts : **les réglages survivent à un débranchement** (vérifié).
+- 2026-10-17 : macro corrigée (appui = bit 7) : Inser tape exactement `hi`, plus de touche bloquée. Inser et macros restaurés et relus.
