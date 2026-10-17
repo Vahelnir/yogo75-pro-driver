@@ -373,6 +373,10 @@ Lue avec `0x17` (vérifié pour les codes ; les fonctions viennent des tables ci
 
 Lecture `0x2C`, écriture `0x2D` (`getMacro`, `setMacro`, classes `tW` / `vI`). `get_keyboard_info` annonce 4 macros.
 
+**Limites du configurateur** (code) : pour le Yogo 75 PRO, aucune. Son composable de macros (`nw`) fixe `maxMacroCount` et `maxActionsCount` à l'infini pour cette famille d'API (`Mi` / `Ui`), et `setMacro` n'impose aucune taille au bloc : il le découpe simplement en paquets. Seul `macroSize` = 4 de `get_keyboard_info` donne un nombre. La vraie capacité de la zone (en octets et en macros) reste à vérifier dans le firmware.
+
+**Taille probable de la zone : 1024 octets** (hypothèse, d'après une lecture). En lisant 4480 octets avec `0x2C` (80 paquets, sans erreur), on trouve 16 octets `ff`, puis des zéros jusqu'à l'offset 1023, puis à partir de 1024 des données sans rapport avec des macros (motifs `ff ff ff` réguliers, puis ce qui ressemble à de la RAM : adresses `0x2000xxxx`). Le firmware ne borne donc pas la lecture. À confirmer dans le firmware avant d'écrire au-delà.
+
 **Le configurateur ne relit pas les macros du clavier** : il garde la liste de son côté (stockage local / compte) et se contente de l'écrire. Son `getMacro` ne lit qu'un paquet à l'offset 0 et n'en fait rien. Relevé du 2026-10-17 en lisant 8 paquets avec `0x2C` (vérifié) : 16 octets `ff`, puis des zéros jusqu'à 448 octets, donc aucune macro.
 
 ### Format du bloc (vérifié)
@@ -508,3 +512,5 @@ Réécrire ces quatre ressources telles quelles, puis les relire dans une nouvel
 - 2026-10-17 : `dsSleepL` = 20 puis 1 en 2,4 GHz : l'écran à points reste allumé après 60 s puis 2 min. Remis à 0. `power` : état toujours 1 à 100 %, câble branché.
 - 2026-10-17 : configurateur relu pour `dsSleepL/M/H` : jamais lus ni écrits (seul `sleepL/M/H` l'est, via `sleepTime`) et aucun libellé de veille de l'écran à points dans les traductions.
 - 2026-10-17 : batterie à 100 %, câble branché : `power_info` reste à `64 01` sur environ une heure. L'état `2` n'apparaît pas quand la batterie est pleine ; `1` = câble branché.
+- 2026-10-17 : configurateur relu pour les limites des macros : aucune pour le Yogo 75 PRO (nombre de macros et d'actions illimités, pas de taille maximale du bloc). Seul `macroSize` = 4 (`get_keyboard_info`).
+- 2026-10-17 : lecture de 4480 octets avec `0x2C`, sans erreur : zone vide (`ff`×16 puis zéros) jusqu'à 1023, données étrangères aux macros à partir de 1024. Hypothèse : zone des macros de 1024 octets ; la lecture n'est pas bornée par le firmware.
