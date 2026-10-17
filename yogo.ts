@@ -133,6 +133,18 @@ try {
     k.writeConfig(cfg);
     // Reading back in the same session still returns the old values; re-run `node yogo.ts` to check.
     console.log(`colour set to ${arg} (mode ${cfg[at("ledMode")]})`);
+  } else if (cmd === "dot") {
+    const mode = Number(arg);
+    if (!(mode >= -1 && mode <= 12) || (modeArg !== undefined && !/^[0-9a-f]{6}$/i.test(modeArg))) {
+      throw new Error("usage: node yogo.ts dot <mode -1..12> [RRGGBB]");
+    }
+    const cfg = k.readConfig();
+    const at = (f: string) => FIELDS.indexOf(f);
+    cfg[at("LedTFTOnOff")] = 0; // as the hub's setDotLight
+    cfg[at("LedTFTMode")] = mode & 0xff; // the hub's "all off" is -1, written by setUint8 as 0xff
+    if (modeArg !== undefined) cfg.set(Buffer.from(modeArg, "hex"), at("LedTFTColorR"));
+    k.writeConfig(cfg);
+    console.log(`dot screen set to mode ${mode}`);
   } else if (cmd === "keymap") {
     const layer = Number(arg ?? 0);
     if (!(layer >= 0 && layer <= 3)) throw new Error("usage: node yogo.ts keymap [0-3] [factory]");

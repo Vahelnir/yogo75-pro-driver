@@ -199,7 +199,7 @@ Table `fieldMap` : position dans le bloc.
 | 10 | customColorIndex | « direction » de l'effet dans le configurateur | code |
 | 11–19 | logo : onOff, mode, brightness, speed, colorful, colorIndex, R, G, B | ce clavier n'a pas de logo (`hasLogoLight = 0`) | code |
 | 20–28 | bande latérale : mêmes champs | `hasSideLight = 0` | code |
-| 29–37 | écran à points (« LedTFT ») : mêmes champs | | code |
+| 29–37 | écran à points (« LedTFT ») : mêmes champs | voir [écran à points](#écran-à-points-modes-intégrés) | vérifié (mode) / code (le reste) |
 | 38 | sixN | `sixKeyNoPunch = sixN > 0 ? 0 : 1` (6KRO / NKRO) | code |
 | 39 | macWin | mode Mac/Windows | code |
 | 40 | winLock | verrouillage de la touche Windows | code |
@@ -231,6 +231,35 @@ Liste `Ns` dans `keyboard-info.util-*.js`. Les noms viennent des clés de traduc
 | 20 | dynamicRainbow | code |
 | 253 | custom : couleur par touche, voir [couleurs par touche](#couleurs-par-touche) | vérifié |
 | 254 | musicRhythm | code |
+
+## Écran à points : modes intégrés
+
+Réglés par le bloc de config, positions 29–37 (`setDotLight` / `getDotLight` du configurateur). Le configurateur force `LedTFTOnOff = 0` et `LedTFTColorful = 0`, et inverse la vitesse comme pour le rétroéclairage : `LedTFTSpeed = abs(6 - vitesse)` (code). Valeurs d'origine relevées : mode 8, luminosité 30, vitesse brute 2, couleur `ff0000`.
+
+Écrire `LedTFTMode` change bien l'animation (vérifié : 8 → 12, l'écran a quitté les feux d'artifice ; que ce soit précisément « YOGO » n'a pas été confirmé visuellement). Liste `Os` dans `keyboard-info.util-*.js` (code, sauf 8 et 12) :
+
+| Valeur | Nom |
+|---|---|
+| −1, écrit `0xFF` (`setUint8`) | tout éteint |
+| 0 | star |
+| 1 | ghost |
+| 2 | scan |
+| 3 | radiantRadiance |
+| 4 | raindrops |
+| 5 | terminal |
+| 6 | custom (image, voir écriture en direct) |
+| 7 | typing |
+| 8 | nightFireworks (pas de réglage de couleur) |
+| 9 | heartbeatMusicNumber |
+| 10 | todayMood |
+| 11 | dataShuttle |
+| 12 | YOGO |
+
+```sh
+node yogo.ts dot 12          # mode YOGO
+node yogo.ts dot 8           # retour au mode d'origine
+node yogo.ts dot 0 00ff00    # mode star, couleur verte
+```
 
 ## Keymap
 
@@ -343,3 +372,5 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : écriture de la couche Fn validée : Fn + Inser (couche 1, index 14) remappé en X avec `0x1D` tape `x`, Inser seul reste inchangé (couche 0 relue à `10 00 49` ; sous macOS, Inser ne produit rien, c'est normal). Keymap restaurée et relue identique à la sauvegarde.
 - 2026-10-17 : couleurs par touche : lecture de la table touche → LED (`0x32`) et de la matrice (`0x22`) ; préréglage WASD + flèches en blanc retrouvé. Échap mis en rouge via `0x23` (relu correctement), passage en mode 253. Test visuel en attente. Disposition probablement ANSI (corrige l'hypothèse ISO).
 - 2026-10-17 : test visuel validé (Échap rouge, WASD + flèches blancs, reste éteint). Disposition QWERTY ANSI confirmée par l'utilisateur. Couleurs par touche restaurées (`leds-restore`) et retour au mode 4 vert.
+- 2026-10-17 : écran à points : `setDotLight` lu (vitesse inversée, mode −1 → `0xFF`), liste `Os` des 13 modes. `LedTFTMode` passé de 8 à 12 via `node yogo.ts dot 12`, relu à 12. Test visuel en attente.
+- 2026-10-17 : test visuel : en mode 12, l'écran n'affiche plus les feux d'artifice (l'utilisateur ne peut pas confirmer que c'est « YOGO »). Retour au mode 8, relu à 8 (luminosité 30, vitesse 2, couleur ff0000 inchangées).
