@@ -9,7 +9,7 @@ export const CMD_GET_DEFAULT_KEYMAP = [0x16, 0x17, 0x18, 0x19];
 export const CMD_SET_KEYMAP = [0x1b, 0x1d, 0x1f, 0x21];
 export const CMD_GET_CUSTOM_LEDS = 0x22; // RGB triplets indexed by LED number, 6 × 56 bytes
 export const CMD_SET_CUSTOM_LEDS = 0x23;
-export const CMD_GET_MACRO = 0x2c; // blob built by `macroBlob`
+export const CMD_GET_MACRO = 0x2c; // area built by `joinMacros`
 export const CMD_SET_MACRO = 0x2d;
 export const CMD_POWER_INFO = 0x30; // battery: data[0] = level, data[1] = 1 while the cable is plugged in (even at 100%)
 export const CMD_GET_LED_MATRIX = 0x32; // first 96 bytes: key index -> LED number (0xff = no LED)
@@ -19,7 +19,7 @@ export const CMD_END_SYNC_DOT = 0x3d;
 
 /** Keymap and custom colours: 3 bytes per key, 6 × 56 bytes over USB (14 × 24 wireless). */
 export const MATRIX_BYTES = 336;
-/** Macro area read and written: 4 packets over USB, the header and 4 macros fit easily. */
+/** Macro area read when it has no header yet (no macro written): what backups held before the header was read. */
 export const MACROS_BYTES = 224;
 /** LED matrix read by the hub; only the first 96 bytes (one per key) are used. */
 export const LED_MATRIX_BYTES = 384;

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { readU16le } from "../src/bytes.ts";
-import { fromHex, type Transport } from "../src/index.ts";
+import { fromHex, MACRO_AREA_BYTES, type Transport } from "../src/index.ts";
 
 // Captured with `pnpm yogo75 backup` (now `save`) on a real Yogo 75 PRO.
 export const BACKUP: Record<string, Uint8Array> = Object.fromEntries(
@@ -54,6 +54,10 @@ export class FakeKeyboard implements Transport {
 
   constructor(reportSize: number) {
     this.reportSize = reportSize;
+    // the keyboard's macro area is larger than the backup's 224 bytes
+    const macros = new Uint8Array(MACRO_AREA_BYTES);
+    macros.set(this.data.macros);
+    this.data.macros = macros;
   }
 
   async transfer(report?: Uint8Array) {

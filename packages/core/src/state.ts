@@ -1,6 +1,7 @@
 import { fromHex, hex } from "./bytes.ts";
-import { CMD_GET_KEYMAP, MACROS_BYTES, MATRIX_BYTES } from "./commands.ts";
+import { CMD_GET_KEYMAP, MATRIX_BYTES } from "./commands.ts";
 import { CONFIG_BYTES } from "./config.ts";
+import { MACRO_AREA_BYTES, splitMacros } from "./macro.ts";
 
 /** Everything the keyboard can read back (the dot screen image has no read command). */
 export interface KeyboardState {
@@ -15,12 +16,11 @@ export interface KeyboardState {
 const STATE_VERSION = 1;
 const LAYERS = CMD_GET_KEYMAP.map((_, layer) => layer);
 
-/** Resource name in the file → expected size. */
+/** Resource name in the file → expected size; the macro area's varies, see `macros`. */
 const SIZES: Record<string, number> = {
   config: CONFIG_BYTES,
   ...Object.fromEntries(LAYERS.map((l) => [`keymap${l}`, MATRIX_BYTES])),
   leds: MATRIX_BYTES,
-  macros: MACROS_BYTES,
 };
 
 /** Each resource under its name in the file, in write order. */
@@ -80,11 +80,29 @@ export function stateFromJson(text: string): KeyboardState {
     config: data.config,
     keymaps: LAYERS.map((l) => data[`keymap${l}`]),
     leds: data.leds,
-    macros: data.macros,
+    macros: macros(file.macros),
   };
 }
 
-function resource(value: unknown, name: string, size: number) {
+/** The area as `readMacros` returns it: header length, or the 224 bytes of an area without header. */
+function macros(value: unknown) {
+  const bytes = resource(value, "macros");
+  if (!bytes.length || bytes.length > MACRO_AREA_BYTES) {
+    throw new Error(
+      `macros: ${bytes.length} bytes, expected 1 to ${MACRO_AREA_BYTES}`,
+    );
+  }
+
+  try {
+    splitMacros(bytes);
+  } catch (e) {
+    throw new Error(`macros: ${(e as Error).message}`);
+  }
+
+  return bytes;
+}
+
+function resource(value: unknown, name: string, size?: number) {
   if (typeof value !== "string") {
     throw new Error(`${name}: missing`);
   }
@@ -94,7 +112,7 @@ function resource(value: unknown, name: string, size: number) {
   }
 
   const bytes = fromHex(value);
-  if (bytes.length !== size) {
+  if (size !== undefined && bytes.length !== size) {
     throw new Error(`${name}: ${bytes.length} bytes, expected ${size}`);
   }
 
