@@ -13,6 +13,10 @@ const CMD_START = 0x10;
 const CMD_KB_INFO = 0x12;
 const CMD_KB_FUNCTION = 0x14;
 const CMD_WRITE_KB_FUNCTION = 0x15;
+// get_current_key_matrix for layers 0..3 (layer 1 is the Fn layer in the hub).
+const CMD_GET_KEYMAP = [0x1a, 0x1c, 0x1e, 0x20];
+const CMD_GET_DEFAULT_KEYMAP = [0x16, 0x17, 0x18, 0x19];
+const KEYMAP_CHUNKS = 6; // matrixMaxSize: 6 × 56 bytes, 3 bytes per key
 const DATA_LEN = 56;
 
 // Byte offsets in the get_keyboard_function blob (fieldMap in the hub's controller).
@@ -73,6 +77,15 @@ class Yogo {
     this.transfer(CMD_WRITE_KB_FUNCTION, 8, DATA_LEN, [...cfg.subarray(DATA_LEN)]);
   }
 
+  readKeymap(layer: number, factory = false): Uint8Array {
+    const cmd = (factory ? CMD_GET_DEFAULT_KEYMAP : CMD_GET_KEYMAP)[layer];
+    const map = new Uint8Array(KEYMAP_CHUNKS * DATA_LEN);
+    for (let i = 0; i < KEYMAP_CHUNKS; i++) {
+      map.set(this.transfer(cmd, DATA_LEN, i * DATA_LEN).subarray(8, 8 + DATA_LEN), i * DATA_LEN);
+    }
+    return map;
+  }
+
   close() {
     this.dev.close();
   }
@@ -94,6 +107,11 @@ try {
     k.writeConfig(cfg);
     // Reading back in the same session still returns the old values; re-run `node yogo.ts` to check.
     console.log(`colour set to ${arg} (mode ${cfg[at("ledMode")]})`);
+  } else if (cmd === "keymap") {
+    const layer = Number(arg ?? 0);
+    if (!(layer >= 0 && layer <= 3)) throw new Error("usage: node yogo.ts keymap [0-3] [factory]");
+    const map = k.readKeymap(layer, modeArg === "factory");
+    for (let i = 0; i < map.length; i += 3) console.log(String(i / 3).padStart(3), hex(map.subarray(i, i + 3)));
   } else {
     const info = k.transfer(CMD_KB_INFO, DATA_LEN).subarray(8);
     const h = (n: number) => n.toString(16).padStart(2, "0");

@@ -131,8 +131,8 @@ Table `oo` du configurateur.
 | `0x12` | get_keyboard_info | capacités de l'appareil, voir [infos](#get_keyboard_info-0x12) | vérifié |
 | `0x14` | get_keyboard_function | lit le bloc de config | vérifié |
 | `0x15` | write_keyboard_function | écrit le bloc de config | vérifié |
-| `0x16`–`0x19` | get_default_key_matrix 1–4 | keymap par défaut, couches 1–4 | code |
-| `0x1A`, `0x1C`, `0x1E`, `0x20` | get_current_key_matrix 1–4 | keymap actuelle, couches 1–4 (3 octets par touche) | code |
+| `0x16`–`0x19` | get_default_key_matrix 1–4 | keymap d'usine, couches 0–3, voir [keymap](#keymap) | vérifié (lecture) |
+| `0x1A`, `0x1C`, `0x1E`, `0x20` | get_current_key_matrix 1–4 | keymap actuelle, couches 0–3 | vérifié (lecture) |
 | `0x1B`, `0x1D`, `0x1F`, `0x21` | set_current_key_matrix 1–4 | écrit la keymap | code |
 | `0x22`…`0x2A` (pairs) | get_custom_led_matrix 1–5 | couleurs par touche (mode 253) | code |
 | `0x23`…`0x2B` (impairs) | write_custom_led_matrix 1–5 | écrit les couleurs par touche | code |
@@ -232,13 +232,81 @@ Liste `Ns` dans `keyboard-info.util-*.js`. Les noms viennent des clés de traduc
 | 253 | custom : couleur par touche (custom_led_matrix) | code |
 | 254 | musicRhythm | code |
 
+## Keymap
+
+### Lecture
+
+Statut : vérifié. Pour chaque couche, 6 paquets de 56 octets (`len = 56`, offset 0, 56, 112… 280), soit 336 octets = 112 emplacements de 3 octets. Seuls les 96 premiers servent (6 rangées × 16 colonnes) ; les 16 derniers sont à zéro.
+
+```sh
+node yogo.ts keymap 0            # couche 0 actuelle
+node yogo.ts keymap 1 factory    # couche Fn d'usine
+```
+
+### Couches
+
+| Couche | Rôle | Statut |
+|---|---|---|
+| 0 | couche de base | vérifié |
+| 1 | couche Fn (le configurateur la lit avec `0x1C`) | vérifié |
+| 2, 3 | identiques à la couche 0 d'usine, sur ce clavier comme en usine ; usage inconnu | vérifié (contenu) |
+
+### Position d'une touche
+
+`index = rangée × 16 + colonne` (vérifié : les remappages faits par l'utilisateur tombent aux index attendus). La disposition est ISO (touches `0x32` et `0x64` présentes). Disposition d'usine de la couche 0 (vérifié en lisant les codes ; les noms sont ceux d'un clavier QWERTY, voir le glossaire) :
+
+| Rangée | Index | Touches |
+|---|---|---|
+| 0 | 0–15 | Esc, F1…F12, Impr. écran, Inser, Suppr |
+| 1 | 16–31 | `²`, 1…0, `-`, `=`, Retour arrière, Début, Fin |
+| 2 | 32–47 | Tab, Q…P, `[`, `]`, `\`, puis 46–47 : codes spéciaux `30 cb 01` et `30 cf 00` (le configurateur les masque ; peut-être la molette) |
+| 3 | 48–63 | Verr. maj, A…L, `;`, `'`, `#` (ISO), Entrée, Page préc., Page suiv. |
+| 4 | 64–79 | Maj gauche, `<` (ISO), Z…M, `,`, `.`, `/`, (vide), Maj droite, Flèche haut, (vide) |
+| 5 | 80–95 | Ctrl gauche, Win, Alt, (vide ×2), Espace, (vide ×3), Alt droit, Fn, (vide), Ctrl droit, ←, ↓, → |
+
+### Codage d'une touche (3 octets)
+
+| Type (octet 0) | Octets 1–2 | Exemple | Statut |
+|---|---|---|---|
+| `0x10` : touche clavier | octet 1 = modificateurs, octet 2 = code HID | `10 00 04` = A ; `10 01 00` = Ctrl gauche ; `10 08 2b` = Win+Tab | vérifié |
+| `0x30` : touche multimédia (HID *consumer*) | code consumer sur 16 bits, LE | `30 cd 00` = lecture/pause ; `30 e9 00` = volume + | vérifié (codes standards reconnus) |
+| `0x50` : fonction du clavier | octet 1 = numéro de fonction | `50 02 00` = touche Fn | code |
+| `00 00 00` | aucune action | | code |
+
+Modificateurs (octet 1 du type `0x10`) : `01` Ctrl G, `02` Maj G, `04` Alt G, `08` Win G, `10` Ctrl D, `20` Maj D, `40` Alt D, `80` Win D.
+
+Fonctions `0x50` connues (libellés de `keyboard-info.util-*.js` et `keymap-*.js`) :
+
+| Code | Fonction | Code | Fonction |
+|---|---|---|---|
+| `02` | Fn | `2b` | écran à points : effet suivant |
+| `09` | éclairage marche/arrêt | `2d` | écran à points : couleur suivante |
+| `0a` / `0b` | mode d'éclairage + / − | `2f` / `30` | écran à points : luminosité + / − |
+| `0c` / `0d` | teinte + / − | `39` | afficher le niveau de batterie |
+| `0e` / `0f` | luminosité + / − | `47` / `48` | rotation gauche / droite (molette) |
+| `10` / `11` | vitesse de l'effet + / − | | |
+| `19`, `1b`, `1d`, `1e` | bande latérale : effet, couleur, luminosité + / − | | |
+
+Inconnus, présents dans la couche Fn d'usine : `31`, `32`, `33` (Fn + `=`, `-`, Retour arrière), `34`–`37` (Fn + 1…4, probablement les canaux Bluetooth / 2.4 GHz : hypothèse), `3c` (Fn + Win, probablement le verrouillage Win : hypothèse), `3e` (Fn + H), `41` (Fn + Esc).
+
+### Couche Fn d'usine
+
+Relevée avec `node yogo.ts keymap 1 factory` (vérifié pour les codes ; les fonctions viennent des tables ci-dessus) :
+
+- F1 / F2 : luminosité de l'écran − / + (`30 70 00`, `30 6f 00`) ; F3 : Win+Tab ; F4 : recherche (`30 21 02`) ; F5 : Win+H ; F7 / F8 / F9 : précédent / lecture-pause / suivant ; F10 : muet ; F11 / F12 : volume − / +.
+- Inser : éclairage marche/arrêt. Q / A : mode − / + ; W / S : teinte − / + ; E / D : vitesse + / − ; R / F : luminosité + / −.
+- Maj droite : batterie. ← / → : couleur / effet de l'écran à points ; ↑ / ↓ : luminosité de l'écran à points.
+
 ## Questions ouvertes
 
 - Que signifie exactement `ledOnOff` ? Que vaut l'octet 7 de la réponse (`0x55`) ?
 - Pourquoi la relecture dans la même session est-elle en retard ?
 - Les réglages survivent-ils à un débranchement ?
-- Format de la keymap (3 octets par touche) et correspondance matrice ↔ touches physiques (6 × 16).
+- Écriture de la keymap (`0x1B`…) : pas encore testée.
+- Rôle des couches 2 et 3, des emplacements 46–47 (`30 cb 01`, `30 cf 00`) et des fonctions `0x50` inconnues.
 
 ## Journal
 
-- 2026-10-17 : téléchargement du configurateur ; extraction du protocole. Vérifiés : handshake, `get_keyboard_info`, lecture et écriture du bloc de config, couleur, modes 0 et 4. Config d'origine sauvegardée dans `config-backup.txt`.
+- 2026-10-17 : téléchargement du configurateur ; extraction du protocole. Vérifiés : handshake, `get_keyboard_info`, lecture et écriture du bloc de config, couleur, modes 0 et 4. Config d’origine sauvegardée dans `config-backup.txt` (local, non versionné).
+- 2026-10-17 : lecture de la keymap (4 couches, usine et actuelle). Format `[type, x, y]` décodé ; disposition 6 × 16 identifiée ; table des fonctions `0x50` extraite du configurateur. La couche 0 de ce clavier diffère de l'usine sur 5 touches et la couche Fn est largement modifiée.
+- 2026-10-17 : l'utilisateur confirme avoir fait ces modifications (Verr. maj → Ctrl, Suppr/Début échangés, médias sur Fn + B/N/M) : la correspondance index ↔ touches physiques est vérifiée.
