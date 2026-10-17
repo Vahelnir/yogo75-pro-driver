@@ -1,0 +1,16 @@
+{
+  "name": "yogo75-driver",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "probe": "node yogo.ts",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "node-hid": "3.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "5.9.3"
+  }
+}

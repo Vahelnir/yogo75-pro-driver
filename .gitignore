@@ -1,0 +1,4 @@
+node_modules/
+# Copie du configurateur ATK : code propriétaire, à retélécharger (voir docs/protocol.md)
+web-dump/
+.DS_Store
