@@ -44,13 +44,7 @@ Every command is listed with an example in `docs/protocol.md`. Commands that wri
 
 ## To do
 
-- **Battery**: status `0` = no cable, `1` = cable plugged in; the configurator expects `2` for charging, whose meaning is unknown (maybe fully charged).
-- **Backlight**: the effect direction field (`customColorIndex`) had no visible effect. Most effects are only known by their name in the configurator.
-- **Music sync** for the lighting (`0x2E` / `0x2F`, mode 254): undetermined. It is sent by ATK's desktop app, not the website, and probably works like the dot screen's live stream.
-- **Unknown Fn functions** found in the factory Fn layer: `50 31`–`33`, `3c`, `3e` (low risk); `34`–`37` (probably wireless channel switching); `41` (Fn + Esc, possibly a factory reset: do not test without a full backup).
-- **Unknown config fields**: `fkeyChange`, `wheelMode` values other than 0; why a read in the same session still returns the old values after a write.
-- **Rest of the `0x32` table** (after the key → LED map) and keymap slots 46–47.
-- **A real tool**: turn `yogo.ts` from a probe into a clean CLI (full backup/restore, profiles, keymap and macro editing from a file).
+Open questions and planned work are tracked in the [issues](https://github.com/Vahelnir/yogo75-pro-driver/issues).
 
 ## The configurator copy
 
