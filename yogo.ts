@@ -19,6 +19,10 @@ const CMD_GET_KEYMAP = [0x1a, 0x1c, 0x1e, 0x20];
 const CMD_GET_DEFAULT_KEYMAP = [0x16, 0x17, 0x18, 0x19];
 const CMD_SET_KEYMAP = [0x1b, 0x1d, 0x1f, 0x21];
 const KEYMAP_BACKUP = "keymap-backup.json";
+const CMD_GET_CUSTOM_LEDS = 0x22; // RGB triplets indexed by LED number, 6 × 56 bytes
+const CMD_SET_CUSTOM_LEDS = 0x23;
+const CMD_GET_LED_MATRIX = 0x32; // first 96 bytes: key index -> LED number (0xff = no LED)
+const LEDS_BACKUP = "leds-backup.json";
 const KEYMAP_CHUNKS = 6; // matrixMaxSize: 6 × 56 bytes, 3 bytes per key
 const DATA_LEN = 56;
 
@@ -80,19 +84,31 @@ class Yogo {
     this.transfer(CMD_WRITE_KB_FUNCTION, 8, DATA_LEN, [...cfg.subarray(DATA_LEN)]);
   }
 
-  readKeymap(layer: number, factory = false): Uint8Array {
-    const cmd = (factory ? CMD_GET_DEFAULT_KEYMAP : CMD_GET_KEYMAP)[layer];
-    const map = new Uint8Array(KEYMAP_CHUNKS * DATA_LEN);
-    for (let i = 0; i < KEYMAP_CHUNKS; i++) {
-      map.set(this.transfer(cmd, DATA_LEN, i * DATA_LEN).subarray(8, 8 + DATA_LEN), i * DATA_LEN);
+  /** Reads `total` bytes of a resource in 56-byte chunks. */
+  readChunks(cmd: number, total: number): Uint8Array {
+    const out = new Uint8Array(total);
+    for (let off = 0; off < total; off += DATA_LEN) {
+      const len = Math.min(DATA_LEN, total - off);
+      out.set(this.transfer(cmd, len, off).subarray(8, 8 + len), off);
     }
-    return map;
+    return out;
+  }
+
+  readKeymap(layer: number, factory = false): Uint8Array {
+    return this.readChunks((factory ? CMD_GET_DEFAULT_KEYMAP : CMD_GET_KEYMAP)[layer], KEYMAP_CHUNKS * DATA_LEN);
   }
 
   /** Rewrites a whole layer, as the hub does (it never writes a single key). */
   writeKeymap(layer: number, map: Uint8Array) {
     for (let i = 0; i < KEYMAP_CHUNKS; i++) {
       this.transfer(CMD_SET_KEYMAP[layer], DATA_LEN, i * DATA_LEN, [...map.subarray(i * DATA_LEN, (i + 1) * DATA_LEN)]);
+    }
+  }
+
+  /** Rewrites the whole per-key colour matrix (used by ledMode 253), as the hub does. */
+  writeCustomLeds(leds: Uint8Array) {
+    for (let i = 0; i < KEYMAP_CHUNKS; i++) {
+      this.transfer(CMD_SET_CUSTOM_LEDS, DATA_LEN, i * DATA_LEN, [...leds.subarray(i * DATA_LEN, (i + 1) * DATA_LEN)]);
     }
   }
 
@@ -122,6 +138,32 @@ try {
     if (!(layer >= 0 && layer <= 3)) throw new Error("usage: node yogo.ts keymap [0-3] [factory]");
     const map = k.readKeymap(layer, modeArg === "factory");
     for (let i = 0; i < map.length; i += 3) console.log(String(i / 3).padStart(3), hex(map.subarray(i, i + 3)));
+  } else if (cmd === "ledmap") {
+    const map = k.readChunks(CMD_GET_LED_MATRIX, 384);
+    console.log(hex(map));
+  } else if (cmd === "leds") {
+    const leds = k.readChunks(CMD_GET_CUSTOM_LEDS, KEYMAP_CHUNKS * DATA_LEN);
+    for (let i = 0; i < leds.length; i += 3) console.log(String(i / 3).padStart(3), hex(leds.subarray(i, i + 3)));
+  } else if (cmd === "setled") {
+    const index = Number(arg);
+    if (!(index >= 0 && index < 96) || !/^[0-9a-f]{6}$/i.test(modeArg ?? "")) {
+      throw new Error("usage: node yogo.ts setled <key index 0-95> RRGGBB");
+    }
+    const led = k.readChunks(CMD_GET_LED_MATRIX, 96)[index];
+    if (led === 0xff) throw new Error(`key ${index} has no LED`);
+    const leds = k.readChunks(CMD_GET_CUSTOM_LEDS, KEYMAP_CHUNKS * DATA_LEN);
+    if (!existsSync(LEDS_BACKUP)) {
+      writeFileSync(LEDS_BACKUP, JSON.stringify(hex(leds)) + "\n");
+      console.log(`current colours saved to ${LEDS_BACKUP}`);
+    }
+    console.log(`key ${index} -> LED ${led}: ${hex(leds.subarray(led * 3, led * 3 + 3))} -> ${modeArg}`);
+    leds.set(Buffer.from(modeArg, "hex"), led * 3);
+    k.writeCustomLeds(leds);
+  } else if (cmd === "leds-restore") {
+    const leds = Buffer.from(JSON.parse(readFileSync(LEDS_BACKUP, "utf8")).replaceAll(" ", ""), "hex");
+    if (leds.length !== KEYMAP_CHUNKS * DATA_LEN) throw new Error(`bad ${LEDS_BACKUP}`);
+    k.writeCustomLeds(leds);
+    console.log(`colours restored from ${LEDS_BACKUP}`);
   } else if (cmd === "keymap-backup") {
     // Only layers 0 (base) and 1 (Fn) are in use on this keyboard.
     const backup = { 0: hex(k.readKeymap(0)), 1: hex(k.readKeymap(1)) };

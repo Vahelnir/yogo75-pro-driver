@@ -6,3 +6,4 @@ web-dump/
 config-backup.txt
 # Sauvegarde locale de ma keymap
 keymap-backup.json
+leds-backup.json

@@ -134,13 +134,13 @@ Table `oo` du configurateur.
 | `0x16`–`0x19` | get_default_key_matrix 1–4 | keymap d'usine, couches 0–3, voir [keymap](#keymap) | vérifié (lecture) |
 | `0x1A`, `0x1C`, `0x1E`, `0x20` | get_current_key_matrix 1–4 | keymap actuelle, couches 0–3 | vérifié (lecture) |
 | `0x1B`, `0x1D`, `0x1F`, `0x21` | set_current_key_matrix 1–4 | écrit la keymap, couches 0–3, voir [écriture](#écriture) | vérifié (`0x1B`, `0x1D`) / code (`0x1F`, `0x21`) |
-| `0x22`…`0x2A` (pairs) | get_custom_led_matrix 1–5 | couleurs par touche (mode 253) | code |
-| `0x23`…`0x2B` (impairs) | write_custom_led_matrix 1–5 | écrit les couleurs par touche | code |
+| `0x22`…`0x2A` (pairs) | get_custom_led_matrix 1–5 | couleurs par touche (mode 253), voir [couleurs par touche](#couleurs-par-touche) ; le configurateur n'utilise que `0x22` | vérifié (`0x22`) |
+| `0x23`…`0x2B` (impairs) | write_custom_led_matrix 1–5 | écrit les couleurs par touche ; le configurateur n'utilise que `0x23` | vérifié (`0x23`) |
 | `0x2C` / `0x2D` | get_macro / write_macro | macros (4 emplacements selon les infos) | code |
 | `0x2E` / `0x2F` | open/close_sync_led = start/end_sync_music | synchro de l'éclairage avec la musique | code |
 | `0x30` | power_info | `[0]` = niveau de batterie, `[1] == 2` = en charge | code |
 | `0x31` | **reset_device** | **remet le clavier en config d'usine**. Ne pas envoyer sans accord explicite | code |
-| `0x32` | get_led_matrix | correspondance touches → LED | code |
+| `0x32` | get_led_matrix | correspondance touche → LED (384 octets) | vérifié |
 | `0x3B` | set_dotscreen_matrix | écran à points 6×6 | code |
 | `0x3C` / `0x3D` | start/end_sync_dot | flux en direct vers l'écran à points | code |
 
@@ -229,7 +229,7 @@ Liste `Ns` dans `keyboard-info.util-*.js`. Les noms viennent des clés de traduc
 | 12 | neon | code |
 | 13–19 | cloudBurst, colorfulVortex2, colorfulRibbonFluttering1, spectralDiffusion1, rainbowIntersection, spectralDiffusion2, rainbowFlowingLight3 | code |
 | 20 | dynamicRainbow | code |
-| 253 | custom : couleur par touche (custom_led_matrix) | code |
+| 253 | custom : couleur par touche, voir [couleurs par touche](#couleurs-par-touche) | vérifié |
 | 254 | musicRhythm | code |
 
 ## Keymap
@@ -263,15 +263,15 @@ node yogo.ts keymap-restore          # réécrit la sauvegarde
 
 ### Position d'une touche
 
-`index = rangée × 16 + colonne` (vérifié : les remappages faits par l'utilisateur tombent aux index attendus). La disposition est ISO (touches `0x32` et `0x64` présentes). Disposition d'usine de la couche 0 (vérifié en lisant les codes ; les noms sont ceux d'un clavier QWERTY, voir le glossaire) :
+`index = rangée × 16 + colonne` (vérifié : les remappages faits par l'utilisateur tombent aux index attendus). La disposition physique est **QWERTY ANSI** (vérifié, confirmé par l'utilisateur) : les emplacements ISO 60 (`#`) et 65 (`<`) ont un code dans la keymap mais aucune touche ni LED ; 84 LED, soit un 75 % ANSI. Disposition d'usine de la couche 0 (vérifié en lisant les codes ; les noms sont ceux d'un clavier QWERTY, voir le glossaire) :
 
 | Rangée | Index | Touches |
 |---|---|---|
 | 0 | 0–15 | Esc, F1…F12, Impr. écran, Inser, Suppr |
 | 1 | 16–31 | `²`, 1…0, `-`, `=`, Retour arrière, Début, Fin |
 | 2 | 32–47 | Tab, Q…P, `[`, `]`, `\`, puis 46–47 : codes spéciaux `30 cb 01` et `30 cf 00` (le configurateur les masque ; peut-être la molette) |
-| 3 | 48–63 | Verr. maj, A…L, `;`, `'`, `#` (ISO), Entrée, Page préc., Page suiv. |
-| 4 | 64–79 | Maj gauche, `<` (ISO), Z…M, `,`, `.`, `/`, (vide), Maj droite, Flèche haut, (vide) |
+| 3 | 48–63 | Verr. maj, A…L, `;`, `'`, (60 : `#` ISO, absente), Entrée, Page préc., Page suiv. |
+| 4 | 64–79 | Maj gauche, (65 : `<` ISO, absente), Z…M, `,`, `.`, `/`, (vide), Maj droite, Flèche haut, (vide) |
 | 5 | 80–95 | Ctrl gauche, Win, Alt, (vide ×2), Espace, (vide ×3), Alt droit, Fn, (vide), Ctrl droit, ←, ↓, → |
 
 ### Codage d'une touche (3 octets)
@@ -307,6 +307,24 @@ Relevée avec `node yogo.ts keymap 1 factory` (vérifié pour les codes ; les fo
 - Inser : éclairage marche/arrêt. Q / A : mode − / + ; W / S : teinte − / + ; E / D : vitesse + / − ; R / F : luminosité + / −.
 - Maj droite : batterie. ← / → : couleur / effet de l'écran à points ; ↑ / ↓ : luminosité de l'écran à points.
 
+## Couleurs par touche
+
+Utilisées quand `ledMode = 253` (« custom »).
+
+**Table touche → LED** (`0x32`, 384 octets, lecture par paquets de 56 ; vérifié). Les 96 premiers octets donnent, pour chaque index de touche, son numéro de LED ; `ff` = pas de LED. 84 LED, numérotées 0 à 83. Touches sans LED : 46–47 (`30 cb 01`, `30 cf 00` : probablement la molette, hypothèse), 60 et 65 (touches ISO absentes) et les emplacements vides. Le reste des 384 octets contient d'autres tables (une suite `54`…`77`, puis ce qui ressemble à des couleurs) : rôle inconnu.
+
+**Matrice de couleurs** (`0x22` lecture / `0x23` écriture ; 6 paquets de 56 octets, offset 0 à 280). Un triplet RGB par numéro de LED : la couleur de la touche `i` est à l'octet `3 × led[i]`. Comme pour la keymap, le configurateur réécrit toujours la matrice entière.
+
+Relevé du 2026-10-17 (vérifié) : les LED de W, A, S, D et des quatre flèches étaient en blanc, toutes les autres éteintes. Le croisement keymap ↔ table des LED retombe exactement sur ces touches.
+
+```sh
+node yogo.ts ledmap                # table touche -> LED (brut)
+node yogo.ts leds                  # couleur de chaque LED
+node yogo.ts setled 0 ff0000       # Échap en rouge ; sauvegarde la matrice dans leds-backup.json au premier appel
+node yogo.ts color 00ff00 253      # passe le rétroéclairage en mode couleurs par touche
+node yogo.ts leds-restore          # réécrit la sauvegarde
+```
+
 ## Questions ouvertes
 
 
@@ -323,3 +341,5 @@ Relevée avec `node yogo.ts keymap 1 factory` (vérifié pour les codes ; les fo
 - 2026-10-17 : écriture de la keymap testée : Inser (couche 0, index 14) remappé en X avec `0x1B` ; la relecture dans une nouvelle session montre `10 00 1b`.
 - 2026-10-17 : test physique validé (Inser tape `x`), puis `keymap-restore` : couches 0 et 1 relues identiques à la sauvegarde. `0x1D` est donc accepté (réécriture à l'identique).
 - 2026-10-17 : écriture de la couche Fn validée : Fn + Inser (couche 1, index 14) remappé en X avec `0x1D` tape `x`, Inser seul reste inchangé (couche 0 relue à `10 00 49` ; sous macOS, Inser ne produit rien, c'est normal). Keymap restaurée et relue identique à la sauvegarde.
+- 2026-10-17 : couleurs par touche : lecture de la table touche → LED (`0x32`) et de la matrice (`0x22`) ; préréglage WASD + flèches en blanc retrouvé. Échap mis en rouge via `0x23` (relu correctement), passage en mode 253. Test visuel en attente. Disposition probablement ANSI (corrige l'hypothèse ISO).
+- 2026-10-17 : test visuel validé (Échap rouge, WASD + flèches blancs, reste éteint). Disposition QWERTY ANSI confirmée par l'utilisateur. Couleurs par touche restaurées (`leds-restore`) et retour au mode 4 vert.
