@@ -29,10 +29,10 @@ rx aa 15 … 55 …                                OK
 
 ### Glossaire
 
-- **HID** (Human Interface Device) : la norme USB des claviers et souris. Un même appareil expose plusieurs **interfaces** HID, chacune identifiée par une *usage page* et un *usage* (par exemple `0x01`/6 pour le clavier standard).
-- **Rapport** (*report*) : un message HID. Ici, les rapports font 64 octets en USB et 32 à travers le dongle 2,4 GHz.
+- **HID** (Human Interface Device) : la norme USB des claviers et souris. Un même appareil expose plusieurs **interfaces** HID, chacune identifiée par une _usage page_ et un _usage_ (par exemple `0x01`/6 pour le clavier standard).
+- **Rapport** (_report_) : un message HID. Ici, les rapports font 64 octets en USB et 32 à travers le dongle 2,4 GHz.
 - **VID / PID** : identifiants USB du fabricant et du produit.
-- **LE** (*little-endian*) : un nombre sur 2 octets est écrit octet faible d'abord. `38 00` = 0x0038 = 56.
+- **LE** (_little-endian_) : un nombre sur 2 octets est écrit octet faible d'abord. `38 00` = 0x0038 = 56.
 - **Keymap / couche** : la correspondance touche physique → code envoyé. Le clavier en a 4 couches (normale, Fn…).
 - **Bootloader / IAP** : le mode spécial qui sert à flasher le firmware.
 
@@ -48,23 +48,23 @@ Ce document se met à jour **au fur et à mesure des découvertes**, qu'elles vi
 
 ## Matériel
 
-| Champ | Valeur | Statut |
-|---|---|---|
-| Nom USB | `ATK Yogo75 PRO`, fabricant `RDMCTMZT` | vérifié |
-| VID / PID filaire | `0x373B` / `0x119B` (4507) | vérifié |
-| PID 2.4 GHz (dongle) | `0x11FF` (4607), nom USB `ATK YOGO 75 PRO Dongle`. PID du modèle, pas de l'exemplaire : écrit en dur dans la table des appareils du configurateur (`YOGO 75 PRO 2.4G`) | vérifié |
-| PID bootloader (IAP) | même PID, usage page `0xFF00`, usage 1 | code |
-| Firmware | `01.26`, protocole v3 | vérifié (`get_keyboard_info`) |
-| Mode de connexion | sélecteur physique sur le clavier : Bluetooth, câble, 2,4 GHz. Le Bluetooth n'est pas configurable : le configurateur ne le propose pas (d'après l'utilisateur, non testé). Sur 2,4 GHz, le câble USB ne fait que charger : macOS ne voit aucun périphérique HID du clavier, seulement le dongle | vérifié |
-| Variante sans PRO | Yogo 75 : PID 4508 filaire, 4608 en 2.4 GHz | code |
+| Champ                | Valeur                                                                                                                                                                                                                                                                                           | Statut                        |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
+| Nom USB              | `ATK Yogo75 PRO`, fabricant `RDMCTMZT`                                                                                                                                                                                                                                                           | vérifié                       |
+| VID / PID filaire    | `0x373B` / `0x119B` (4507)                                                                                                                                                                                                                                                                       | vérifié                       |
+| PID 2.4 GHz (dongle) | `0x11FF` (4607), nom USB `ATK YOGO 75 PRO Dongle`. PID du modèle, pas de l'exemplaire : écrit en dur dans la table des appareils du configurateur (`YOGO 75 PRO 2.4G`)                                                                                                                           | vérifié                       |
+| PID bootloader (IAP) | même PID, usage page `0xFF00`, usage 1                                                                                                                                                                                                                                                           | code                          |
+| Firmware             | `01.26`, protocole v3                                                                                                                                                                                                                                                                            | vérifié (`get_keyboard_info`) |
+| Mode de connexion    | sélecteur physique sur le clavier : Bluetooth, câble, 2,4 GHz. Le Bluetooth n'est pas configurable : le configurateur ne le propose pas (d'après l'utilisateur, non testé). Sur 2,4 GHz, le câble USB ne fait que charger : macOS ne voit aucun périphérique HID du clavier, seulement le dongle | vérifié                       |
+| Variante sans PRO    | Yogo 75 : PID 4508 filaire, 4608 en 2.4 GHz                                                                                                                                                                                                                                                      | code                          |
 
 Interfaces HID exposées en USB (vérifié avec `hidutil list` / `node-hid`) :
 
-| Usage page / usage | Rôle |
-|---|---|
-| `0x01` / 6, 2, 1, 128 ; `0x0C` / 1 | clavier, souris, contrôle système, multimédia (standard) |
-| **`0xFF60` / `0x61`** | **canal de configuration** (même interface que VIA/QMK raw HID, mais protocole différent) |
-| `0xFF00` / 1 | canal vendeur, utilisé pour le bootloader / firmware |
+| Usage page / usage                 | Rôle                                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `0x01` / 6, 2, 1, 128 ; `0x0C` / 1 | clavier, souris, contrôle système, multimédia (standard)                                  |
+| **`0xFF60` / `0x61`**              | **canal de configuration** (même interface que VIA/QMK raw HID, mais protocole différent) |
+| `0xFF00` / 1                       | canal vendeur, utilisé pour le bootloader / firmware                                      |
 
 ## Le configurateur web
 
@@ -77,12 +77,12 @@ C'est une app Vue empaquetée par rolldown, qui parle au clavier en **WebHID**. 
 
 Fichiers clés du build du 2026-10-17 :
 
-| Fichier | Contenu |
-|---|---|
-| `demoMode.store-*.js` | Registre des appareils (`productId:4507` → `solutionProvider: EVISION_V2`), contrôleur du clavier (classe `Ui`), transport (`fW`), classes de paquets (`an`), table des commandes (`oo`), commandes du bootloader (`Ec`) |
-| `web-dump/evision_v2.js` | Extrait du contrôleur `Ui`, une méthode par ligne. C'est le point d'entrée pour lire le comportement d'une fonction |
-| `keyboard-info.util-*.js` | Liste des modes d'éclairage (`Ns`), des modes de l'écran à points (`Os`) |
-| `base-hid-device-*.js` | Base WebHID : files de requêtes, mutex, 3 tentatives, timeout de 500 ms |
+| Fichier                   | Contenu                                                                                                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `demoMode.store-*.js`     | Registre des appareils (`productId:4507` → `solutionProvider: EVISION_V2`), contrôleur du clavier (classe `Ui`), transport (`fW`), classes de paquets (`an`), table des commandes (`oo`), commandes du bootloader (`Ec`) |
+| `web-dump/evision_v2.js`  | Extrait du contrôleur `Ui`, une méthode par ligne. C'est le point d'entrée pour lire le comportement d'une fonction                                                                                                      |
+| `keyboard-info.util-*.js` | Liste des modes d'éclairage (`Ns`), des modes de l'écran à points (`Os`)                                                                                                                                                 |
+| `base-hid-device-*.js`    | Base WebHID : files de requêtes, mutex, 3 tentatives, timeout de 500 ms                                                                                                                                                  |
 
 Le Yogo 75 PRO apparaît **deux fois** dans le registre : une fois en `EVISION_V2` simple, et une fois avec `isVia:true, skipViaDetection:true` (contrôleur `VC` qui enveloppe `Ui`). Les deux passent par le même contrôleur `Ui`.
 
@@ -114,15 +114,15 @@ octet  0     1     2..3          4      5..6               7       8..63
       0xAA  cmd   offset (LE)   len    code requête (LE)  -       données (56 max)
 ```
 
-| Octet | Requête | Réponse | Statut |
-|---|---|---|---|
-| 0 | `0xAA` (constante `rA`) | `0xAA` | vérifié |
-| 1 | commande | commande renvoyée | vérifié |
-| 2..3 | offset dans la ressource, little-endian | renvoyé ; **`[2] == 0xFF` = erreur** | vérifié (renvoi) / code (erreur) |
-| 4 | longueur des données (≤ 56) | renvoyée | vérifié |
-| 5..6 | code de requête | renvoyé | vérifié |
-| 7 | 0 | `0x55`, probablement un accusé de réception | hypothèse |
-| 8..63 | données à écrire | données lues | vérifié |
+| Octet | Requête                                 | Réponse                                     | Statut                           |
+| ----- | --------------------------------------- | ------------------------------------------- | -------------------------------- |
+| 0     | `0xAA` (constante `rA`)                 | `0xAA`                                      | vérifié                          |
+| 1     | commande                                | commande renvoyée                           | vérifié                          |
+| 2..3  | offset dans la ressource, little-endian | renvoyé ; **`[2] == 0xFF` = erreur**        | vérifié (renvoi) / code (erreur) |
+| 4     | longueur des données (≤ 56)             | renvoyée                                    | vérifié                          |
+| 5..6  | code de requête                         | renvoyé                                     | vérifié                          |
+| 7     | 0                                       | `0x55`, probablement un accusé de réception | hypothèse                        |
+| 8..63 | données à écrire                        | données lues                                | vérifié                          |
 
 Les ressources qui dépassent 56 octets se lisent ou s'écrivent en plusieurs paquets, en avançant l'offset de 56 à chaque fois.
 
@@ -130,25 +130,25 @@ Les ressources qui dépassent 56 octets se lisent ou s'écrivent en plusieurs pa
 
 Table `oo` du configurateur.
 
-| Cmd | Nom | Usage | Statut |
-|---|---|---|---|
-| `0x10` | start | ouvre la session ; le configurateur le renvoie si plus de 5 s se sont écoulées | vérifié |
-| `0x11` | end | ferme la session (le configurateur ne l'appelle presque jamais). Accepté ; ensuite, la lecture du bloc de config renvoie des zéros jusqu'au prochain `0x10` | vérifié |
-| `0x12` | get_keyboard_info | capacités de l'appareil, voir [infos](#get_keyboard_info-0x12) | vérifié |
-| `0x14` | get_keyboard_function | lit le bloc de config | vérifié |
-| `0x15` | write_keyboard_function | écrit le bloc de config | vérifié |
-| `0x16`–`0x19` | get_default_key_matrix 1–4 | keymap d'usine, couches 0–3, voir [keymap](#keymap) | vérifié (lecture) |
-| `0x1A`, `0x1C`, `0x1E`, `0x20` | get_current_key_matrix 1–4 | keymap actuelle, couches 0–3 | vérifié (lecture) |
-| `0x1B`, `0x1D`, `0x1F`, `0x21` | set_current_key_matrix 1–4 | écrit la keymap, couches 0–3, voir [écriture](#écriture) | vérifié (`0x1B`, `0x1D`) / code (`0x1F`, `0x21`) |
-| `0x22`…`0x2A` (pairs) | get_custom_led_matrix 1–5 | couleurs par touche (mode 253), voir [couleurs par touche](#couleurs-par-touche) ; le configurateur n'utilise que `0x22` | vérifié (`0x22`) |
-| `0x23`…`0x2B` (impairs) | write_custom_led_matrix 1–5 | écrit les couleurs par touche ; le configurateur n'utilise que `0x23` | vérifié (`0x23`) |
-| `0x2C` / `0x2D` | get_macro / write_macro | macros, voir [macros](#macros) | vérifié |
-| `0x2E` / `0x2F` | open/close_sync_led = start/end_sync_music | synchro de l'éclairage avec la musique (mode 254), envoyée par l'application de bureau ATK ; fonctionnement supposé proche de `0x3C` / `0x3D` | non déterminé |
-| `0x30` | power_info | paquet sans longueur ; `[0]` = niveau de batterie en %, `[1]` = état de charge : `0` sans câble, `1` câble branché (relevé en USB : `5b 01` = 91 % ; par le dongle : `52 00` sans câble, puis `52 01` avec le câble de charge). L'état reste à `1` une fois la batterie pleine, câble toujours branché (`64 01` relevé deux fois, à environ une heure d'écart) : `1` signifie « câble branché », pas « en charge ». Le configurateur ne compte « en charge » que la valeur `2` (et borne le niveau à 100) : il n'affiche donc jamais la charge sur ce clavier. `2` n'a jamais été observé ; l'hypothèse « 2 = batterie pleine » est infirmée | vérifié |
-| `0x31` | **reset_device** | **remet le clavier en config d'usine**. Ne pas envoyer sans accord explicite | code |
-| `0x32` | get_led_matrix | correspondance touche → LED (384 octets) | vérifié |
-| `0x3B` | set_dotscreen_matrix | image de l'écran à points (mode 6), voir [image](#écran-à-points--image) | vérifié |
-| `0x3C` / `0x3D` | start/end_sync_dot | visualiseur musical en direct (RGB565) / arrêt, qui remet le mode de l'écran à 0 | vérifié |
+| Cmd                            | Nom                                        | Usage                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Statut                                           |
+| ------------------------------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `0x10`                         | start                                      | ouvre la session ; le configurateur le renvoie si plus de 5 s se sont écoulées                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | vérifié                                          |
+| `0x11`                         | end                                        | ferme la session (le configurateur ne l'appelle presque jamais). Accepté ; ensuite, la lecture du bloc de config renvoie des zéros jusqu'au prochain `0x10`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | vérifié                                          |
+| `0x12`                         | get_keyboard_info                          | capacités de l'appareil, voir [infos](#get_keyboard_info-0x12)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | vérifié                                          |
+| `0x14`                         | get_keyboard_function                      | lit le bloc de config                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | vérifié                                          |
+| `0x15`                         | write_keyboard_function                    | écrit le bloc de config                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | vérifié                                          |
+| `0x16`–`0x19`                  | get_default_key_matrix 1–4                 | keymap d'usine, couches 0–3, voir [keymap](#keymap)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | vérifié (lecture)                                |
+| `0x1A`, `0x1C`, `0x1E`, `0x20` | get_current_key_matrix 1–4                 | keymap actuelle, couches 0–3                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | vérifié (lecture)                                |
+| `0x1B`, `0x1D`, `0x1F`, `0x21` | set_current_key_matrix 1–4                 | écrit la keymap, couches 0–3, voir [écriture](#écriture)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | vérifié (`0x1B`, `0x1D`) / code (`0x1F`, `0x21`) |
+| `0x22`…`0x2A` (pairs)          | get_custom_led_matrix 1–5                  | couleurs par touche (mode 253), voir [couleurs par touche](#couleurs-par-touche) ; le configurateur n'utilise que `0x22`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | vérifié (`0x22`)                                 |
+| `0x23`…`0x2B` (impairs)        | write_custom_led_matrix 1–5                | écrit les couleurs par touche ; le configurateur n'utilise que `0x23`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | vérifié (`0x23`)                                 |
+| `0x2C` / `0x2D`                | get_macro / write_macro                    | macros, voir [macros](#macros)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | vérifié                                          |
+| `0x2E` / `0x2F`                | open/close_sync_led = start/end_sync_music | synchro de l'éclairage avec la musique (mode 254), envoyée par l'application de bureau ATK ; fonctionnement supposé proche de `0x3C` / `0x3D`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | non déterminé                                    |
+| `0x30`                         | power_info                                 | paquet sans longueur ; `[0]` = niveau de batterie en %, `[1]` = état de charge : `0` sans câble, `1` câble branché (relevé en USB : `5b 01` = 91 % ; par le dongle : `52 00` sans câble, puis `52 01` avec le câble de charge). L'état reste à `1` une fois la batterie pleine, câble toujours branché (`64 01` relevé deux fois, à environ une heure d'écart) : `1` signifie « câble branché », pas « en charge ». Le configurateur ne compte « en charge » que la valeur `2` (et borne le niveau à 100) : il n'affiche donc jamais la charge sur ce clavier. `2` n'a jamais été observé ; l'hypothèse « 2 = batterie pleine » est infirmée | vérifié                                          |
+| `0x31`                         | **reset_device**                           | **remet le clavier en config d'usine**. Ne pas envoyer sans accord explicite                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | code                                             |
+| `0x32`                         | get_led_matrix                             | correspondance touche → LED (384 octets)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | vérifié                                          |
+| `0x3B`                         | set_dotscreen_matrix                       | image de l'écran à points (mode 6), voir [image](#écran-à-points--image)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | vérifié                                          |
+| `0x3C` / `0x3D`                | start/end_sync_dot                         | visualiseur musical en direct (RGB565) / arrêt, qui remet le mode de l'écran à 0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | vérifié                                          |
 
 Bootloader (table `Ec`) : `0xA0` START, `0xA1` FLASH_WRITE, `0xA2` FLASH_READ, `0xA3` REBOOT, `0xA4` SWITCH_APP, `0xB0` ACK, `0xC0` SWITCH_BOOT. Les codes d'erreur sont dans `Y_` (`0xE0`–`0xF6`). **Ces commandes flashent le firmware et peuvent rendre le clavier inutilisable : on ne les envoie jamais sans accord explicite de l'utilisateur.**
 
@@ -156,28 +156,28 @@ Bootloader (table `Ec`) : `0xA0` START, `0xA1` FLASH_WRITE, `0xA2` FLASH_READ, `
 
 Lecture : `len = 56`, `offset = 0`. Index dans la zone de données (octet 8 et suivants). Valeurs relevées le 2026-10-17.
 
-| Index | Champ | Valeur relevée |
-|---|---|---|
-| 0–1 | validL/validH | `aa bb` |
-| 2–3 | vid (LE) | `0x373B` |
-| 4–5 | pid (LE) | `0x119B` |
-| 6–7 | version (LE, en hex) | `01.26` |
-| 8 | protocolVersion | 3 |
-| 9 | profile | 1 |
-| 10 | keyboardId | 0 |
-| 11 | keyboardType | 2 |
-| 12 | matrixSize | 128 |
-| 13 | macroSize | 4 |
-| 14 | hasKeyLight | 1 |
-| 15 | keyLightModeCount | 21 |
-| 16 | keyLightMaxBrightness | 90 |
-| 17 | keyLightMaxSpeed | 4 |
-| 18 | customLightCount | 1 |
-| 19–24 | logo : has, modeCount, count, maxBrightness, maxSpeed, supportMusic | 0, 4, 33, 90, 4, 0 |
+| Index | Champ                                                                         | Valeur relevée     |
+| ----- | ----------------------------------------------------------------------------- | ------------------ |
+| 0–1   | validL/validH                                                                 | `aa bb`            |
+| 2–3   | vid (LE)                                                                      | `0x373B`           |
+| 4–5   | pid (LE)                                                                      | `0x119B`           |
+| 6–7   | version (LE, en hex)                                                          | `01.26`            |
+| 8     | protocolVersion                                                               | 3                  |
+| 9     | profile                                                                       | 1                  |
+| 10    | keyboardId                                                                    | 0                  |
+| 11    | keyboardType                                                                  | 2                  |
+| 12    | matrixSize                                                                    | 128                |
+| 13    | macroSize                                                                     | 4                  |
+| 14    | hasKeyLight                                                                   | 1                  |
+| 15    | keyLightModeCount                                                             | 21                 |
+| 16    | keyLightMaxBrightness                                                         | 90                 |
+| 17    | keyLightMaxSpeed                                                              | 4                  |
+| 18    | customLightCount                                                              | 1                  |
+| 19–24 | logo : has, modeCount, count, maxBrightness, maxSpeed, supportMusic           | 0, 4, 33, 90, 4, 0 |
 | 25–30 | bande latérale : has, modeCount, count, maxBrightness, maxSpeed, supportMusic | 0, 4, 12, 90, 4, 0 |
-| 31–36 | écran à points : has, modeCount, rows, cols, maxBrightness, maxSpeed | 1, 12, 6, 6, 90, 4 |
-| 37 | hasEncoder | 1 |
-| 38 | hasLcd | 0 |
+| 31–36 | écran à points : has, modeCount, rows, cols, maxBrightness, maxSpeed          | 1, 12, 6, 6, 90, 4 |
+| 37    | hasEncoder                                                                    | 1                  |
+| 38    | hasLcd                                                                        | 0                  |
 
 ## Bloc de config (0x14 / 0x15)
 
@@ -192,59 +192,59 @@ Un bloc de 64 octets, échangé en **deux paquets** (vérifié) :
 
 Table `fieldMap` : position dans le bloc.
 
-| Pos | Champ | Notes | Statut |
-|---|---|---|---|
-| 0 | profile | profil embarqué | code |
-| 1 | ledOnOff | 0 = rétroéclairage actif, 1 = rétroéclairage éteint (l'écran à points reste allumé). Le configurateur écrit toujours 0 et éteint plutôt par le mode 0 | vérifié |
-| 2 | ledMode | voir [modes](#modes-déclairage-ledmode) | vérifié (0, 4) |
-| 3 | ledBrightness | 0–90 (max d'après `get_keyboard_info`) ; 10 nettement plus sombre que 90 | vérifié |
-| 4 | ledSpeed | **inversé** : le configurateur écrit `abs(vitesse - 6)`. En respiration (mode 3) : brut 0 ≈ 1 s par cycle, brut 6 ≈ 8 s | vérifié |
-| 5 | colorful | 1 = multicolore (en mode 4 : arc-en-ciel figé), 0 = couleur unique | vérifié |
-| 6 | colorIndex | | code |
-| 7–9 | colorR, colorG, colorB | couleur du rétroéclairage | vérifié |
-| 10 | customColorIndex | « direction » de l'effet dans le configurateur (choix « de gauche à droite » / « de droite à gauche ») ; 0 et 1 ne changent rien sur les effets 1, 7 et 8 | vérifié (sans effet visible) |
-| 11–19 | logo : onOff, mode, brightness, speed, colorful, colorIndex, R, G, B | ce clavier n'a pas de logo (`hasLogoLight = 0`) | code |
-| 20–28 | bande latérale : mêmes champs | `hasSideLight = 0` | code |
-| 29–37 | écran à points (« LedTFT ») : mêmes champs | voir [écran à points](#écran-à-points-modes-intégrés) | vérifié (mode, luminosité, vitesse) / code (le reste) |
-| 38 | sixN | 1 = pas de limite de touches simultanées (NKRO), 0 = 6 touches max (6KRO) | vérifié |
-| 39 | macWin | 1 = mode Mac : Alt et Win échangés, F1–F12 donnent les fonctions Mac (luminosité, son…) sans Fn ; 0 = Windows. L'interrupteur physique Win/Mac écrit ce même octet (0 ↔ 1, seul octet modifié) | vérifié |
-| 40 | winLock | verrouillage de la touche Windows : 1 = verrouillée (Win + Espace n'ouvre plus Spotlight sous macOS) | vérifié |
-| 41 | wasd | 1 = WASD et flèches échangés, dans les deux sens | vérifié |
-| 42 | scanDelay | 0 = mode faible latence, 2 = normal (le configurateur n'écrit que ces deux valeurs) | code |
-| 43 | layer | **couche de base** : celle qui redevient active au relâchement de Fn. Le firmware ne l'applique ni à l'écriture ni au démarrage, mais au **prochain relâchement de Fn** ; elle reste ensuite active (Fn + touche utilise toujours la couche Fn). Ex. : `layer` = 1 puis Fn relâché → tout le clavier passe sur la couche 1. Pour revenir : `layer` = 0 puis appui-relâchement de Fn | vérifié |
-| 44 | fkeyChange | aucun effet observé à 1, en mode Windows comme en mode Mac (F1, F12 avec et sans Fn) ; rôle inconnu | vérifié (sans effet visible) |
-| 45 | wheelMode | 0 = la rotation de la molette règle le volume ; 1 ou 2 = la rotation ne fait plus rien de visible (ni volume, ni défilement, ni éclairage, ni écran à points), l'appui reste lecture/pause. Mettre volume ± dans les emplacements 46–47 n'y change rien | vérifié (effet partiel) |
-| 46–48 | sleepL/M/H | délai de mise en veille sur 24 bits, LE, en secondes (choix du configurateur : 60, 180, 300, 600, 1800, « jamais » = 65535 ; valeur relevée : 180). En USB, aucune mise en veille observée avec 60. En 2,4 GHz avec 60, le clavier s'éteint au bout de 60 s sans activité (chronométré). Une touche le réveille presque instantanément. Pendant la veille, le dongle ne répond plus aux commandes (`0x10` sans réponse en 3 s), et une commande ne réveille pas le clavier | vérifié (sans-fil) |
-| 49–51 | dsSleepL/M/H | veille de l'écran à points d'après le nom (24 bits, LE, comme `sleepL/M/H`, supposé). Le configurateur ne les lit ni ne les écrit jamais : ils n'apparaissent que dans `fieldMap` et les valeurs par défaut. Aucun libellé de veille de l'écran à points dans ses traductions (seulement luminosité, couleur, effet, éditeur). Valeur relevée : 0. En 2,4 GHz, avec `dsSleepL` = 20 puis 1 (`sleepL` = 180), l'écran à points reste allumé après 60 s puis 2 min sans activité : aucun effet observé, que l'unité soit la seconde ou la minute | vérifié (sans effet visible) |
-| 52–57 | lcdPower, lcdMode, lcdGif, lcdGifCount, lcdLanguage, lcdUsb | ce clavier n'a pas d'écran LCD | code |
+| Pos   | Champ                                                                | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Statut                                                |
+| ----- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 0     | profile                                                              | profil embarqué                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | code                                                  |
+| 1     | ledOnOff                                                             | 0 = rétroéclairage actif, 1 = rétroéclairage éteint (l'écran à points reste allumé). Le configurateur écrit toujours 0 et éteint plutôt par le mode 0                                                                                                                                                                                                                                                                                                                                                                                          | vérifié                                               |
+| 2     | ledMode                                                              | voir [modes](#modes-déclairage-ledmode)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | vérifié (0, 4)                                        |
+| 3     | ledBrightness                                                        | 0–90 (max d'après `get_keyboard_info`) ; 10 nettement plus sombre que 90                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | vérifié                                               |
+| 4     | ledSpeed                                                             | **inversé** : le configurateur écrit `abs(vitesse - 6)`. En respiration (mode 3) : brut 0 ≈ 1 s par cycle, brut 6 ≈ 8 s                                                                                                                                                                                                                                                                                                                                                                                                                        | vérifié                                               |
+| 5     | colorful                                                             | 1 = multicolore (en mode 4 : arc-en-ciel figé), 0 = couleur unique                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | vérifié                                               |
+| 6     | colorIndex                                                           |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | code                                                  |
+| 7–9   | colorR, colorG, colorB                                               | couleur du rétroéclairage                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | vérifié                                               |
+| 10    | customColorIndex                                                     | « direction » de l'effet dans le configurateur (choix « de gauche à droite » / « de droite à gauche ») ; 0 et 1 ne changent rien sur les effets 1, 7 et 8                                                                                                                                                                                                                                                                                                                                                                                      | vérifié (sans effet visible)                          |
+| 11–19 | logo : onOff, mode, brightness, speed, colorful, colorIndex, R, G, B | ce clavier n'a pas de logo (`hasLogoLight = 0`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | code                                                  |
+| 20–28 | bande latérale : mêmes champs                                        | `hasSideLight = 0`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | code                                                  |
+| 29–37 | écran à points (« LedTFT ») : mêmes champs                           | voir [écran à points](#écran-à-points-modes-intégrés)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | vérifié (mode, luminosité, vitesse) / code (le reste) |
+| 38    | sixN                                                                 | 1 = pas de limite de touches simultanées (NKRO), 0 = 6 touches max (6KRO)                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | vérifié                                               |
+| 39    | macWin                                                               | 1 = mode Mac : Alt et Win échangés, F1–F12 donnent les fonctions Mac (luminosité, son…) sans Fn ; 0 = Windows. L'interrupteur physique Win/Mac écrit ce même octet (0 ↔ 1, seul octet modifié)                                                                                                                                                                                                                                                                                                                                                 | vérifié                                               |
+| 40    | winLock                                                              | verrouillage de la touche Windows : 1 = verrouillée (Win + Espace n'ouvre plus Spotlight sous macOS)                                                                                                                                                                                                                                                                                                                                                                                                                                           | vérifié                                               |
+| 41    | wasd                                                                 | 1 = WASD et flèches échangés, dans les deux sens                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | vérifié                                               |
+| 42    | scanDelay                                                            | 0 = mode faible latence, 2 = normal (le configurateur n'écrit que ces deux valeurs)                                                                                                                                                                                                                                                                                                                                                                                                                                                            | code                                                  |
+| 43    | layer                                                                | **couche de base** : celle qui redevient active au relâchement de Fn. Le firmware ne l'applique ni à l'écriture ni au démarrage, mais au **prochain relâchement de Fn** ; elle reste ensuite active (Fn + touche utilise toujours la couche Fn). Ex. : `layer` = 1 puis Fn relâché → tout le clavier passe sur la couche 1. Pour revenir : `layer` = 0 puis appui-relâchement de Fn                                                                                                                                                            | vérifié                                               |
+| 44    | fkeyChange                                                           | aucun effet observé à 1, en mode Windows comme en mode Mac (F1, F12 avec et sans Fn) ; rôle inconnu                                                                                                                                                                                                                                                                                                                                                                                                                                            | vérifié (sans effet visible)                          |
+| 45    | wheelMode                                                            | 0 = la rotation de la molette règle le volume ; 1 ou 2 = la rotation ne fait plus rien de visible (ni volume, ni défilement, ni éclairage, ni écran à points), l'appui reste lecture/pause. Mettre volume ± dans les emplacements 46–47 n'y change rien                                                                                                                                                                                                                                                                                        | vérifié (effet partiel)                               |
+| 46–48 | sleepL/M/H                                                           | délai de mise en veille sur 24 bits, LE, en secondes (choix du configurateur : 60, 180, 300, 600, 1800, « jamais » = 65535 ; valeur relevée : 180). En USB, aucune mise en veille observée avec 60. En 2,4 GHz avec 60, le clavier s'éteint au bout de 60 s sans activité (chronométré). Une touche le réveille presque instantanément. Pendant la veille, le dongle ne répond plus aux commandes (`0x10` sans réponse en 3 s), et une commande ne réveille pas le clavier                                                                     | vérifié (sans-fil)                                    |
+| 49–51 | dsSleepL/M/H                                                         | veille de l'écran à points d'après le nom (24 bits, LE, comme `sleepL/M/H`, supposé). Le configurateur ne les lit ni ne les écrit jamais : ils n'apparaissent que dans `fieldMap` et les valeurs par défaut. Aucun libellé de veille de l'écran à points dans ses traductions (seulement luminosité, couleur, effet, éditeur). Valeur relevée : 0. En 2,4 GHz, avec `dsSleepL` = 20 puis 1 (`sleepL` = 180), l'écran à points reste allumé après 60 s puis 2 min sans activité : aucun effet observé, que l'unité soit la seconde ou la minute | vérifié (sans effet visible)                          |
+| 52–57 | lcdPower, lcdMode, lcdGif, lcdGifCount, lcdLanguage, lcdUsb          | ce clavier n'a pas d'écran LCD                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | code                                                  |
 
 ## Modes d'éclairage (`ledMode`)
 
 Liste `Ns` dans `keyboard-info.util-*.js`. Noms : libellés anglais du configurateur. Réglages : ce que l'interface propose pour l'effet (L = luminosité, V = vitesse, C = couleur, M = multicolore `colorful`) ; le firmware accepte peut-être plus. Tous les modes 0–20 ont été vérifiés au clavier : on note s'il réagit à la frappe et les réglages qui ont un effet visible (« effectifs », testés avec Fn + W / S pour C et M, Fn + E / D pour V). Le mode 2 ignore Fn + W / S (la config ne change pas).
 
-| Valeur | Nom | Réglages | Statut |
-|---|---|---|---|
-| 0 | tout éteint | | vérifié |
-| 1 | Rainbow Flow 1 : vague qui défile de gauche à droite, en arc-en-ciel avec `colorful = 1`, dans la couleur choisie (aspect de respiration qui se déplace) avec `colorful = 0` | L, V, C (M non proposé, mais nécessaire à l'arc-en-ciel) | vérifié |
-| 2 | Color Breathing ; réagit à la frappe : non | L ; effectifs : V | vérifié |
-| 3 | Monochrome Breath : respiration de la couleur choisie | L, V, C, M | vérifié |
-| 4 | Rainbow (icône « normal ») : **fixe**, une couleur avec `colorful = 0`, arc-en-ciel figé avec `colorful = 1` | L, C, M | vérifié |
-| 5 | Single Light Up ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 6 | Colorful Vortex 1 ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 7 | Rainbow Flow 2 : arc-en-ciel qui tourne autour du centre du clavier, sens antihoraire | L, V, C, M | vérifié |
-| 8 | Rainbow Flow 4 ; réagit à la frappe : non | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 9–11 | Spectral Fluctuation 1–3 ; réagit à la frappe : non | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 12 | Neon ; réagit à la frappe : non | L, V ; effectifs : V (toujours multicolore ; C et M modifient la config sans effet visible) | vérifié |
-| 13 | Cloud Burst ; réagit à la frappe : non | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 14 | Colorful Vortex 2 ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 15 | Colorful Ribbon Fluttering 1 ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 16 | Spectral Diffusion 1 ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 17 | Rainbow Intersection ; réagit à la frappe : non | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 18 | Spectral Diffusion 2 ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 19 | Rainbow Flow 3 ; réagit à la frappe : non | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 20 | Dynamic Rainbow ; réagit à la frappe : oui | L, V, C, M ; effectifs : V, C, M | vérifié |
-| 253 | custom : couleur par touche, voir [couleurs par touche](#couleurs-par-touche) | L, C | vérifié |
-| 254 | Music Rhythm : éclairage synchronisé sur la musique, couleurs de premier plan et de fond. Flux `0x2E` / `0x2F` envoyé par l'application de bureau ATK, pas par le site ; on suppose qu'il fonctionne comme le flux de l'écran à points. **Non déterminé** | C | non déterminé |
+| Valeur | Nom                                                                                                                                                                                                                                                       | Réglages                                                                                    | Statut        |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------- |
+| 0      | tout éteint                                                                                                                                                                                                                                               |                                                                                             | vérifié       |
+| 1      | Rainbow Flow 1 : vague qui défile de gauche à droite, en arc-en-ciel avec `colorful = 1`, dans la couleur choisie (aspect de respiration qui se déplace) avec `colorful = 0`                                                                              | L, V, C (M non proposé, mais nécessaire à l'arc-en-ciel)                                    | vérifié       |
+| 2      | Color Breathing ; réagit à la frappe : non                                                                                                                                                                                                                | L ; effectifs : V                                                                           | vérifié       |
+| 3      | Monochrome Breath : respiration de la couleur choisie                                                                                                                                                                                                     | L, V, C, M                                                                                  | vérifié       |
+| 4      | Rainbow (icône « normal ») : **fixe**, une couleur avec `colorful = 0`, arc-en-ciel figé avec `colorful = 1`                                                                                                                                              | L, C, M                                                                                     | vérifié       |
+| 5      | Single Light Up ; réagit à la frappe : oui                                                                                                                                                                                                                | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 6      | Colorful Vortex 1 ; réagit à la frappe : oui                                                                                                                                                                                                              | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 7      | Rainbow Flow 2 : arc-en-ciel qui tourne autour du centre du clavier, sens antihoraire                                                                                                                                                                     | L, V, C, M                                                                                  | vérifié       |
+| 8      | Rainbow Flow 4 ; réagit à la frappe : non                                                                                                                                                                                                                 | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 9–11   | Spectral Fluctuation 1–3 ; réagit à la frappe : non                                                                                                                                                                                                       | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 12     | Neon ; réagit à la frappe : non                                                                                                                                                                                                                           | L, V ; effectifs : V (toujours multicolore ; C et M modifient la config sans effet visible) | vérifié       |
+| 13     | Cloud Burst ; réagit à la frappe : non                                                                                                                                                                                                                    | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 14     | Colorful Vortex 2 ; réagit à la frappe : oui                                                                                                                                                                                                              | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 15     | Colorful Ribbon Fluttering 1 ; réagit à la frappe : oui                                                                                                                                                                                                   | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 16     | Spectral Diffusion 1 ; réagit à la frappe : oui                                                                                                                                                                                                           | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 17     | Rainbow Intersection ; réagit à la frappe : non                                                                                                                                                                                                           | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 18     | Spectral Diffusion 2 ; réagit à la frappe : oui                                                                                                                                                                                                           | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 19     | Rainbow Flow 3 ; réagit à la frappe : non                                                                                                                                                                                                                 | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 20     | Dynamic Rainbow ; réagit à la frappe : oui                                                                                                                                                                                                                | L, V, C, M ; effectifs : V, C, M                                                            | vérifié       |
+| 253    | custom : couleur par touche, voir [couleurs par touche](#couleurs-par-touche)                                                                                                                                                                             | L, C                                                                                        | vérifié       |
+| 254    | Music Rhythm : éclairage synchronisé sur la musique, couleurs de premier plan et de fond. Flux `0x2E` / `0x2F` envoyé par l'application de bureau ATK, pas par le site ; on suppose qu'il fonctionne comme le flux de l'écran à points. **Non déterminé** | C                                                                                           | non déterminé |
 
 ## Écran à points : modes intégrés
 
@@ -252,22 +252,22 @@ Réglés par le bloc de config, positions 29–37 (`setDotLight` / `getDotLight`
 
 Écrire `LedTFTMode` change bien l'animation (vérifié : 8 → 12, l'écran a quitté les feux d'artifice ; que ce soit précisément « YOGO » n'a pas été confirmé visuellement). Liste `Os` dans `keyboard-info.util-*.js` (code, sauf 8 et 12) :
 
-| Valeur | Nom |
-|---|---|
-| −1, écrit `0xFF` (`setUint8`) | tout éteint (vérifié) |
-| 0 | star |
-| 1 | ghost |
-| 2 | scan |
-| 3 | radiantRadiance |
-| 4 | raindrops |
-| 5 | terminal |
-| 6 | custom : affiche l'image stockée par `0x3B` (vérifié) |
-| 7 | typing |
-| 8 | nightFireworks (pas de réglage de couleur) |
-| 9 | heartbeatMusicNumber |
-| 10 | todayMood |
-| 11 | dataShuttle |
-| 12 | YOGO |
+| Valeur                        | Nom                                                   |
+| ----------------------------- | ----------------------------------------------------- |
+| −1, écrit `0xFF` (`setUint8`) | tout éteint (vérifié)                                 |
+| 0                             | star                                                  |
+| 1                             | ghost                                                 |
+| 2                             | scan                                                  |
+| 3                             | radiantRadiance                                       |
+| 4                             | raindrops                                             |
+| 5                             | terminal                                              |
+| 6                             | custom : affiche l'image stockée par `0x3B` (vérifié) |
+| 7                             | typing                                                |
+| 8                             | nightFireworks (pas de réglage de couleur)            |
+| 9                             | heartbeatMusicNumber                                  |
+| 10                            | todayMood                                             |
+| 11                            | dataShuttle                                           |
+| 12                            | YOGO                                                  |
 
 ## Écran à points : image
 
@@ -293,60 +293,60 @@ Statut : vérifié pour la couche 0 (`0x1B`) et la couche Fn (`0x1D`). Même dé
 
 ### Couches
 
-| Couche | Rôle | Statut |
-|---|---|---|
-| 0 | couche de base par défaut (`layer` = 0 dans le bloc de config) | vérifié |
-| 1 | couche Fn (le configurateur la lit avec `0x1C`) | vérifié |
-| 2, 3 | identiques à la couche 0 d'usine ; le configurateur ne s'en sert pas. Accessibles avec une touche `50 03 00` / `50 04 00` (tant qu'elle est tenue) ou comme couche de base via `layer`. Le mode Mac ne les utilise pas | vérifié |
+| Couche | Rôle                                                                                                                                                                                                                   | Statut  |
+| ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| 0      | couche de base par défaut (`layer` = 0 dans le bloc de config)                                                                                                                                                         | vérifié |
+| 1      | couche Fn (le configurateur la lit avec `0x1C`)                                                                                                                                                                        | vérifié |
+| 2, 3   | identiques à la couche 0 d'usine ; le configurateur ne s'en sert pas. Accessibles avec une touche `50 03 00` / `50 04 00` (tant qu'elle est tenue) ou comme couche de base via `layer`. Le mode Mac ne les utilise pas | vérifié |
 
 ### Position d'une touche
 
 `index = rangée × 16 + colonne` (vérifié : les remappages faits par l'utilisateur tombent aux index attendus). La disposition physique est **QWERTY ANSI** (vérifié, confirmé par l'utilisateur) : les emplacements ISO 60 (`#`) et 65 (`<`) ont un code dans la keymap mais aucune touche ni LED ; 84 LED, soit un 75 % ANSI. Disposition d'usine de la couche 0 (vérifié en lisant les codes ; les noms sont ceux d'un clavier QWERTY, voir le glossaire) :
 
-| Rangée | Index | Touches |
-|---|---|---|
-| 0 | 0–15 | Esc, F1…F12, Impr. écran, Inser, Suppr |
-| 1 | 16–31 | `²`, 1…0, `-`, `=`, Retour arrière, Début, Fin |
-| 2 | 32–47 | Tab, Q…P, `[`, `]`, `\`, puis 46–47 : les deux boutons à droite du clavier, sous la molette : « afficher le bureau » et « verrouiller la session » (guide papier : boutons 3 et 4, personnalisables), en usine `30 cb 01` et `30 cf 00` ; sur ce clavier `10 00 56` (bouton du haut) et `10 00 46` (bouton du bas), confirmé par l'utilisateur. Ce n'est pas la rotation de la molette (vérifié) |
-| 3 | 48–63 | Verr. maj, A…L, `;`, `'`, (60 : `#` ISO, absente), Entrée, Page préc., Page suiv. |
-| 4 | 64–79 | Maj gauche, (65 : `<` ISO, absente), Z…M, `,`, `.`, `/`, (vide), Maj droite, Flèche haut, (vide) |
-| 5 | 80–95 | Ctrl gauche, Win, Alt, (vide ×2), Espace, (vide ×3), Alt droit, Fn, (vide), Ctrl droit, ←, ↓, → |
+| Rangée | Index | Touches                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0      | 0–15  | Esc, F1…F12, Impr. écran, Inser, Suppr                                                                                                                                                                                                                                                                                                                                                           |
+| 1      | 16–31 | `²`, 1…0, `-`, `=`, Retour arrière, Début, Fin                                                                                                                                                                                                                                                                                                                                                   |
+| 2      | 32–47 | Tab, Q…P, `[`, `]`, `\`, puis 46–47 : les deux boutons à droite du clavier, sous la molette : « afficher le bureau » et « verrouiller la session » (guide papier : boutons 3 et 4, personnalisables), en usine `30 cb 01` et `30 cf 00` ; sur ce clavier `10 00 56` (bouton du haut) et `10 00 46` (bouton du bas), confirmé par l'utilisateur. Ce n'est pas la rotation de la molette (vérifié) |
+| 3      | 48–63 | Verr. maj, A…L, `;`, `'`, (60 : `#` ISO, absente), Entrée, Page préc., Page suiv.                                                                                                                                                                                                                                                                                                                |
+| 4      | 64–79 | Maj gauche, (65 : `<` ISO, absente), Z…M, `,`, `.`, `/`, (vide), Maj droite, Flèche haut, (vide)                                                                                                                                                                                                                                                                                                 |
+| 5      | 80–95 | Ctrl gauche, Win, Alt, (vide ×2), Espace, (vide ×3), Alt droit, Fn, (vide), Ctrl droit, ←, ↓, →                                                                                                                                                                                                                                                                                                  |
 
 ### Codage d'une touche (3 octets)
 
-| Type (octet 0) | Octets 1–2 | Exemple | Statut |
-|---|---|---|---|
-| `0x10` : touche clavier | octet 1 = modificateurs, octet 2 = code HID | `10 00 04` = A ; `10 01 00` = Ctrl gauche ; `10 08 2b` = Win+Tab | vérifié |
-| `0x30` : touche multimédia (HID *consumer*) | code consumer sur 16 bits, LE | `30 cd 00` = lecture/pause ; `30 e9 00` = volume + | vérifié (codes standards reconnus) |
-| `0x50` : fonction du clavier | octet 1 = numéro de fonction | `50 02 00` = touche Fn | code |
-| `0x40` : système et souris | `40 01 00` arrêt, `40 02 00` veille, `40 04 00` réveil ; `40 00 xx` = clic souris : `01` gauche, `02` droit, `04` milieu, `08` précédent, `10` suivant | `40 00 01` / `40 00 02` = clic gauche / droit | vérifié (clics gauche et droit) / code (le reste) |
-| `00 00 00` | aucune action | | code |
+| Type (octet 0)                              | Octets 1–2                                                                                                                                             | Exemple                                                          | Statut                                            |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------- |
+| `0x10` : touche clavier                     | octet 1 = modificateurs, octet 2 = code HID                                                                                                            | `10 00 04` = A ; `10 01 00` = Ctrl gauche ; `10 08 2b` = Win+Tab | vérifié                                           |
+| `0x30` : touche multimédia (HID _consumer_) | code consumer sur 16 bits, LE                                                                                                                          | `30 cd 00` = lecture/pause ; `30 e9 00` = volume +               | vérifié (codes standards reconnus)                |
+| `0x50` : fonction du clavier                | octet 1 = numéro de fonction                                                                                                                           | `50 02 00` = touche Fn                                           | code                                              |
+| `0x40` : système et souris                  | `40 01 00` arrêt, `40 02 00` veille, `40 04 00` réveil ; `40 00 xx` = clic souris : `01` gauche, `02` droit, `04` milieu, `08` précédent, `10` suivant | `40 00 01` / `40 00 02` = clic gauche / droit                    | vérifié (clics gauche et droit) / code (le reste) |
+| `00 00 00`                                  | aucune action                                                                                                                                          |                                                                  | code                                              |
 
 Modificateurs (octet 1 du type `0x10`) : `01` Ctrl G, `02` Maj G, `04` Alt G, `08` Win G, `10` Ctrl D, `20` Maj D, `40` Alt D, `80` Win D.
 
 Fonctions `0x50` connues (libellés de `keyboard-info.util-*.js` et `keymap-*.js`) :
 
-| Code | Fonction | Code | Fonction |
-|---|---|---|---|
-| `02` | Fn (couche 1, tant que la touche est tenue) ; plusieurs touches peuvent porter ce code (vérifié : Verr. maj → `50 02 00` agit comme Fn, la touche Fn d'origine aussi) | `2b` | écran à points : effet suivant |
-| `03` | couche 2 tant que la touche est tenue (vérifié ; absent du configurateur) | `04` | couche 3 tant que la touche est tenue (vérifié ; absent du configurateur) |
-| `09` | éclairage marche/arrêt | `2d` | écran à points : couleur suivante |
-| `0a` / `0b` | mode d'éclairage + / − (vérifié pour `0b` : 0 → 20, il boucle) | `2f` / `30` | écran à points : luminosité + / − |
-| `0c` / `0d` | couleur suivante / précédente dans la palette (vérifié) | `39` | afficher le niveau de batterie |
-| `0e` / `0f` | luminosité + / − (vérifié : 15 par appui, 90 ↔ 75) | `47` / `48` | rotation gauche / droite (molette) |
-| `10` / `11` | vitesse de l'effet + / − (vérifié : `ledSpeed` brut −1 / +1 par appui, 0 = le plus rapide) | | |
-| `19`, `1b`, `1d`, `1e` | bande latérale : effet, couleur, luminosité + / − | | |
+| Code                   | Fonction                                                                                                                                                              | Code        | Fonction                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------- |
+| `02`                   | Fn (couche 1, tant que la touche est tenue) ; plusieurs touches peuvent porter ce code (vérifié : Verr. maj → `50 02 00` agit comme Fn, la touche Fn d'origine aussi) | `2b`        | écran à points : effet suivant                                            |
+| `03`                   | couche 2 tant que la touche est tenue (vérifié ; absent du configurateur)                                                                                             | `04`        | couche 3 tant que la touche est tenue (vérifié ; absent du configurateur) |
+| `09`                   | éclairage marche/arrêt                                                                                                                                                | `2d`        | écran à points : couleur suivante                                         |
+| `0a` / `0b`            | mode d'éclairage + / − (vérifié pour `0b` : 0 → 20, il boucle)                                                                                                        | `2f` / `30` | écran à points : luminosité + / −                                         |
+| `0c` / `0d`            | couleur suivante / précédente dans la palette (vérifié)                                                                                                               | `39`        | afficher le niveau de batterie                                            |
+| `0e` / `0f`            | luminosité + / − (vérifié : 15 par appui, 90 ↔ 75)                                                                                                                    | `47` / `48` | rotation gauche / droite (molette)                                        |
+| `10` / `11`            | vitesse de l'effet + / − (vérifié : `ledSpeed` brut −1 / +1 par appui, 0 = le plus rapide)                                                                            |             |                                                                           |
+| `19`, `1b`, `1d`, `1e` | bande latérale : effet, couleur, luminosité + / −                                                                                                                     |             |                                                                           |
 
 Touches spéciales du configurateur (onglet « Touche supplémentaire », tableaux `Xi`, `Io`, `Et`, `Go`/`Vo`, `ji`, `Hi` de `keyboard-info.util-*.js` ; code, icônes confirmées par capture d'écran) :
 
-| Catégorie | Codes |
-|---|---|
-| Média | volume − `30 ea 00`, + `30 e9 00`, muet `30 e2 00`, lecture/pause `30 cd 00`, stop `30 b7 00` (masqué), précédent `30 b6 00`, suivant `30 b5 00` |
-| Windows | mail `30 8a 01`, calculatrice `30 92 01`, lecteur média `30 83 01`, poste de travail `30 94 01`, recherche `30 21 02`, navigateur : accueil `30 23 02`, précédent `30 24 02`, suivant `30 25 02`, actualiser `30 27 02`, favoris `30 2a 02`, stop `30 26 02` (masqué) ; zoom + / − = Ctrl+`=` / Ctrl+`-` ; luminosité écran − / + `30 70 00` / `30 6f 00` |
-| macOS | Mission Control = Ctrl+Espace, Launchpad = Ctrl+↓, Siri = Ctrl+Verr. num., Spotlight = Win+Espace |
-| Bureautique | raccourcis Ctrl : Z annuler, S enregistrer, A tout sélectionner, C copier, X couper, V coller, O ouvrir, N nouveau, F rechercher ; Ctrl+Maj+C capture et traduction |
-| Extension | bureau = Win+D (`10 08 07`, alias `30 cb 01`) ; bureau Mac = F4 (`10 00 3d`) ; verrouillage = Win+L (`10 08 0f`, alias `30 cf 00`) |
-| Souris | voir le type `0x40` |
+| Catégorie   | Codes                                                                                                                                                                                                                                                                                                                                                     |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Média       | volume − `30 ea 00`, + `30 e9 00`, muet `30 e2 00`, lecture/pause `30 cd 00`, stop `30 b7 00` (masqué), précédent `30 b6 00`, suivant `30 b5 00`                                                                                                                                                                                                          |
+| Windows     | mail `30 8a 01`, calculatrice `30 92 01`, lecteur média `30 83 01`, poste de travail `30 94 01`, recherche `30 21 02`, navigateur : accueil `30 23 02`, précédent `30 24 02`, suivant `30 25 02`, actualiser `30 27 02`, favoris `30 2a 02`, stop `30 26 02` (masqué) ; zoom + / − = Ctrl+`=` / Ctrl+`-` ; luminosité écran − / + `30 70 00` / `30 6f 00` |
+| macOS       | Mission Control = Ctrl+Espace, Launchpad = Ctrl+↓, Siri = Ctrl+Verr. num., Spotlight = Win+Espace                                                                                                                                                                                                                                                         |
+| Bureautique | raccourcis Ctrl : Z annuler, S enregistrer, A tout sélectionner, C copier, X couper, V coller, O ouvrir, N nouveau, F rechercher ; Ctrl+Maj+C capture et traduction                                                                                                                                                                                       |
+| Extension   | bureau = Win+D (`10 08 07`, alias `30 cb 01`) ; bureau Mac = F4 (`10 00 3d`) ; verrouillage = Win+L (`10 08 0f`, alias `30 cf 00`)                                                                                                                                                                                                                        |
+| Souris      | voir le type `0x40`                                                                                                                                                                                                                                                                                                                                       |
 
 Le configurateur dessine donc F4 de la couche 0 avec l'icône « bureau » : c'est bien F4 qui est envoyé (vérifié en lecture). Il affiche « NO » pour toute fonction `0x50` qu'il ne connaît pas (Fn + Esc, 1…4, `-`, `=`, Retour arrière, H, Win), et ne montre que la touche, sans le modificateur (Win+Tab s'affiche « TAB », Win+H « H »).
 
@@ -383,22 +383,22 @@ Lecture `0x2C`, écriture `0x2D` (`getMacro`, `setMacro`, classes `tW` / `vI`). 
 
 Le configurateur écrit toute la liste d'un coup, par paquets de 56 octets (offset 0, 56…), l'octet de longueur valant toujours 56.
 
-| Octets | Contenu |
-|---|---|
-| 0–1 | `aa 55` |
-| 2–3 | longueur totale du bloc, LE |
-| 4–5 | nombre de macros, LE |
-| 6–7 | 0 |
-| 8… | table : pour chaque macro, son offset depuis le début du bloc (LE 16 bits) |
-| puis | chaque macro : nombre d'actions (LE 16 bits), `00 00`, puis 4 octets par action |
+| Octets | Contenu                                                                         |
+| ------ | ------------------------------------------------------------------------------- |
+| 0–1    | `aa 55`                                                                         |
+| 2–3    | longueur totale du bloc, LE                                                     |
+| 4–5    | nombre de macros, LE                                                            |
+| 6–7    | 0                                                                               |
+| 8…     | table : pour chaque macro, son offset depuis le début du bloc (LE 16 bits)      |
+| puis   | chaque macro : nombre d'actions (LE 16 bits), `00 00`, puis 4 octets par action |
 
 Une action : `délai (LE 16 bits)`, `code`, `type | appui << 7`. **Bit 7 = 1 pour un appui, 0 pour un relâchement** (vérifié à nos dépens : le configurateur calcule `keyStatus ? 0 : 1` avec `KeyDown = 0`, `KeyUp = 1`). Avec le bit inversé, la macro « hi » tapait `h` puis laissait `i` enfoncé, et la touche I physique ne répondait plus.
 
-| Type | Action | Code |
-|---|---|---|
-| 1 | touche clavier | code HID |
-| 2 | modificateur | masque, comme dans la keymap (`01` Ctrl G… `80` Win D) ; vérifié avec Maj G (`02`) |
-| 3, 5, 7 | autres types de l'interface (4, 5, 6 ; probablement souris) | inconnu |
+| Type    | Action                                                      | Code                                                                               |
+| ------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 1       | touche clavier                                              | code HID                                                                           |
+| 2       | modificateur                                                | masque, comme dans la keymap (`01` Ctrl G… `80` Win D) ; vérifié avec Maj G (`02`) |
+| 3, 5, 7 | autres types de l'interface (4, 5, 6 ; probablement souris) | inconnu                                                                            |
 
 Le délai est en **millisecondes** et s'applique après chaque action (vérifié : à 500, chaque touche reste enfoncée assez longtemps pour déclencher la répétition automatique de macOS, « hi » donne `hhhiii`). La relecture par `0x2C` renvoie exactement le bloc écrit (vérifié).
 
@@ -409,13 +409,13 @@ Dans la keymap, avec le contrôleur de ce clavier (`Ui`) :
 - `60 <n° de macro> <mode>` pour les modes 0 à 3 ;
 - `61 <n° de macro> <nombre d'exécutions>` pour le mode 4.
 
-| Mode | Comportement (libellés du configurateur) |
-|---|---|
-| 0 | une seule exécution |
-| 1 | boucle jusqu'au relâchement, en finissant le tour |
-| 2 | tenir pour répéter, appuyer de nouveau pour finir le tour et arrêter |
-| 3 | tenir pour répéter, relâcher pour arrêter |
-| 4 | exécuter N fois (N de 1 à 249 dans l'interface) |
+| Mode | Comportement (libellés du configurateur)                             |
+| ---- | -------------------------------------------------------------------- |
+| 0    | une seule exécution                                                  |
+| 1    | boucle jusqu'au relâchement, en finissant le tour                    |
+| 2    | tenir pour répéter, appuyer de nouveau pour finir le tour et arrêter |
+| 3    | tenir pour répéter, relâcher pour arrêter                            |
+| 4    | exécuter N fois (N de 1 à 249 dans l'interface)                      |
 
 ## Couleurs par touche
 
@@ -431,17 +431,16 @@ Relevé du 2026-10-17 (vérifié) : les LED de W, A, S, D et des quatre flèches
 
 Tout ce que le protocole permet de relire tient en quatre ressources (vérifié en USB et à travers le dongle) :
 
-| Ressource | Lecture / écriture | Taille |
-|---|---|---|
-| bloc de config | `0x14` / `0x15` | 64 octets |
-| keymap, couches 0–3 | `0x1A`, `0x1C`, `0x1E`, `0x20` / `0x1B`, `0x1D`, `0x1F`, `0x21` | 336 octets par couche |
-| couleurs par touche | `0x22` / `0x23` | 336 octets |
-| zone des macros | `0x2C` / `0x2D` | 224 octets suffisent pour 4 macros courtes |
+| Ressource           | Lecture / écriture                                              | Taille                                     |
+| ------------------- | --------------------------------------------------------------- | ------------------------------------------ |
+| bloc de config      | `0x14` / `0x15`                                                 | 64 octets                                  |
+| keymap, couches 0–3 | `0x1A`, `0x1C`, `0x1E`, `0x20` / `0x1B`, `0x1D`, `0x1F`, `0x21` | 336 octets par couche                      |
+| couleurs par touche | `0x22` / `0x23`                                                 | 336 octets                                 |
+| zone des macros     | `0x2C` / `0x2D`                                                 | 224 octets suffisent pour 4 macros courtes |
 
 Réécrire ces quatre ressources telles quelles, puis les relire dans une nouvelle session, redonne exactement l'état sauvegardé : changer `sleepL`, puis tout réécrire, ramène la valeur d'origine. L'image fixe de l'écran à points (`0x3B`) n'a pas de commande de lecture : elle ne peut pas être sauvegardée.
 
 ## Questions ouvertes
-
 
 - Que vaut l'octet 7 de la réponse (`0x55`) ?
 - Rôle des emplacements 46–47 (`30 cb 01`, `30 cf 00`) et des fonctions `0x50` inconnues.
