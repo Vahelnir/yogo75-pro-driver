@@ -37,27 +37,81 @@ const CMD_END_SYNC_DOT = 0x3d;
 const MATRIX_BYTES = 336; // keymap and custom colours: 6 × 56 bytes over USB (14 × 24 wireless), 3 bytes per key
 
 // USB cable first, else the dongle. The hub only changes the packet size and the timeout for wireless.
-const DEVICE = [PID_USB, PID_DONGLE].map((pid) => HID.devices(VID, pid).find((d) => d.usagePage === 0xff60)).find((d) => d);
-if (!DEVICE?.path) throw new Error("Yogo 75 PRO not found (USB or 2.4 GHz dongle, interface 0xFF60)");
+const DEVICE = [PID_USB, PID_DONGLE]
+  .map((pid) => HID.devices(VID, pid).find((d) => d.usagePage === 0xff60))
+  .find((d) => d);
+if (!DEVICE?.path)
+  throw new Error(
+    "Yogo 75 PRO not found (USB or 2.4 GHz dongle, interface 0xFF60)",
+  );
 const WIRELESS = DEVICE.productId === PID_DONGLE;
 const REPORT_LEN = WIRELESS ? 32 : 64;
 const DATA_LEN = REPORT_LEN - 8;
 
 // Byte offsets in the get_keyboard_function blob (fieldMap in the hub's controller).
 const FIELDS = [
-  "profile", "ledOnOff", "ledMode", "ledBrightness", "ledSpeed", "colorful", "colorIndex",
-  "colorR", "colorG", "colorB", "customColorIndex", "logoLedOnOff", "logoLedMode",
-  "logoLedBrightness", "logoLedSpeed", "logoColorful", "logoColorIndex", "logoColorR",
-  "logoColorG", "logoColorB", "sideLightOnOff", "sideLightMode", "sideLightBrightness",
-  "sideLightSpeed", "sideLightColorful", "sideLightColorIndex", "sideLightColorR",
-  "sideLightColorG", "sideLightColorB", "LedTFTOnOff", "LedTFTMode", "LedTFTBrightness",
-  "LedTFTSpeed", "LedTFTColorful", "LedTFTColorIndex", "LedTFTColorR", "LedTFTColorG",
-  "LedTFTColorB", "sixN", "macWin", "winLock", "wasd", "scanDelay", "layer", "fkeyChange",
-  "wheelMode", "sleepL", "sleepM", "sleepH", "dsSleepL", "dsSleepM", "dsSleepH",
-  "lcdPower", "lcdMode", "lcdGif", "lcdGifCount",
+  "profile",
+  "ledOnOff",
+  "ledMode",
+  "ledBrightness",
+  "ledSpeed",
+  "colorful",
+  "colorIndex",
+  "colorR",
+  "colorG",
+  "colorB",
+  "customColorIndex",
+  "logoLedOnOff",
+  "logoLedMode",
+  "logoLedBrightness",
+  "logoLedSpeed",
+  "logoColorful",
+  "logoColorIndex",
+  "logoColorR",
+  "logoColorG",
+  "logoColorB",
+  "sideLightOnOff",
+  "sideLightMode",
+  "sideLightBrightness",
+  "sideLightSpeed",
+  "sideLightColorful",
+  "sideLightColorIndex",
+  "sideLightColorR",
+  "sideLightColorG",
+  "sideLightColorB",
+  "LedTFTOnOff",
+  "LedTFTMode",
+  "LedTFTBrightness",
+  "LedTFTSpeed",
+  "LedTFTColorful",
+  "LedTFTColorIndex",
+  "LedTFTColorR",
+  "LedTFTColorG",
+  "LedTFTColorB",
+  "sixN",
+  "macWin",
+  "winLock",
+  "wasd",
+  "scanDelay",
+  "layer",
+  "fkeyChange",
+  "wheelMode",
+  "sleepL",
+  "sleepM",
+  "sleepH",
+  "dsSleepL",
+  "dsSleepM",
+  "dsSleepH",
+  "lcdPower",
+  "lcdMode",
+  "lcdGif",
+  "lcdGifCount",
 ];
 
-const hex = (b: Uint8Array) => Buffer.from(b).toString("hex").replace(/(..)(?!$)/g, "$1 ");
+const hex = (b: Uint8Array) =>
+  Buffer.from(b)
+    .toString("hex")
+    .replace(/(..)(?!$)/g, "$1 ");
 
 class Yogo {
   dev: HID.HID;
@@ -67,20 +121,35 @@ class Yogo {
     this.dev = new HID.HID(DEVICE!.path!);
   }
 
-  transfer(cmd: number, length = 0, offset = 0, data: number[] = []): Uint8Array {
+  transfer(
+    cmd: number,
+    length = 0,
+    offset = 0,
+    data: number[] = [],
+  ): Uint8Array {
     this.req = (this.req % 0xffff) + 1;
     const pkt = new Uint8Array(REPORT_LEN);
-    pkt.set([0xaa, cmd, offset & 0xff, offset >> 8, length, this.req & 0xff, this.req >> 8]);
+    pkt.set([
+      0xaa,
+      cmd,
+      offset & 0xff,
+      offset >> 8,
+      length,
+      this.req & 0xff,
+      this.req >> 8,
+    ]);
     pkt.set(data, 8);
     if (process.env.DEBUG) console.error("tx", hex(pkt));
     this.dev.write([0x00, ...pkt]);
-    for (let i = 0; i < 20; i++) { // skip unrelated input reports
+    for (let i = 0; i < 20; i++) {
+      // skip unrelated input reports
       let r = Uint8Array.from(this.dev.readTimeout(WIRELESS ? 3000 : 500));
       if (!r.length) break;
       if (r[0] !== 0xaa && r[1] === 0xaa) r = r.subarray(1); // the hub drops a leading byte before the magic (dongle)
       if (process.env.DEBUG) console.error("rx", hex(r));
       if (r.length >= 7 && (r[5] | (r[6] << 8)) === this.req) {
-        if (r[2] === 0xff) throw new Error(`cmd 0x${cmd.toString(16)} error: ${hex(r)}`);
+        if (r[2] === 0xff)
+          throw new Error(`cmd 0x${cmd.toString(16)} error: ${hex(r)}`);
         return r;
       }
     }
@@ -115,7 +184,10 @@ class Yogo {
   }
 
   readKeymap(layer: number, factory = false): Uint8Array {
-    return this.readChunks((factory ? CMD_GET_DEFAULT_KEYMAP : CMD_GET_KEYMAP)[layer], MATRIX_BYTES);
+    return this.readChunks(
+      (factory ? CMD_GET_DEFAULT_KEYMAP : CMD_GET_KEYMAP)[layer],
+      MATRIX_BYTES,
+    );
   }
 
   /** Rewrites a whole layer, as the hub does (it never writes a single key). */
@@ -145,21 +217,44 @@ function macroBlob(specs: string[]): number[] {
     const [codes, delay = String(MACRO_DELAY)] = spec.split("@");
     const d = Number(delay);
     const keys = [...Buffer.from(codes, "hex")];
-    const mods = keys.filter((c) => c >= 0xe0 && c <= 0xe7).map((c) => 1 << (c - 0xe0));
-    const act = (code: number, type: number, down: boolean) => [d & 0xff, d >> 8, code, type | (down ? 0x80 : 0)];
+    const mods = keys
+      .filter((c) => c >= 0xe0 && c <= 0xe7)
+      .map((c) => 1 << (c - 0xe0));
+    const act = (code: number, type: number, down: boolean) => [
+      d & 0xff,
+      d >> 8,
+      code,
+      type | (down ? 0x80 : 0),
+    ];
     const actions = [
       ...mods.flatMap((m) => act(m, 2, true)),
-      ...keys.filter((c) => c < 0xe0 || c > 0xe7).flatMap((c) => [...act(c, 1, true), ...act(c, 1, false)]),
+      ...keys
+        .filter((c) => c < 0xe0 || c > 0xe7)
+        .flatMap((c) => [...act(c, 1, true), ...act(c, 1, false)]),
       ...mods.flatMap((m) => act(m, 2, false)),
     ];
     offsets.push(8 + specs.length * 2 + body.length);
     body.push(actions.length / 4, 0, 0, 0, ...actions);
   }
   const total = 8 + specs.length * 2 + body.length;
-  return [0xaa, 0x55, total & 0xff, total >> 8, specs.length, 0, 0, 0, ...offsets.flatMap((o) => [o & 0xff, o >> 8]), ...body];
+  return [
+    0xaa,
+    0x55,
+    total & 0xff,
+    total >> 8,
+    specs.length,
+    0,
+    0,
+    0,
+    ...offsets.flatMap((o) => [o & 0xff, o >> 8]),
+    ...body,
+  ];
 }
 // Self-check against the blob verified on the keyboard (macro "hi" typed correctly).
-if (hex(Uint8Array.from(macroBlob(["0b0c"]))) !== "aa 55 1e 00 01 00 00 00 0a 00 04 00 00 00 14 00 0b 81 14 00 0b 01 14 00 0c 81 14 00 0c 01") {
+if (
+  hex(Uint8Array.from(macroBlob(["0b0c"]))) !==
+  "aa 55 1e 00 01 00 00 00 0a 00 04 00 00 00 14 00 0b 81 14 00 0b 01 14 00 0c 81 14 00 0c 01"
+) {
   throw new Error("macroBlob regression");
 }
 
@@ -172,19 +267,30 @@ function writeMacros(k: Yogo, blob: number[]) {
 function readAll(k: Yogo): Record<string, string> {
   return {
     config: hex(k.readConfig()),
-    ...Object.fromEntries([0, 1, 2, 3].map((l) => [`keymap${l}`, hex(k.readKeymap(l))])),
+    ...Object.fromEntries(
+      [0, 1, 2, 3].map((l) => [`keymap${l}`, hex(k.readKeymap(l))]),
+    ),
     leds: hex(k.readChunks(CMD_GET_CUSTOM_LEDS, MATRIX_BYTES)),
     macros: hex(k.readChunks(CMD_GET_MACRO, MACROS_BYTES)),
   };
 }
-const FULL_SIZES: Record<string, number> = { config: 64, keymap0: MATRIX_BYTES, keymap1: MATRIX_BYTES, keymap2: MATRIX_BYTES, keymap3: MATRIX_BYTES, leds: MATRIX_BYTES, macros: MACROS_BYTES };
+const FULL_SIZES: Record<string, number> = {
+  config: 64,
+  keymap0: MATRIX_BYTES,
+  keymap1: MATRIX_BYTES,
+  keymap2: MATRIX_BYTES,
+  keymap3: MATRIX_BYTES,
+  leds: MATRIX_BYTES,
+  macros: MACROS_BYTES,
+};
 
 const [cmd, arg, modeArg, codeArg] = process.argv.slice(2);
 const k = new Yogo();
 try {
   k.transfer(CMD_START);
   if (cmd === "color") {
-    if (!/^[0-9a-f]{6}$/i.test(arg ?? "")) throw new Error("usage: node yogo.ts color RRGGBB [mode]");
+    if (!/^[0-9a-f]{6}$/i.test(arg ?? ""))
+      throw new Error("usage: pnpm yogo75 color RRGGBB [mode]");
     const cfg = k.readConfig();
     const at = (f: string) => FIELDS.indexOf(f);
     cfg[at("ledOnOff")] = 0; // 0 = on, as the hub sets it
@@ -196,21 +302,27 @@ try {
     console.log(`colour set to ${arg} (mode ${cfg[at("ledMode")]})`);
   } else if (cmd === "dot") {
     const mode = Number(arg);
-    if (!(mode >= -1 && mode <= 12) || (modeArg !== undefined && !/^[0-9a-f]{6}$/i.test(modeArg))) {
-      throw new Error("usage: node yogo.ts dot <mode -1..12> [RRGGBB]");
+    if (
+      !(mode >= -1 && mode <= 12) ||
+      (modeArg !== undefined && !/^[0-9a-f]{6}$/i.test(modeArg))
+    ) {
+      throw new Error("usage: pnpm yogo75 dot <mode -1..12> [RRGGBB]");
     }
     const cfg = k.readConfig();
     const at = (f: string) => FIELDS.indexOf(f);
     cfg[at("LedTFTOnOff")] = 0; // as the hub's setDotLight
     cfg[at("LedTFTMode")] = mode & 0xff; // the hub's "all off" is -1, written by setUint8 as 0xff
-    if (modeArg !== undefined) cfg.set(Buffer.from(modeArg, "hex"), at("LedTFTColorR"));
+    if (modeArg !== undefined)
+      cfg.set(Buffer.from(modeArg, "hex"), at("LedTFTColorR"));
     k.writeConfig(cfg);
     console.log(`dot screen set to mode ${mode}`);
   } else if (cmd === "set") {
     const pos = FIELDS.indexOf(arg);
     const value = Number(modeArg);
     if (pos < 0 || !(Number.isInteger(value) && value >= 0 && value <= 255)) {
-      throw new Error(`usage: node yogo.ts set <field> <0-255>; fields: ${FIELDS.join(" ")}`);
+      throw new Error(
+        `usage: pnpm yogo75 set <field> <0-255>; fields: ${FIELDS.join(" ")}`,
+      );
     }
     const cfg = k.readConfig();
     console.log(`${arg}: ${cfg[pos]} -> ${value}`);
@@ -219,17 +331,26 @@ try {
   } else if (cmd === "dotimage") {
     // 6×6 RGB888, row by row; there is no read command, so this overwrites the stored image for good.
     const img = Buffer.from((arg ?? "").replaceAll(" ", ""), "hex");
-    if (img.length !== 108) throw new Error("usage: node yogo.ts dotimage <36 RRGGBB pixels, row by row>");
+    if (img.length !== 108)
+      throw new Error(
+        "usage: pnpm yogo75 dotimage <36 RRGGBB pixels, row by row>",
+      );
     // The hub sends every packet with len DATA_LEN (the last one zero-padded).
     k.writeChunks(CMD_SET_DOT_IMAGE, img);
-    console.log("dot screen image written (shown in mode 6: node yogo.ts dot 6)");
+    console.log(
+      "dot screen image written (shown in mode 6: pnpm yogo75 dot 6)",
+    );
   } else if (cmd === "dotlive") {
     // Music-visualiser frame (start_sync_dot): same 6×6 layout as dotimage, but RGB565 LE, 72 bytes.
     const img = Buffer.from((arg ?? "").replaceAll(" ", ""), "hex");
-    if (img.length !== 108) throw new Error("usage: node yogo.ts dotlive <36 RRGGBB pixels, row by row> [seconds]");
+    if (img.length !== 108)
+      throw new Error(
+        "usage: pnpm yogo75 dotlive <36 RRGGBB pixels, row by row> [seconds]",
+      );
     const frame: number[] = [];
     for (let i = 0; i < img.length; i += 3) {
-      const v = ((img[i] >> 3) << 11) | ((img[i + 1] >> 2) << 5) | (img[i + 2] >> 3);
+      const v =
+        ((img[i] >> 3) << 11) | ((img[i + 1] >> 2) << 5) | (img[i + 2] >> 3);
       frame.push(v & 0xff, v >> 8);
     }
     // A single frame only flashes; the hub streams one per audio frame, so repeat for `seconds`.
@@ -238,46 +359,66 @@ try {
       k.writeChunks(CMD_SYNC_DOT, frame, false);
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
     } while (Date.now() < until);
-    console.log("live frame sent (stop with: node yogo.ts dotlive-end)");
+    console.log("live frame sent (stop with: pnpm yogo75 dotlive-end)");
   } else if (cmd === "dotlive-end") {
     k.transfer(CMD_END_SYNC_DOT);
     console.log("live sync ended");
   } else if (cmd === "keymap") {
     const layer = Number(arg ?? 0);
-    if (!(layer >= 0 && layer <= 3)) throw new Error("usage: node yogo.ts keymap [0-3] [factory]");
+    if (!(layer >= 0 && layer <= 3))
+      throw new Error("usage: pnpm yogo75 keymap [0-3] [factory]");
     const map = k.readKeymap(layer, modeArg === "factory");
-    for (let i = 0; i < map.length; i += 3) console.log(String(i / 3).padStart(3), hex(map.subarray(i, i + 3)));
+    for (let i = 0; i < map.length; i += 3)
+      console.log(String(i / 3).padStart(3), hex(map.subarray(i, i + 3)));
   } else if (cmd === "power") {
     const r = k.transfer(CMD_POWER_INFO);
     // Hub: power = min(data[0], 100), charging when data[1] == 2, which this keyboard never sends.
-    console.log(`raw: ${hex(r.subarray(8, 16))}  battery ${r[8]}%  ${r[9] ? `cable plugged in (state ${r[9]})` : "on battery"}`);
+    console.log(
+      `raw: ${hex(r.subarray(8, 16))}  battery ${r[8]}%  ${r[9] ? `cable plugged in (state ${r[9]})` : "on battery"}`,
+    );
   } else if (cmd === "macros") {
     console.log(hex(k.readChunks(CMD_GET_MACRO, Number(arg ?? 4) * 56)));
   } else if (cmd === "setmacro") {
     const specs = (arg ?? "").split(",");
-    if (!specs.every((m) => /^([0-9a-f]{2})+(@\d+)?$/i.test(m)) || specs.length > 4) {
-      throw new Error("usage: node yogo.ts setmacro <macro>[,<macro>...] ; macro = HID codes[@delay], e.g. e10b0c@20 for \"HI\"");
+    if (
+      !specs.every((m) => /^([0-9a-f]{2})+(@\d+)?$/i.test(m)) ||
+      specs.length > 4
+    ) {
+      throw new Error(
+        'usage: pnpm yogo75 setmacro <macro>[,<macro>...] ; macro = HID codes[@delay], e.g. e10b0c@20 for "HI"',
+      );
     }
     if (!existsSync(MACROS_BACKUP)) {
-      writeFileSync(MACROS_BACKUP, JSON.stringify(hex(k.readChunks(CMD_GET_MACRO, MACROS_BYTES))) + "\n");
+      writeFileSync(
+        MACROS_BACKUP,
+        JSON.stringify(hex(k.readChunks(CMD_GET_MACRO, MACROS_BYTES))) + "\n",
+      );
       console.log(`current macros saved to ${MACROS_BACKUP}`);
     }
     const blob = macroBlob(specs);
     writeMacros(k, blob);
-    console.log(`${specs.length} macro(s) written: ${hex(Uint8Array.from(blob))}`);
+    console.log(
+      `${specs.length} macro(s) written: ${hex(Uint8Array.from(blob))}`,
+    );
   } else if (cmd === "macros-restore") {
-    writeMacros(k, [...Buffer.from(JSON.parse(readFileSync(MACROS_BACKUP, "utf8")).replaceAll(" ", ""), "hex")]);
+    writeMacros(k, [
+      ...Buffer.from(
+        JSON.parse(readFileSync(MACROS_BACKUP, "utf8")).replaceAll(" ", ""),
+        "hex",
+      ),
+    ]);
     console.log(`macros restored from ${MACROS_BACKUP}`);
   } else if (cmd === "ledmap") {
     const map = k.readChunks(CMD_GET_LED_MATRIX, 384);
     console.log(hex(map));
   } else if (cmd === "leds") {
     const leds = k.readChunks(CMD_GET_CUSTOM_LEDS, MATRIX_BYTES);
-    for (let i = 0; i < leds.length; i += 3) console.log(String(i / 3).padStart(3), hex(leds.subarray(i, i + 3)));
+    for (let i = 0; i < leds.length; i += 3)
+      console.log(String(i / 3).padStart(3), hex(leds.subarray(i, i + 3)));
   } else if (cmd === "setled") {
     const index = Number(arg);
     if (!(index >= 0 && index < 96) || !/^[0-9a-f]{6}$/i.test(modeArg ?? "")) {
-      throw new Error("usage: node yogo.ts setled <key index 0-95> RRGGBB");
+      throw new Error("usage: pnpm yogo75 setled <key index 0-95> RRGGBB");
     }
     const led = k.readChunks(CMD_GET_LED_MATRIX, 96)[index];
     if (led === 0xff) throw new Error(`key ${index} has no LED`);
@@ -286,50 +427,82 @@ try {
       writeFileSync(LEDS_BACKUP, JSON.stringify(hex(leds)) + "\n");
       console.log(`current colours saved to ${LEDS_BACKUP}`);
     }
-    console.log(`key ${index} -> LED ${led}: ${hex(leds.subarray(led * 3, led * 3 + 3))} -> ${modeArg}`);
+    console.log(
+      `key ${index} -> LED ${led}: ${hex(leds.subarray(led * 3, led * 3 + 3))} -> ${modeArg}`,
+    );
     leds.set(Buffer.from(modeArg, "hex"), led * 3);
     k.writeCustomLeds(leds);
   } else if (cmd === "leds-restore") {
-    const leds = Buffer.from(JSON.parse(readFileSync(LEDS_BACKUP, "utf8")).replaceAll(" ", ""), "hex");
+    const leds = Buffer.from(
+      JSON.parse(readFileSync(LEDS_BACKUP, "utf8")).replaceAll(" ", ""),
+      "hex",
+    );
     if (leds.length !== MATRIX_BYTES) throw new Error(`bad ${LEDS_BACKUP}`);
     k.writeCustomLeds(leds);
     console.log(`colours restored from ${LEDS_BACKUP}`);
   } else if (cmd === "keymap-backup") {
-    const backup = Object.fromEntries([0, 1, 2, 3].map((l) => [l, hex(k.readKeymap(l))]));
+    const backup = Object.fromEntries(
+      [0, 1, 2, 3].map((l) => [l, hex(k.readKeymap(l))]),
+    );
     writeFileSync(KEYMAP_BACKUP, JSON.stringify(backup, null, 2) + "\n");
     console.log(`layers 0-3 saved to ${KEYMAP_BACKUP}`);
   } else if (cmd === "setkey") {
     const [layer, index] = [Number(arg), Number(modeArg)];
-    if (!(layer >= 0 && layer <= 3) || !(index >= 0 && index < 96) || !/^[0-9a-f]{6}$/i.test(codeArg ?? "")) {
-      throw new Error("usage: node yogo.ts setkey <layer 0-3> <index 0-95> <TTXXYY>");
+    if (
+      !(layer >= 0 && layer <= 3) ||
+      !(index >= 0 && index < 96) ||
+      !/^[0-9a-f]{6}$/i.test(codeArg ?? "")
+    ) {
+      throw new Error(
+        "usage: pnpm yogo75 setkey <layer 0-3> <index 0-95> <TTXXYY>",
+      );
     }
-    if (!existsSync(KEYMAP_BACKUP)) throw new Error(`run \`node yogo.ts keymap-backup\` first`);
-    if (!(layer in JSON.parse(readFileSync(KEYMAP_BACKUP, "utf8")))) throw new Error(`layer ${layer} is not in ${KEYMAP_BACKUP}`);
+    if (!existsSync(KEYMAP_BACKUP))
+      throw new Error(`run \`pnpm yogo75 keymap-backup\` first`);
+    if (!(layer in JSON.parse(readFileSync(KEYMAP_BACKUP, "utf8"))))
+      throw new Error(`layer ${layer} is not in ${KEYMAP_BACKUP}`);
     const map = k.readKeymap(layer);
-    console.log(`layer ${layer} key ${index}: ${hex(map.subarray(index * 3, index * 3 + 3))} -> ${codeArg}`);
+    console.log(
+      `layer ${layer} key ${index}: ${hex(map.subarray(index * 3, index * 3 + 3))} -> ${codeArg}`,
+    );
     map.set(Buffer.from(codeArg, "hex"), index * 3);
     k.writeKeymap(layer, map);
   } else if (cmd === "keymap-restore") {
-    const backup: Record<string, string> = JSON.parse(readFileSync(KEYMAP_BACKUP, "utf8"));
+    const backup: Record<string, string> = JSON.parse(
+      readFileSync(KEYMAP_BACKUP, "utf8"),
+    );
     for (const [layer, data] of Object.entries(backup)) {
       const map = Buffer.from(data.replaceAll(" ", ""), "hex");
-      if (map.length !== MATRIX_BYTES) throw new Error(`bad backup for layer ${layer}`);
+      if (map.length !== MATRIX_BYTES)
+        throw new Error(`bad backup for layer ${layer}`);
       k.writeKeymap(Number(layer), map);
     }
-    console.log(`layers ${Object.keys(backup).join(", ")} restored from ${KEYMAP_BACKUP}`);
+    console.log(
+      `layers ${Object.keys(backup).join(", ")} restored from ${KEYMAP_BACKUP}`,
+    );
   } else if (cmd === "backup") {
     const file = arg ?? FULL_BACKUP;
-    if (existsSync(file)) throw new Error(`${file} already exists; remove it or pick another name`);
+    if (existsSync(file))
+      throw new Error(`${file} already exists; remove it or pick another name`);
     writeFileSync(file, JSON.stringify(readAll(k), null, 2) + "\n");
-    console.log(`config, layers 0-3, per-key colours and macros saved to ${file}`);
+    console.log(
+      `config, layers 0-3, per-key colours and macros saved to ${file}`,
+    );
   } else if (cmd === "restore") {
     const file = arg ?? FULL_BACKUP;
-    const backup: Record<string, string> = JSON.parse(readFileSync(file, "utf8"));
-    const data = Object.fromEntries(Object.entries(FULL_SIZES).map(([name, size]) => {
-      const b = Buffer.from((backup[name] ?? "").replaceAll(" ", ""), "hex");
-      if (b.length !== size) throw new Error(`bad ${name} in ${file}: ${b.length} bytes, expected ${size}`);
-      return [name, b];
-    }));
+    const backup: Record<string, string> = JSON.parse(
+      readFileSync(file, "utf8"),
+    );
+    const data = Object.fromEntries(
+      Object.entries(FULL_SIZES).map(([name, size]) => {
+        const b = Buffer.from((backup[name] ?? "").replaceAll(" ", ""), "hex");
+        if (b.length !== size)
+          throw new Error(
+            `bad ${name} in ${file}: ${b.length} bytes, expected ${size}`,
+          );
+        return [name, b];
+      }),
+    );
     k.writeConfig(data.config);
     for (const l of [0, 1, 2, 3]) k.writeKeymap(l, data[`keymap${l}`]);
     k.writeCustomLeds(data.leds);
@@ -337,8 +510,11 @@ try {
     // The keyboard acks a write before applying it: reads within ~5 ms return the old values.
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
     const now = readAll(k);
-    const bad = Object.keys(FULL_SIZES).filter((name) => now[name] !== hex(data[name]));
-    if (bad.length) throw new Error(`read-back differs from ${file} for: ${bad.join(", ")}`);
+    const bad = Object.keys(FULL_SIZES).filter(
+      (name) => now[name] !== hex(data[name]),
+    );
+    if (bad.length)
+      throw new Error(`read-back differs from ${file} for: ${bad.join(", ")}`);
     console.log(`everything restored from ${file} and read back identical`);
   } else {
     const info = k.readChunks(CMD_KB_INFO, WIRELESS ? 39 : DATA_LEN); // the hub reads 39 bytes wireless

@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+skills-lock.json
+.claude/
+# Local keyboard backups
+*backup*.json
+config-backup.txt

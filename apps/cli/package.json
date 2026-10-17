@@ -1,0 +1,9 @@
+{
+  "name": "@yogo75/cli",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@yogo75/core": "workspace:*",
+    "node-hid": "3.1.0"
+  }
+}

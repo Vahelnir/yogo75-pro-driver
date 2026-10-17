@@ -3,14 +3,16 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "probe": "node yogo.ts",
-    "typecheck": "tsc"
-  },
-  "dependencies": {
-    "node-hid": "3.1.0"
+    "yogo75": "node apps/cli/yogo.ts",
+    "test": "node --test",
+    "typecheck": "tsc -p apps/cli && tsc -p packages/core",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
+    "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
     "@types/node": "^24.19.2",
-    "typescript": "5.9.3"
+    "prettier": "^3.9.10",
+    "typescript": "7.0.2"
   }
 }
