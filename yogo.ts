@@ -25,7 +25,7 @@ const CMD_SET_CUSTOM_LEDS = 0x23;
 const CMD_GET_LED_MATRIX = 0x32; // first 96 bytes: key index -> LED number (0xff = no LED)
 const LEDS_BACKUP = "leds-backup.json";
 const CMD_SET_DOT_IMAGE = 0x3b; // set_dotscreen_matrix: 6×6 RGB888 image shown by dot screen mode 6
-const CMD_POWER_INFO = 0x30; // battery: data[0] = level, data[1] == 2 when charging
+const CMD_POWER_INFO = 0x30; // battery: data[0] = level, data[1] = 1 while the cable is plugged in (even at 100%)
 const CMD_GET_MACRO = 0x2c; // blob: "aa 55", total len LE, count LE, offsets table, then the macros
 const CMD_SET_MACRO = 0x2d;
 const MACROS_BACKUP = "macros-backup.json";
@@ -249,8 +249,8 @@ try {
     for (let i = 0; i < map.length; i += 3) console.log(String(i / 3).padStart(3), hex(map.subarray(i, i + 3)));
   } else if (cmd === "power") {
     const r = k.transfer(CMD_POWER_INFO);
-    // Hub: power = min(data[0], 100), charging when data[1] == 2; on the dongle with the cable plugged in it reads 1.
-    console.log(`raw: ${hex(r.subarray(8, 16))}  battery ${r[8]}%  ${r[9] ? `charging (state ${r[9]})` : "not charging"}`);
+    // Hub: power = min(data[0], 100), charging when data[1] == 2, which this keyboard never sends.
+    console.log(`raw: ${hex(r.subarray(8, 16))}  battery ${r[8]}%  ${r[9] ? `cable plugged in (state ${r[9]})` : "on battery"}`);
   } else if (cmd === "macros") {
     console.log(hex(k.readChunks(CMD_GET_MACRO, Number(arg ?? 4) * 56)));
   } else if (cmd === "setmacro") {
