@@ -205,7 +205,7 @@ Table `fieldMap` : position dans le bloc.
 | 40 | winLock | verrouillage de la touche Windows : 1 = verrouillée (Win + Espace n'ouvre plus Spotlight sous macOS) | vérifié |
 | 41 | wasd | 1 = WASD et flèches échangés, dans les deux sens | vérifié |
 | 42 | scanDelay | 0 = mode faible latence, 2 = normal (le configurateur n'écrit que ces deux valeurs) | code |
-| 43 | layer | à 2, rien ne change, même après un rebranchement (la couche 0 reste active) ; la valeur est conservée. Rôle inconnu | vérifié (sans effet visible) |
+| 43 | layer | **couche de base** : celle qui redevient active au relâchement de Fn. Le firmware ne l'applique ni à l'écriture ni au démarrage, mais au **prochain relâchement de Fn** ; elle reste ensuite active (Fn + touche utilise toujours la couche Fn). Ex. : `layer` = 1 puis Fn relâché → tout le clavier passe sur la couche 1. Pour revenir : `layer` = 0 puis appui-relâchement de Fn | vérifié |
 | 44 | fkeyChange | aucun effet observé à 1, en mode Windows comme en mode Mac (F1, F12 avec et sans Fn) ; rôle inconnu | vérifié (sans effet visible) |
 | 45 | wheelMode | 0 = la rotation de la molette règle le volume ; 1 ou 2 = la rotation ne fait plus rien de visible (ni volume, ni défilement, ni éclairage, ni écran à points), l'appui reste lecture/pause. Mettre volume ± dans les emplacements 46–47 n'y change rien | vérifié (effet partiel) |
 | 46–48 | sleepL/M/H | délai de mise en veille sur 24 bits, LE, en secondes (choix du configurateur : 60, 180, 300, 600, 1800, « jamais » = 65535 ; valeur relevée : 180). En USB, aucune mise en veille observée avec 60 : probablement réservé au sans-fil (hypothèse de l'utilisateur) | code |
@@ -301,7 +301,7 @@ node yogo.ts keymap-restore          # réécrit la sauvegarde
 
 | Couche | Rôle | Statut |
 |---|---|---|
-| 0 | couche de base | vérifié |
+| 0 | couche de base par défaut (`layer` = 0 dans le bloc de config) | vérifié |
 | 1 | couche Fn (le configurateur la lit avec `0x1C`) | vérifié |
 | 2, 3 | identiques à la couche 0 d'usine, sur ce clavier comme en usine ; usage inconnu | vérifié (contenu) |
 
@@ -460,3 +460,4 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : `fkeyChange` = 1 : aucun changement observé (mode Windows : la couche Fn de la rangée F est personnalisée en F1–F12, donc F12 et Fn + F12 donnent F12 dans les deux cas ; mode Mac : F1 et Fn + F1 baissent la luminosité dans les deux cas). Remis à 0, `macWin` remis à 0. Test de `wheelMode` = 1.
 - 2026-10-17 : `wheelMode` 1 et 2 : la rotation de la molette ne fait plus rien de visible, l'appui reste lecture/pause. Hypothèse « la molette envoie alors les emplacements 46–47 » infirmée (volume ± écrit en 46–47, sans effet). Keymap restaurée, `wheelMode` remis à 0.
 - 2026-10-17 : `layer` = 2 : la couche 0 reste active (Verr. maj → Ctrl, Suppr à sa place personnalisée), même après rebranchement ; valeur relue à 2 après rebranchement. Remis à 0.
+- 2026-10-17 : `layer` élucidé, test proposé par l'utilisateur : Ins de la couche 1 → `x`, `layer` = 1. Ins seule tape le code de la couche 0 jusqu'au premier Fn + Ins ; ensuite Ins seule tape `x` et B (lecture/pause sur la couche 1) agit sans Fn ; Fn seul ne ramène pas la couche 0. Après `layer` = 0, B reste sur lecture/pause jusqu'au prochain appui-relâchement de Fn, puis tape `b`. Donc `layer` = couche de base, appliquée au relâchement de Fn (cela explique le test précédent à 2, fait sans toucher à Fn). Keymap restaurée.
