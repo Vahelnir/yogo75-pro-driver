@@ -23,6 +23,7 @@ const CMD_GET_CUSTOM_LEDS = 0x22; // RGB triplets indexed by LED number, 6 × 56
 const CMD_SET_CUSTOM_LEDS = 0x23;
 const CMD_GET_LED_MATRIX = 0x32; // first 96 bytes: key index -> LED number (0xff = no LED)
 const LEDS_BACKUP = "leds-backup.json";
+const CMD_SET_DOT_IMAGE = 0x3b; // set_dotscreen_matrix: 6×6 RGB888 image shown by dot screen mode 6
 const KEYMAP_CHUNKS = 6; // matrixMaxSize: 6 × 56 bytes, 3 bytes per key
 const DATA_LEN = 56;
 
@@ -145,6 +146,13 @@ try {
     if (modeArg !== undefined) cfg.set(Buffer.from(modeArg, "hex"), at("LedTFTColorR"));
     k.writeConfig(cfg);
     console.log(`dot screen set to mode ${mode}`);
+  } else if (cmd === "dotimage") {
+    // 6×6 RGB888, row by row; there is no read command, so this overwrites the stored image for good.
+    const img = Buffer.from((arg ?? "").replaceAll(" ", ""), "hex");
+    if (img.length !== 108) throw new Error("usage: node yogo.ts dotimage <36 RRGGBB pixels, row by row>");
+    // The hub sends two packets at offsets 0 and 56, both with len 56 (the second one zero-padded).
+    for (let off = 0; off < img.length; off += DATA_LEN) k.transfer(CMD_SET_DOT_IMAGE, DATA_LEN, off, [...img.subarray(off, off + DATA_LEN)]);
+    console.log("dot screen image written (shown in mode 6: node yogo.ts dot 6)");
   } else if (cmd === "keymap") {
     const layer = Number(arg ?? 0);
     if (!(layer >= 0 && layer <= 3)) throw new Error("usage: node yogo.ts keymap [0-3] [factory]");

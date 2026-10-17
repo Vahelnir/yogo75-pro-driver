@@ -141,8 +141,8 @@ Table `oo` du configurateur.
 | `0x30` | power_info | `[0]` = niveau de batterie, `[1] == 2` = en charge | code |
 | `0x31` | **reset_device** | **remet le clavier en config d'usine**. Ne pas envoyer sans accord explicite | code |
 | `0x32` | get_led_matrix | correspondance touche → LED (384 octets) | vérifié |
-| `0x3B` | set_dotscreen_matrix | écran à points 6×6 | code |
-| `0x3C` / `0x3D` | start/end_sync_dot | flux en direct vers l'écran à points | code |
+| `0x3B` | set_dotscreen_matrix | image de l'écran à points (mode 6), voir [image](#écran-à-points--image) | vérifié |
+| `0x3C` / `0x3D` | start/end_sync_dot | visualiseur musical en direct (RGB565) / arrêt | code |
 
 Bootloader (table `Ec`) : `0xA0` START, `0xA1` FLASH_WRITE, `0xA2` FLASH_READ, `0xA3` REBOOT, `0xA4` SWITCH_APP, `0xB0` ACK, `0xC0` SWITCH_BOOT. Les codes d'erreur sont dans `Y_` (`0xE0`–`0xF6`). **Ces commandes flashent le firmware et peuvent rendre le clavier inutilisable : on ne les envoie jamais sans accord explicite de l'utilisateur.**
 
@@ -247,7 +247,7 @@ Réglés par le bloc de config, positions 29–37 (`setDotLight` / `getDotLight`
 | 3 | radiantRadiance |
 | 4 | raindrops |
 | 5 | terminal |
-| 6 | custom (image, voir écriture en direct) |
+| 6 | custom : affiche l'image stockée par `0x3B` (vérifié) |
 | 7 | typing |
 | 8 | nightFireworks (pas de réglage de couleur) |
 | 9 | heartbeatMusicNumber |
@@ -259,7 +259,19 @@ Réglés par le bloc de config, positions 29–37 (`setDotLight` / `getDotLight`
 node yogo.ts dot 12          # mode YOGO
 node yogo.ts dot 8           # retour au mode d'origine
 node yogo.ts dot 0 00ff00    # mode star, couleur verte
+node yogo.ts dotimage <216 chiffres hex>   # 36 pixels RRGGBB, rangée par rangée
+node yogo.ts dot 6           # affiche l'image
 ```
+
+## Écran à points : image
+
+Deux mécanismes distincts dans le configurateur (code) :
+
+**Image fixe, `0x3B`** (`setDotScreenAnimation`, classe de paquet `aW` ; vérifié pour le format, l'ordre des pixels et l'affichage en mode 6). Une image = 6 × 6 pixels en **RGB888**, rangée par rangée, de gauche à droite (`frames[0][rangée][colonne] = [R, G, B]` : les images prédéfinies sont décrites ligne par ligne), soit 108 octets. Envoi en deux paquets : offset 0 puis offset 56, l'octet de longueur valant **toujours 56** (le second paquet ne porte que 52 octets utiles, le reste à zéro). Seule la première image d'une animation est envoyée. Le configurateur passe ensuite l'écran en **mode 6** (`custom`) : c'est donc l'image stockée qu'affiche ce mode. **Aucune commande de lecture** : on ne peut pas sauvegarder l'image en place avant de l'écraser.
+
+L'appli Electron d'ATK (pas le site) anime l'écran en renvoyant `0x3B` en boucle, par paquets de 24 octets (offsets 0, 24, … ; fonction `r8e`) : la même commande sert donc aussi à l'affichage en direct (code).
+
+**Visualiseur musical, `0x3C` / `0x3D`** (`startSyncDotScreen`, `endSyncDotScreen`, classes `X_` / `nW`). Une image de 6 × 6 en **RGB565, LE**, 72 octets, en deux paquets (`len 56` à l'offset 0, `len 16` à l'offset 56), envoyée à chaque trame audio. `0x3D` arrête le flux ; `setDotLight` l'envoie à chaque changement de mode. Il n'y a pas de commande de démarrage séparée : `0x3C` porte directement les pixels.
 
 ## Keymap
 
@@ -374,3 +386,5 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : test visuel validé (Échap rouge, WASD + flèches blancs, reste éteint). Disposition QWERTY ANSI confirmée par l'utilisateur. Couleurs par touche restaurées (`leds-restore`) et retour au mode 4 vert.
 - 2026-10-17 : écran à points : `setDotLight` lu (vitesse inversée, mode −1 → `0xFF`), liste `Os` des 13 modes. `LedTFTMode` passé de 8 à 12 via `node yogo.ts dot 12`, relu à 12. Test visuel en attente.
 - 2026-10-17 : test visuel : en mode 12, l'écran n'affiche plus les feux d'artifice (l'utilisateur ne peut pas confirmer que c'est « YOGO »). Retour au mode 8, relu à 8 (luminosité 30, vitesse 2, couleur ff0000 inchangées).
+- 2026-10-17 : image de l'écran à points : `0x3B` = image fixe RGB888 108 octets affichée en mode 6, sans commande de lecture ; `0x3C` = trame du visualiseur musical en RGB565 (corrige la passation, qui attribuait le RGB565 à l'image) ; `0x3D` = arrêt du flux.
+- 2026-10-17 : image test envoyée avec `0x3B` (coin haut-gauche blanc, rangée du haut rouge, colonne de gauche verte) puis mode 6 : affichage conforme, ni miroir ni rotation. Le clavier accuse les deux paquets `len 56` (`55`). Retour au mode 8, relu ; l'image test reste stockée pour le mode 6 (l'utilisateur n'en avait pas).
