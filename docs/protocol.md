@@ -8,17 +8,11 @@ Le configurateur officiel est un site web. Il communique avec le clavier par l'A
 
 Chaque échange suit le même schéma : on envoie une commande (« lis la config », « écris la keymap »…), le clavier répond avec les données demandées ou un accusé de réception. Toute la configuration d'éclairage et d'options tient dans un bloc de 64 octets, qu'on lit, qu'on modifie puis qu'on réécrit.
 
-Pour essayer (clavier branché en USB) :
-
-```sh
-node yogo.ts                    # affiche les infos et la config actuelle
-node yogo.ts color 00ff00 4     # rétroéclairage vert fixe
-DEBUG=1 node yogo.ts            # montre chaque paquet envoyé (tx) et reçu (rx)
-```
+Ce document décrit le protocole lui-même, indépendamment de tout outil. L'utilisation de notre outil, `yogo.ts`, est décrite dans [`cli.md`](cli.md).
 
 ### Exemple : changer la couleur du rétroéclairage
 
-Ce que fait `node yogo.ts color 00ff00 4`, paquet par paquet (premiers octets seulement, extraits de `DEBUG=1`) :
+Passer le rétroéclairage en vert fixe (mode 4, `00ff00`), paquet par paquet en USB (premiers octets seulement ; `tx` = envoyé, `rx` = reçu) :
 
 ```
 tx aa 10 00 00 00 01 00 …                      ouvrir la session (cmd 0x10), requête n°1
@@ -36,7 +30,7 @@ rx aa 15 … 55 …                                OK
 ### Glossaire
 
 - **HID** (Human Interface Device) : la norme USB des claviers et souris. Un même appareil expose plusieurs **interfaces** HID, chacune identifiée par une *usage page* et un *usage* (par exemple `0x01`/6 pour le clavier standard).
-- **Rapport** (*report*) : un message HID. Ici, les rapports font toujours 64 octets.
+- **Rapport** (*report*) : un message HID. Ici, les rapports font 64 octets en USB et 32 à travers le dongle 2,4 GHz.
 - **VID / PID** : identifiants USB du fabricant et du produit.
 - **LE** (*little-endian*) : un nombre sur 2 octets est écrit octet faible d'abord. `38 00` = 0x0038 = 56.
 - **Keymap / couche** : la correspondance touche physique → code envoyé. Le clavier en a 4 couches (normale, Fn…).
@@ -100,10 +94,10 @@ Statut : vérifié.
 
 - Rapports de sortie de 64 octets, report ID 0, sur l'interface `0xFF60`. Avec `node-hid`, on écrit `[0x00, ...64 octets]`.
 - Chaque requête porte un **code de requête** sur 16 bits que le clavier renvoie dans sa réponse. C'est ce code qui associe une réponse à sa requête. D'autres rapports d'entrée peuvent arriver entre-temps : on les ignore.
-- **Sans-fil 2,4 GHz** (implémenté dans `yogo.ts`, qui passe par le câble s'il est détecté, sinon par le dongle ; les deux transports sont vérifiés avec ce code) :
+- **Sans-fil 2,4 GHz** :
   - **vérifié** : dongle `ATK YOGO 75 PRO Dongle`, PID `0x11FF` (4607). Il expose les mêmes interfaces que le clavier en USB. Descripteur de `0xFF60`/`0x61` : pas de report ID, rapports d'entrée et de sortie de 32 octets. Les réponses commencent directement par `AA` (pas d'octet parasite). `0x10`, `get_keyboard_info` (39 octets en 24 + 15) et le bloc de config (24 + 24 + 16 octets) renvoient les mêmes valeurs qu'en filaire. `get_keyboard_info` donne le PID filaire `0x119B`, pas celui du dongle. L'écriture du bloc en 3 paquets `0x15` (24, 24, 16 octets, sans le bug du configurateur) est acceptée et relue à l'identique, et le rétroéclairage passe bien au bleu ;
   - **vérifié** : le reste marche aussi par le dongle, en paquets de 24 octets.
-    - **Lectures** : les 4 couches de la keymap, les couleurs par touche et les macros sont identiques aux sauvegardes faites en filaire (336 octets en 14 paquets, macros en 224 octets), et la batterie se lit (84 %).
+    - **Lectures** : les 4 couches de la keymap, les couleurs par touche et les macros sont identiques aux valeurs lues en filaire (336 octets en 14 paquets, macros en 224 octets), et la batterie se lit.
     - **Écritures** : remappage d'une touche (Inser → X), couleur par touche (Échap en rouge, mode 253), macro « HI » sur Inser (2 paquets ; Maj ne reste pas tenue), mode de l'écran à points (12), image fixe (`0x3B`, 108 octets en 5 paquets `len 24`) et visualiseur en direct (`0x3C`, 72 octets en 3 paquets `len 24`, damier stable pendant 90 s, puis `0x3D`).
     - Chaque écriture a été vérifiée à l'œil sur le clavier, puis restaurée et relue.
   - détails lus dans le code :
@@ -192,9 +186,9 @@ Un bloc de 64 octets, échangé en **deux paquets** (vérifié) :
 1. `len = 56, offset = 0` : octets 0–55 ;
 2. `len = 8, offset = 56` : octets 56–63.
 
-**Écriture** : on écrit le bloc entier, sans commande de validation (vérifié). Toujours faire lire → modifier → réécrire pour ne pas écraser les autres réglages. Le configurateur écrit des zéros dans le second paquet ; `yogo.ts` y réécrit ce qu'il vient de lire.
+**Écriture** : on écrit le bloc entier, sans commande de validation (vérifié). Toujours faire lire → modifier → réécrire pour ne pas écraser les autres réglages. Le configurateur écrit des zéros dans le second paquet ; il faut y réécrire ce qu'on vient de lire.
 
-**Piège** (vérifié) : une relecture dans la **même session**, juste après une écriture, renvoie encore l'ancienne valeur. Il faut relire dans une nouvelle session (`node yogo.ts`). Cause inconnue.
+**Piège** (vérifié) : une relecture dans la **même session**, juste après une écriture, renvoie encore l'ancienne valeur. Il faut relire dans une nouvelle session : fermer puis rouvrir l'appareil HID et renvoyer `0x10` suffit, même dans le même processus (vérifié : `sleepL` écrit à 180 par-dessus 179, relu à 180 après réouverture). Cause inconnue.
 
 Table `fieldMap` : position dans le bloc.
 
@@ -275,15 +269,6 @@ Réglés par le bloc de config, positions 29–37 (`setDotLight` / `getDotLight`
 | 11 | dataShuttle |
 | 12 | YOGO |
 
-```sh
-node yogo.ts dot 12          # mode YOGO
-node yogo.ts dot 8           # retour au mode d'origine
-node yogo.ts dot 0 00ff00    # mode star, couleur verte
-node yogo.ts dotimage <216 chiffres hex>   # 36 pixels RRGGBB, rangée par rangée
-node yogo.ts dot 6           # affiche l'image
-node yogo.ts set LedTFTBrightness 90   # n'importe quel champ du bloc, valeur brute
-```
-
 ## Écran à points : image
 
 Deux mécanismes distincts dans le configurateur (code) :
@@ -292,7 +277,7 @@ Deux mécanismes distincts dans le configurateur (code) :
 
 L'appli Electron d'ATK (pas le site) anime l'écran en renvoyant `0x3B` en boucle, par paquets de 24 octets (offsets 0, 24, … ; fonction `r8e`) : la même commande sert donc aussi à l'affichage en direct (code).
 
-**Visualiseur musical, `0x3C` / `0x3D`** (`startSyncDotScreen`, `endSyncDotScreen`, classes `X_` / `nW`). Une image de 6 × 6 en **RGB565, LE**, 72 octets, en deux paquets (`len 56` à l'offset 0, `len 16` à l'offset 56), envoyée à chaque trame audio. Il n'y a pas de commande de démarrage séparée : `0x3C` porte directement les pixels. Vérifié : une trame seule s'affiche une fraction de seconde (bon ordre des pixels, couleurs justes), puis l'écran reste noir ; `0x3C` ne modifie pas la config. Il faut donc envoyer des trames en continu : une même trame renvoyée toutes les ~50 ms pendant 60 s est restée affichée sans interruption (vérifié, `node yogo.ts dotlive <pixels> 60`). À l'arrêt du flux, l'écran reste noir et ne revient pas seul à l'animation du mode : il faut `0x3D` puis réécrire le mode (vérifié).
+**Visualiseur musical, `0x3C` / `0x3D`** (`startSyncDotScreen`, `endSyncDotScreen`, classes `X_` / `nW`). Une image de 6 × 6 en **RGB565, LE**, 72 octets, en deux paquets (`len 56` à l'offset 0, `len 16` à l'offset 56), envoyée à chaque trame audio. Il n'y a pas de commande de démarrage séparée : `0x3C` porte directement les pixels. Vérifié : une trame seule s'affiche une fraction de seconde (bon ordre des pixels, couleurs justes), puis l'écran reste noir ; `0x3C` ne modifie pas la config. Il faut donc envoyer des trames en continu : une même trame renvoyée toutes les ~50 ms pendant 60 s est restée affichée sans interruption (vérifié). À l'arrêt du flux, l'écran reste noir et ne revient pas seul à l'animation du mode : il faut `0x3D` puis réécrire le mode (vérifié).
 
 `0x3D` arrête le flux et **remet `LedTFTMode` à 0** (vérifié : 8 → 0, l'écran repart sur l'animation « star »). D'où le comportement du configurateur, qui réécrit le bloc de config juste après (`setDotLight`).
 
@@ -302,20 +287,9 @@ L'appli Electron d'ATK (pas le site) anime l'écran en renvoyant `0x3B` en boucl
 
 Statut : vérifié. Pour chaque couche, 6 paquets de 56 octets (`len = 56`, offset 0, 56, 112… 280), soit 336 octets = 112 emplacements de 3 octets. Seuls les 96 premiers servent (6 rangées × 16 colonnes) ; les 16 derniers sont à zéro.
 
-```sh
-node yogo.ts keymap 0            # couche 0 actuelle
-node yogo.ts keymap 1 factory    # couche Fn d'usine
-```
-
 ### Écriture
 
 Statut : vérifié pour la couche 0 (`0x1B`) et la couche Fn (`0x1D`). Même découpage que la lecture : 6 paquets `len = 56`, offset 0 à 280, données à l'octet 8. Le configurateur réécrit **toujours la couche entière**, même pour changer une seule touche. On fait donc lire → modifier → réécrire. Le clavier répond `0x55` à chaque paquet et la relecture dans une nouvelle session montre la nouvelle valeur.
-
-```sh
-node yogo.ts keymap-backup           # sauvegarde les couches 0 et 1 dans keymap-backup.json (local, non versionné)
-node yogo.ts setkey 0 14 10001b      # couche 0, index 14 (Inser) -> X ; exige une sauvegarde
-node yogo.ts keymap-restore          # réécrit la sauvegarde
-```
 
 ### Couches
 
@@ -366,7 +340,7 @@ Inconnus, présents dans la couche Fn d'usine : `31`, `32`, `33` (Fn + `=`, `-`,
 
 ### Couche Fn d'usine
 
-Relevée avec `node yogo.ts keymap 1 factory` (vérifié pour les codes ; les fonctions viennent des tables ci-dessus) :
+Lue avec `0x17` (vérifié pour les codes ; les fonctions viennent des tables ci-dessus) :
 
 - F1 / F2 : luminosité de l'écran − / + (`30 70 00`, `30 6f 00`) ; F3 : Win+Tab ; F4 : recherche (`30 21 02`) ; F5 : Win+H ; F7 / F8 / F9 : précédent / lecture-pause / suivant ; F10 : muet ; F11 / F12 : volume − / +.
 - Inser : éclairage marche/arrêt. Q / A : mode − / + ; W / S : teinte − / + ; E / D : vitesse + / − ; R / F : luminosité + / −.
@@ -376,7 +350,7 @@ Relevée avec `node yogo.ts keymap 1 factory` (vérifié pour les codes ; les fo
 
 Lecture `0x2C`, écriture `0x2D` (`getMacro`, `setMacro`, classes `tW` / `vI`). `get_keyboard_info` annonce 4 macros.
 
-**Le configurateur ne relit pas les macros du clavier** : il garde la liste de son côté (stockage local / compte) et se contente de l'écrire. Son `getMacro` ne lit qu'un paquet à l'offset 0 et n'en fait rien. Relevé du 2026-10-17 avec `node yogo.ts macros 8` (vérifié) : 16 octets `ff`, puis des zéros jusqu'à 448 octets, donc aucune macro.
+**Le configurateur ne relit pas les macros du clavier** : il garde la liste de son côté (stockage local / compte) et se contente de l'écrire. Son `getMacro` ne lit qu'un paquet à l'offset 0 et n'en fait rien. Relevé du 2026-10-17 en lisant 8 paquets avec `0x2C` (vérifié) : 16 octets `ff`, puis des zéros jusqu'à 448 octets, donc aucune macro.
 
 ### Format du bloc (vérifié)
 
@@ -400,14 +374,6 @@ Une action : `délai (LE 16 bits)`, `code`, `type | appui << 7`. **Bit 7 = 1 pou
 | 3, 5, 7 | autres types de l'interface (4, 5, 6 ; probablement souris) | inconnu |
 
 Le délai est en **millisecondes** et s'applique après chaque action (vérifié : à 500, chaque touche reste enfoncée assez longtemps pour déclencher la répétition automatique de macOS, « hi » donne `hhhiii`). La relecture par `0x2C` renvoie exactement le bloc écrit (vérifié).
-
-```sh
-node yogo.ts macros [paquets]       # bloc brut (4 paquets par défaut)
-node yogo.ts setmacro 0b0c          # macro 0 = taper h puis i ; sauvegarde la zone dans macros-backup.json au premier appel
-node yogo.ts setmacro e10b0c,0b0c@500   # macro 0 = « HI » (Maj tenue), macro 1 = « hi » avec 500 ms entre actions
-node yogo.ts setkey 0 14 600000     # Inser -> macro 0, mode 0
-node yogo.ts macros-restore         # réécrit la sauvegarde
-```
 
 ### Lier une touche à une macro (vérifié)
 
@@ -434,13 +400,18 @@ Utilisées quand `ledMode = 253` (« custom »).
 
 Relevé du 2026-10-17 (vérifié) : les LED de W, A, S, D et des quatre flèches étaient en blanc, toutes les autres éteintes. Le croisement keymap ↔ table des LED retombe exactement sur ces touches.
 
-```sh
-node yogo.ts ledmap                # table touche -> LED (brut)
-node yogo.ts leds                  # couleur de chaque LED
-node yogo.ts setled 0 ff0000       # Échap en rouge ; sauvegarde la matrice dans leds-backup.json au premier appel
-node yogo.ts color 00ff00 253      # passe le rétroéclairage en mode couleurs par touche
-node yogo.ts leds-restore          # réécrit la sauvegarde
-```
+## Sauvegarde complète
+
+Tout ce que le protocole permet de relire tient en quatre ressources (vérifié en USB et à travers le dongle) :
+
+| Ressource | Lecture / écriture | Taille |
+|---|---|---|
+| bloc de config | `0x14` / `0x15` | 64 octets |
+| keymap, couches 0–3 | `0x1A`, `0x1C`, `0x1E`, `0x20` / `0x1B`, `0x1D`, `0x1F`, `0x21` | 336 octets par couche |
+| couleurs par touche | `0x22` / `0x23` | 336 octets |
+| zone des macros | `0x2C` / `0x2D` | 224 octets suffisent pour 4 macros courtes |
+
+Réécrire ces quatre ressources telles quelles, puis les relire dans une nouvelle session, redonne exactement l'état sauvegardé : changer `sleepL`, puis tout réécrire, ramène la valeur d'origine. L'image fixe de l'écran à points (`0x3B`) n'a pas de commande de lecture : elle ne peut pas être sauvegardée.
 
 ## Questions ouvertes
 
@@ -451,20 +422,20 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 
 ## Journal
 
-- 2026-10-17 : téléchargement du configurateur ; extraction du protocole. Vérifiés : handshake, `get_keyboard_info`, lecture et écriture du bloc de config, couleur, modes 0 et 4. Config d’origine sauvegardée dans `config-backup.txt` (local, non versionné).
+- 2026-10-17 : téléchargement du configurateur ; extraction du protocole. Vérifiés : handshake, `get_keyboard_info`, lecture et écriture du bloc de config, couleur, modes 0 et 4. Config d’origine sauvegardée.
 - 2026-10-17 : lecture de la keymap (4 couches, usine et actuelle). Format `[type, x, y]` décodé ; disposition 6 × 16 identifiée ; table des fonctions `0x50` extraite du configurateur. La couche 0 de ce clavier diffère de l'usine sur 5 touches et la couche Fn est largement modifiée.
 - 2026-10-17 : l'utilisateur confirme avoir fait ces modifications (Verr. maj → Ctrl, Suppr/Début échangés, médias sur Fn + B/N/M) : la correspondance index ↔ touches physiques est vérifiée.
 - 2026-10-17 : écriture de la keymap testée : Inser (couche 0, index 14) remappé en X avec `0x1B` ; la relecture dans une nouvelle session montre `10 00 1b`.
-- 2026-10-17 : test physique validé (Inser tape `x`), puis `keymap-restore` : couches 0 et 1 relues identiques à la sauvegarde. `0x1D` est donc accepté (réécriture à l'identique).
+- 2026-10-17 : test physique validé (Inser tape `x`), puis réécriture de la sauvegarde : couches 0 et 1 relues identiques à la sauvegarde. `0x1D` est donc accepté (réécriture à l'identique).
 - 2026-10-17 : écriture de la couche Fn validée : Fn + Inser (couche 1, index 14) remappé en X avec `0x1D` tape `x`, Inser seul reste inchangé (couche 0 relue à `10 00 49` ; sous macOS, Inser ne produit rien, c'est normal). Keymap restaurée et relue identique à la sauvegarde.
 - 2026-10-17 : couleurs par touche : lecture de la table touche → LED (`0x32`) et de la matrice (`0x22`) ; préréglage WASD + flèches en blanc retrouvé. Échap mis en rouge via `0x23` (relu correctement), passage en mode 253. Test visuel en attente. Disposition probablement ANSI (corrige l'hypothèse ISO).
-- 2026-10-17 : test visuel validé (Échap rouge, WASD + flèches blancs, reste éteint). Disposition QWERTY ANSI confirmée par l'utilisateur. Couleurs par touche restaurées (`leds-restore`) et retour au mode 4 vert.
-- 2026-10-17 : écran à points : `setDotLight` lu (vitesse inversée, mode −1 → `0xFF`), liste `Os` des 13 modes. `LedTFTMode` passé de 8 à 12 via `node yogo.ts dot 12`, relu à 12. Test visuel en attente.
+- 2026-10-17 : test visuel validé (Échap rouge, WASD + flèches blancs, reste éteint). Disposition QWERTY ANSI confirmée par l'utilisateur. Couleurs par touche restaurées et retour au mode 4 vert.
+- 2026-10-17 : écran à points : `setDotLight` lu (vitesse inversée, mode −1 → `0xFF`), liste `Os` des 13 modes. `LedTFTMode` passé de 8 à 12, relu à 12. Test visuel en attente.
 - 2026-10-17 : test visuel : en mode 12, l'écran n'affiche plus les feux d'artifice (l'utilisateur ne peut pas confirmer que c'est « YOGO »). Retour au mode 8, relu à 8 (luminosité 30, vitesse 2, couleur ff0000 inchangées).
 - 2026-10-17 : image de l'écran à points : `0x3B` = image fixe RGB888 108 octets affichée en mode 6, sans commande de lecture ; `0x3C` = trame du visualiseur musical en RGB565 (corrige la passation, qui attribuait le RGB565 à l'image) ; `0x3D` = arrêt du flux.
 - 2026-10-17 : image test envoyée avec `0x3B` (coin haut-gauche blanc, rangée du haut rouge, colonne de gauche verte) puis mode 6 : affichage conforme, ni miroir ni rotation. Le clavier accuse les deux paquets `len 56` (`55`). Retour au mode 8, relu ; l'image test reste stockée pour le mode 6 (l'utilisateur n'en avait pas).
 - 2026-10-17 : `0x3C` : une trame RGB565 (diagonale bleue, coin haut-droit rouge) s'affiche brièvement puis l'écran passe au noir ; config inchangée. `0x3D` remet `LedTFTMode` à 0 (relu après chaque commande). Mode 8 réécrit. Test du mode −1 : `LedTFTMode` relu à 255, test visuel en attente.
-- 2026-10-17 : mode −1 (`0xFF`) : écran éteint (vérifié). Luminosité : comparaison 90 → 5 sur l'image du mode 6, nettement plus sombre. Vitesse brute 2 → 6 → 2 sur le mode 8 : plus lent puis plus rapide. Écran remis à l'état d'origine (mode 8, luminosité 30, vitesse 2) et relu. Nouvelle commande générique `node yogo.ts set <champ> <valeur>`.
+- 2026-10-17 : mode −1 (`0xFF`) : écran éteint (vérifié). Luminosité : comparaison 90 → 5 sur l'image du mode 6, nettement plus sombre. Vitesse brute 2 → 6 → 2 sur le mode 8 : plus lent puis plus rapide. Écran remis à l'état d'origine (mode 8, luminosité 30, vitesse 2) et relu.
 - 2026-10-17 : couleur de l'écran à points vérifiée (mode 0, vert au lieu de rouge). Flux `0x3C` continu (~20 trames/s, 60 s) : image stable tout du long. Puis `0x3D` et réécriture du mode 8, couleur `ff0000` ; relu.
 - 2026-10-17 : après la fin du flux `0x3C`, l'écran est resté noir jusqu'au `0x3D` (vérifié par l'utilisateur).
 - 2026-10-17 : macros : format du bloc `0x2D`, codage des actions, liaison touche → macro (`60 n mode` / `61 n N`) et modes d'exécution lus dans le configurateur. Lecture `0x2C` : aucune macro sur le clavier.
@@ -482,20 +453,22 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : `wheelMode` 1 et 2 : la rotation de la molette ne fait plus rien de visible, l'appui reste lecture/pause. Hypothèse « la molette envoie alors les emplacements 46–47 » infirmée (volume ± écrit en 46–47, sans effet). Keymap restaurée, `wheelMode` remis à 0.
 - 2026-10-17 : `layer` = 2 : la couche 0 reste active (Verr. maj → Ctrl, Suppr à sa place personnalisée), même après rebranchement ; valeur relue à 2 après rebranchement. Remis à 0.
 - 2026-10-17 : `layer` élucidé, test proposé par l'utilisateur : Ins de la couche 1 → `x`, `layer` = 1. Ins seule tape le code de la couche 0 jusqu'au premier Fn + Ins ; ensuite Ins seule tape `x` et B (lecture/pause sur la couche 1) agit sans Fn ; Fn seul ne ramène pas la couche 0. Après `layer` = 0, B reste sur lecture/pause jusqu'au prochain appui-relâchement de Fn, puis tape `b`. Donc `layer` = couche de base, appliquée au relâchement de Fn (cela explique le test précédent à 2, fait sans toucher à Fn). Keymap restaurée.
-- 2026-10-17 : Verr. maj → `50 02 00` : deuxième touche Fn fonctionnelle. Verr. maj → `50 03 00` avec Inser → `x` en couche 2 : Verr. maj + Inser tape `x`, Verr. maj + B tape `b` (la couche 1 n'est pas utilisée), rien ne reste bloqué. `50 03` = couche 2 tant que la touche est tenue. `setkey` accepte maintenant les couches 0–3.
+- 2026-10-17 : Verr. maj → `50 02 00` : deuxième touche Fn fonctionnelle. Verr. maj → `50 03 00` avec Inser → `x` en couche 2 : Verr. maj + Inser tape `x`, Verr. maj + B tape `b` (la couche 1 n'est pas utilisée), rien ne reste bloqué. `50 03` = couche 2 tant que la touche est tenue.
 - 2026-10-17 : hypothèse « le mode Mac utilise les couches 2 et 3 » infirmée : en mode Mac, Inser (`x` en couche 2 seulement) ne tape pas `x`, et Fn + B reste lecture/pause (couche 1). `macWin` remis à 0.
-- 2026-10-17 : `50 04 00` = couche 3 tant que la touche est tenue (vérifié : Inser → `x` en couche 3 seulement, Verr. maj + Inser tape `x`). Keymap des 4 couches restaurée et relue identique à la sauvegarde ; `keymap-backup` sauvegarde désormais les 4 couches.
-- 2026-10-17 : `power_info` (`0x30`) lu : `5b 01`, soit 91 % et état 1 (pas « en charge » = 2 selon le configurateur), clavier branché en USB. Nouvelle commande `node yogo.ts power`. README ajouté (anglais).
+- 2026-10-17 : `50 04 00` = couche 3 tant que la touche est tenue (vérifié : Inser → `x` en couche 3 seulement, Verr. maj + Inser tape `x`). Keymap des 4 couches restaurée et relue identique à la sauvegarde.
+- 2026-10-17 : `power_info` (`0x30`) lu : `5b 01`, soit 91 % et état 1 (pas « en charge » = 2 selon le configurateur), clavier branché en USB.
 - 2026-10-17 : rétroéclairage : luminosité (90 → 10), `colorful` = 1 (arc-en-ciel figé en mode 4) et vitesse (mode 3, brut 0 ≈ 1 s, brut 6 ≈ 8 s) vérifiés ; tout remis (mode 4, luminosité 90, vitesse 3, couleur unique). Test de `ledOnOff` = 1.
 - 2026-10-17 : `ledOnOff` = 1 éteint le rétroéclairage, l'écran à points reste allumé (vérifié). Remis à 0.
 - 2026-10-17 : effets 1 (défilement vers la droite, avec `colorful` = 1) et 7 (rotation antihoraire) observés ; `customColorIndex` 0 ou 1 ne change pas leur sens. Rétroéclairage remis : mode 4, vert, luminosité 90, vitesse 3, couleur unique.
 - 2026-10-17 : table des effets d'éclairage complétée avec les libellés et réglages du configurateur. Synchro musicale (`0x2E` / `0x2F`, mode 254) laissée non déterminée : propre à l'application de bureau, supposée fonctionner comme le flux de l'écran à points.
 - 2026-10-17 : revérification de l'effet 1 avec `colorful` = 0, par une seule écriture depuis le mode 4 : vague verte qui défile de gauche à droite, appliquée immédiatement (une écriture du bloc, en 2 paquets, suffit). Retour au mode 4.
 - 2026-10-17 : lecture du code sans-fil du configurateur (paquets de 32 octets, 24 de données, découpage du bloc de config, bug d'écriture des positions 48–63). Rien de testé : dongle pas encore branché.
-- 2026-10-17 : lecture de `applyWirelessTransport()` et de l'envoi sans-fil (même en-tête, 32 octets, report ID pris dans le descripteur, timeout 3 s). `yogo.ts` choisit le transport d'après le PID ; non testé, dongle pas encore branché.
-- 2026-10-17 : dongle branché. Lecture des infos et de la config, puis écriture de la couleur du rétroéclairage, vérifiées à travers le dongle avec `yogo.ts`.
+- 2026-10-17 : lecture de `applyWirelessTransport()` et de l'envoi sans-fil (même en-tête, 32 octets, report ID pris dans le descripteur, timeout 3 s).
+- 2026-10-17 : dongle branché. Lecture des infos et de la config, puis écriture de la couleur du rétroéclairage, vérifiées à travers le dongle.
 - 2026-10-17 : veille vérifiée en 2,4 GHz (`sleepL = 60` → extinction à 60 s, réveil par une touche, clavier injoignable par le dongle pendant la veille).
-- 2026-10-17 : keymap, LED par touche, macros, batterie, écran à points (mode, image, visualiseur en direct) vérifiés à travers le dongle ; tout restauré, config identique à `config-backup.txt`. L'image fixe d'origine de l'écran à points est écrasée (drapeau arc-en-ciel), avec l'accord de l'utilisateur.
-- 2026-10-17 : batterie par le dongle : `52 00` (82 %) sans câble, `52 01` câble de charge branché. L'état 1 signifie donc « en charge » ; `yogo.ts power` le traite comme tel (toute valeur non nulle).
+- 2026-10-17 : keymap, LED par touche, macros, batterie, écran à points (mode, image, visualiseur en direct) vérifiés à travers le dongle ; tout restauré, config identique à la sauvegarde d'origine. L'image fixe d'origine de l'écran à points est écrasée (drapeau arc-en-ciel), avec l'accord de l'utilisateur.
+- 2026-10-17 : batterie par le dongle : `52 00` (82 %) sans câble, `52 01` câble de charge branché. L'état 1 signifie donc « en charge ».
 - 2026-10-17 : le mode de connexion se choisit avec un sélecteur physique (Bluetooth / câble / 2,4 GHz) ; sur 2,4 GHz, le câble ne sert qu'à charger.
-- 2026-10-17 : retour en filaire avec le nouveau code. Lectures identiques aux sauvegardes ; config, keymap, couleurs et macros réécrites telles quelles en paquets de 56 octets, puis relues à l'identique.
+- 2026-10-17 : retour en filaire. Lectures identiques aux sauvegardes ; config, keymap, couleurs et macros réécrites telles quelles en paquets de 56 octets, puis relues à l'identique.
+- 2026-10-17 : sauvegarde complète (config, 4 couches, couleurs, macros) vérifiée en USB et à travers le dongle : contenus identiques d'un transport à l'autre ; après `sleepL` = 179, tout réécrire ramène 180. Une nouvelle connexion HID dans le même processus suffit pour relire les nouvelles valeurs.
+- 2026-10-17 : la doc du protocole devient indépendante de `yogo.ts` ; l'utilisation de l'outil passe dans `cli.md`.
