@@ -350,7 +350,7 @@ Touches spéciales du configurateur (onglet « Touche supplémentaire », tablea
 
 Le configurateur dessine donc F4 de la couche 0 avec l'icône « bureau » : c'est bien F4 qui est envoyé (vérifié en lecture). Il affiche « NO » pour toute fonction `0x50` qu'il ne connaît pas (Fn + Esc, 1…4, `-`, `=`, Retour arrière, H, Win), et ne montre que la touche, sans le modificateur (Win+Tab s'affiche « TAB », Win+H « H »).
 
-`34`, `35`, `36` (Fn + 1, 2, 3 de la couche Fn d'usine) : appareils Bluetooth 1, 2, 3 (vérifié en mode Bluetooth). Un appui bref passe à l'appareil déjà appairé sur ce canal ; un appui de quelques secondes lance l'appairage. `37` (Fn + 4) : aucun effet observé, absent du guide papier. En filaire, ce n'est pas la bascule Win/Mac (vérifié : `macWin` inchangé et F1 sans Fn ne règle pas la luminosité). Peut-être l'appairage du dongle 2,4 GHz (hypothèse, non testé).
+`34`, `35`, `36` (Fn + 1, 2, 3 de la couche Fn d'usine) : appareils Bluetooth 1, 2, 3 (vérifié en mode Bluetooth). Un appui bref passe à l'appareil déjà appairé sur ce canal ; un appui de quelques secondes lance l'appairage. `37` (Fn + 4) : aucun effet observé, absent du guide papier. En filaire, ce n'est pas la bascule Win/Mac (vérifié : `macWin` inchangé et F1 sans Fn ne règle pas la luminosité). En 2,4 GHz, un appui bref ne fait rien de visible et ne met pas le clavier en veille (il répond encore par le dongle). Reste à tester un appui long : peut-être l'appairage du dongle (hypothèse).
 
 `33` et `41` (Fn + Retour arrière, Fn + Esc) : probablement les deux moitiés du reset usine. Le guide papier indique « Fn + Esc + Retour arrière, maintenir 5 s : retour aux réglages d'usine » (hypothèse ; **ne pas tester** sans l'accord de l'utilisateur, cela effacerait la config).
 
@@ -358,7 +358,7 @@ Testés au clavier en remettant les codes d'usine dans la couche Fn (vérifié) 
 
 - `3c` (Fn + Win) : verrouillage de la touche Win, bascule. La LED de Win s'allume en rouge et l'octet `winLock` du bloc de config passe à 1, puis revient à 0.
 - `31` (Fn + `=`) / `32` (Fn + `-`) : vitesse de l'écran à points + / −. `LedTFTSpeed` (valeur brute, 0 = le plus rapide) descend jusqu'à 0 avec `31` et monte d'un cran par appui avec `32` (0 → 3 relu). Verr. maj et Win clignotent à chaque appui, peut-être pour signaler la butée (hypothèse).
-- `3e` (Fn + H) : aucun effet visible et aucun octet du bloc de config modifié, en mode Windows comme en mode Mac. Ne change pas non plus l'écran à points, même brièvement, en appui bref ou maintenu 3 s (vérifié). Rôle inconnu.
+- `3e` (Fn + H) : aucun effet visible et aucun octet du bloc de config modifié, en mode Windows comme en mode Mac. En 2,4 GHz, rien de visible et pas de mise en veille (le clavier répond encore par le dongle). Ne change pas non plus l'écran à points, même brièvement, en appui bref ou maintenu 3 s (vérifié). Rôle inconnu.
 
 ### Couche Fn d'usine
 
@@ -503,3 +503,4 @@ Réécrire ces quatre ressources telles quelles, puis les relire dans une nouvel
 - 2026-10-17 : réglages d'éclairage de la couche Fn vérifiés au clavier : W / S = couleur précédente / suivante (palette qui boucle sur l'arc-en-ciel), E / D = vitesse + / −, R / F = luminosité + / − (15 par appui). Clics souris `40 00 01` / `40 00 02` vérifiés. Preset restauré.
 - 2026-10-17 : Fn + H (`3e`) sans effet aussi en mode Mac. En Bluetooth, Fn + 1, 2, 3 (`34`–`36`) choisissent l'appareil 1, 2, 3 (appui long : appairage) ; Fn + 4 (`37`) sans effet observé.
 - 2026-10-17 : deux affirmations trouvées en ligne infirmées : Fn + 4 (`37`) ne bascule pas Win/Mac et Fn + H (`3e`) ne change pas l'écran à points.
+- 2026-10-17 : en 2,4 GHz, Fn + H et Fn + 4 (appui bref) : rien de visible, pas de mise en veille. Pistes « batterie » et « veille » écartées.
