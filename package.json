@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "yogo75": "node apps/cli/src/yogo.ts",
+    "yogo75": "node apps/cli/src/yogo75.ts",
     "test": "node --test",
     "typecheck": "tsc -p apps/cli && tsc -p packages/core && tsc -p packages/core/test",
     "format": "prettier --write .",

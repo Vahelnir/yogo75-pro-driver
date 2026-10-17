@@ -165,3 +165,29 @@ test("the dot image is written padded, live frames as RGB565", async () => {
     [0xff, 0xff, 0x41, 0x08],
   );
 });
+
+test("raw sends one packet and returns the reply data", async () => {
+  const { fake, kb } = setup();
+  const data = await kb.raw(0x14, 56, 8);
+  assert.deepEqual(packets(fake), [[0x14, 56, 8]]);
+  assert.deepEqual(data.subarray(0, 8), BACKUP.config.subarray(56, 64));
+  assert.equal(data.length, 56);
+});
+
+test("raw sends its data and refuses more than one packet holds", async () => {
+  const { fake, kb } = setup(32);
+  await kb.raw(0x23, 0, 3, [1, 2, 3]);
+  assert.deepEqual([...fake.written[0].subarray(8, 11)], [1, 2, 3]);
+  await assert.rejects(kb.raw(0x23, 0, 0, new Uint8Array(25)), /24 bytes/);
+});
+
+test("raw refuses factory reset and firmware flashing unless forced", async () => {
+  const { fake, kb } = setup();
+  for (const cmd of [0x31, 0xa0, 0xc0]) {
+    await assert.rejects(kb.raw(cmd), /needs force/);
+  }
+  assert.equal(fake.written.length, 0);
+
+  await kb.raw(0x31, 0, 0, [], true);
+  assert.deepEqual(packets(fake), [[0x31, 0, 0]]);
+});

@@ -23,3 +23,15 @@ export const MATRIX_BYTES = 336;
 export const MACROS_BYTES = 224;
 /** LED matrix read by the hub; only the first 96 bytes (one per key) are used. */
 export const LED_MATRIX_BYTES = 384;
+
+const CMD_FACTORY_RESET = 0x31;
+const CMD_FLASH_FIRST = 0xa0;
+const CMD_FLASH_LAST = 0xc0;
+
+/** Factory reset and firmware flashing: documented, never used, and only sent on purpose. */
+export function isDangerous(cmd: number): boolean {
+  return (
+    cmd === CMD_FACTORY_RESET ||
+    (cmd >= CMD_FLASH_FIRST && cmd <= CMD_FLASH_LAST)
+  );
+}

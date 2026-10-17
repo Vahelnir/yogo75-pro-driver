@@ -26,6 +26,9 @@ importers:
       '@yogo75/core':
         specifier: workspace:*
         version: link:../../packages/core
+      citty:
+        specifier: 0.2.2
+        version: 0.2.2
       node-hid:
         specifier: 3.1.0
         version: 3.1.0
@@ -225,6 +228,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  citty@0.2.2:
+    resolution: {integrity: sha512-+6vJA3L98yv+IdfKGZHBNiGW5KHn22e/JwID0Strsz8h4S/csAu/OuICwxrg44k5MRiZHWIo8XXuJgQTriRP4w==}
+
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
     engines: {node: '>=6.0'}
@@ -416,6 +422,8 @@ snapshots:
 
   '@typescript/typescript-win32-x64@7.0.2':
     optional: true
+
+  citty@0.2.2: {}
 
   debug@4.4.3:
     dependencies:
