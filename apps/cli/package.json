@@ -4,6 +4,10 @@
   "type": "module",
   "dependencies": {
     "@yogo75/core": "workspace:*",
+    "citty": "0.2.2",
     "node-hid": "3.1.0"
+  },
+  "bin": {
+    "yogo75": "src/yogo75.ts"
   }
 }

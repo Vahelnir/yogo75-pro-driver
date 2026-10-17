@@ -17,6 +17,7 @@ import {
   CMD_START,
   CMD_SYNC_DOT,
   CMD_WRITE_KB_FUNCTION,
+  isDangerous,
   LED_MATRIX_BYTES,
   MACROS_BYTES,
   MATRIX_BYTES,
@@ -191,6 +192,31 @@ export class Keyboard {
   /** Stops the live frames; the keyboard then sets the dot screen mode to 0. */
   async endLiveFrames() {
     await this.#transfer(CMD_END_SYNC_DOT);
+  }
+
+  /**
+   * Sends one packet as given and returns the reply's data bytes, for exploring the protocol.
+   * Refuses factory reset and firmware flashing unless `force`.
+   */
+  async raw(
+    cmd: number,
+    offset = 0,
+    length = 0,
+    data: ArrayLike<number> = [],
+    force = false,
+  ): Promise<Uint8Array> {
+    if (isDangerous(cmd) && !force) {
+      throw new Error(
+        `${cmdName(cmd)} is factory reset or firmware flashing; it needs force`,
+      );
+    }
+
+    if (data.length > this.#chunkBytes) {
+      throw new Error(`one packet holds at most ${this.#chunkBytes} bytes`);
+    }
+
+    const reply = await this.#transfer(cmd, length, offset, data);
+    return reply.subarray(HEADER_BYTES);
   }
 
   /** `state` is 1 while the cable is plugged in, even at 100% (the hub's "charging" 2 never comes). */

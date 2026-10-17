@@ -1,4 +1,4 @@
-import type { Transport } from "@yogo75/core";
+import { hex, Keyboard, type Transport } from "@yogo75/core";
 import HID from "node-hid";
 
 const VID = 0x373b;
@@ -38,4 +38,22 @@ export async function openKeyboard(): Promise<{
   };
 
   return { transport, close: () => dev.close() };
+}
+
+/** Opens the keyboard, sends the start packet, runs `use` and closes; DEBUG=1 traces every packet. */
+export async function withKeyboard<T>(
+  use: (k: Keyboard) => Promise<T>,
+): Promise<T> {
+  const { transport, close } = await openKeyboard();
+  const k = new Keyboard(
+    transport,
+    process.env.DEBUG ? (dir, p) => console.error(dir, hex(p)) : undefined,
+  );
+
+  try {
+    await k.start();
+    return await use(k);
+  } finally {
+    await close();
+  }
 }
