@@ -1,0 +1,5 @@
+{
+  "plugins": ["@ianvs/prettier-plugin-sort-imports"],
+  "importOrderTypeScriptVersion": "7.0.0",
+  "importOrderParserPlugins": ["typescript", "decorators"]
+}

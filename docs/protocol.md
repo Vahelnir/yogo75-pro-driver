@@ -8,7 +8,7 @@ Le configurateur officiel est un site web. Il communique avec le clavier par l'A
 
 Chaque échange suit le même schéma : on envoie une commande (« lis la config », « écris la keymap »…), le clavier répond avec les données demandées ou un accusé de réception. Toute la configuration d'éclairage et d'options tient dans un bloc de 64 octets, qu'on lit, qu'on modifie puis qu'on réécrit.
 
-Ce document décrit le protocole lui-même, indépendamment de tout outil. L'utilisation de notre outil, `yogo.ts`, est décrite dans [`cli.md`](cli.md).
+Ce document décrit le protocole lui-même, indépendamment de tout outil. L'utilisation de notre CLI, `yogo75`, est décrite dans [`cli.md`](cli.md).
 
 ### Exemple : changer la couleur du rétroéclairage
 

@@ -8,6 +8,5 @@
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
     "types": ["node"]
-  },
-  "exclude": ["web-dump", "node_modules"]
+  }
 }

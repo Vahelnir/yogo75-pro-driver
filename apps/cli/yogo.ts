@@ -184,7 +184,7 @@ const k = new Yogo();
 try {
   k.transfer(CMD_START);
   if (cmd === "color") {
-    if (!/^[0-9a-f]{6}$/i.test(arg ?? "")) throw new Error("usage: node yogo.ts color RRGGBB [mode]");
+    if (!/^[0-9a-f]{6}$/i.test(arg ?? "")) throw new Error("usage: pnpm yogo75 color RRGGBB [mode]");
     const cfg = k.readConfig();
     const at = (f: string) => FIELDS.indexOf(f);
     cfg[at("ledOnOff")] = 0; // 0 = on, as the hub sets it
@@ -197,7 +197,7 @@ try {
   } else if (cmd === "dot") {
     const mode = Number(arg);
     if (!(mode >= -1 && mode <= 12) || (modeArg !== undefined && !/^[0-9a-f]{6}$/i.test(modeArg))) {
-      throw new Error("usage: node yogo.ts dot <mode -1..12> [RRGGBB]");
+      throw new Error("usage: pnpm yogo75 dot <mode -1..12> [RRGGBB]");
     }
     const cfg = k.readConfig();
     const at = (f: string) => FIELDS.indexOf(f);
@@ -210,7 +210,7 @@ try {
     const pos = FIELDS.indexOf(arg);
     const value = Number(modeArg);
     if (pos < 0 || !(Number.isInteger(value) && value >= 0 && value <= 255)) {
-      throw new Error(`usage: node yogo.ts set <field> <0-255>; fields: ${FIELDS.join(" ")}`);
+      throw new Error(`usage: pnpm yogo75 set <field> <0-255>; fields: ${FIELDS.join(" ")}`);
     }
     const cfg = k.readConfig();
     console.log(`${arg}: ${cfg[pos]} -> ${value}`);
@@ -219,14 +219,14 @@ try {
   } else if (cmd === "dotimage") {
     // 6×6 RGB888, row by row; there is no read command, so this overwrites the stored image for good.
     const img = Buffer.from((arg ?? "").replaceAll(" ", ""), "hex");
-    if (img.length !== 108) throw new Error("usage: node yogo.ts dotimage <36 RRGGBB pixels, row by row>");
+    if (img.length !== 108) throw new Error("usage: pnpm yogo75 dotimage <36 RRGGBB pixels, row by row>");
     // The hub sends every packet with len DATA_LEN (the last one zero-padded).
     k.writeChunks(CMD_SET_DOT_IMAGE, img);
-    console.log("dot screen image written (shown in mode 6: node yogo.ts dot 6)");
+    console.log("dot screen image written (shown in mode 6: pnpm yogo75 dot 6)");
   } else if (cmd === "dotlive") {
     // Music-visualiser frame (start_sync_dot): same 6×6 layout as dotimage, but RGB565 LE, 72 bytes.
     const img = Buffer.from((arg ?? "").replaceAll(" ", ""), "hex");
-    if (img.length !== 108) throw new Error("usage: node yogo.ts dotlive <36 RRGGBB pixels, row by row> [seconds]");
+    if (img.length !== 108) throw new Error("usage: pnpm yogo75 dotlive <36 RRGGBB pixels, row by row> [seconds]");
     const frame: number[] = [];
     for (let i = 0; i < img.length; i += 3) {
       const v = ((img[i] >> 3) << 11) | ((img[i + 1] >> 2) << 5) | (img[i + 2] >> 3);
@@ -238,13 +238,13 @@ try {
       k.writeChunks(CMD_SYNC_DOT, frame, false);
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
     } while (Date.now() < until);
-    console.log("live frame sent (stop with: node yogo.ts dotlive-end)");
+    console.log("live frame sent (stop with: pnpm yogo75 dotlive-end)");
   } else if (cmd === "dotlive-end") {
     k.transfer(CMD_END_SYNC_DOT);
     console.log("live sync ended");
   } else if (cmd === "keymap") {
     const layer = Number(arg ?? 0);
-    if (!(layer >= 0 && layer <= 3)) throw new Error("usage: node yogo.ts keymap [0-3] [factory]");
+    if (!(layer >= 0 && layer <= 3)) throw new Error("usage: pnpm yogo75 keymap [0-3] [factory]");
     const map = k.readKeymap(layer, modeArg === "factory");
     for (let i = 0; i < map.length; i += 3) console.log(String(i / 3).padStart(3), hex(map.subarray(i, i + 3)));
   } else if (cmd === "power") {
@@ -256,7 +256,7 @@ try {
   } else if (cmd === "setmacro") {
     const specs = (arg ?? "").split(",");
     if (!specs.every((m) => /^([0-9a-f]{2})+(@\d+)?$/i.test(m)) || specs.length > 4) {
-      throw new Error("usage: node yogo.ts setmacro <macro>[,<macro>...] ; macro = HID codes[@delay], e.g. e10b0c@20 for \"HI\"");
+      throw new Error("usage: pnpm yogo75 setmacro <macro>[,<macro>...] ; macro = HID codes[@delay], e.g. e10b0c@20 for \"HI\"");
     }
     if (!existsSync(MACROS_BACKUP)) {
       writeFileSync(MACROS_BACKUP, JSON.stringify(hex(k.readChunks(CMD_GET_MACRO, MACROS_BYTES))) + "\n");
@@ -277,7 +277,7 @@ try {
   } else if (cmd === "setled") {
     const index = Number(arg);
     if (!(index >= 0 && index < 96) || !/^[0-9a-f]{6}$/i.test(modeArg ?? "")) {
-      throw new Error("usage: node yogo.ts setled <key index 0-95> RRGGBB");
+      throw new Error("usage: pnpm yogo75 setled <key index 0-95> RRGGBB");
     }
     const led = k.readChunks(CMD_GET_LED_MATRIX, 96)[index];
     if (led === 0xff) throw new Error(`key ${index} has no LED`);
@@ -301,9 +301,9 @@ try {
   } else if (cmd === "setkey") {
     const [layer, index] = [Number(arg), Number(modeArg)];
     if (!(layer >= 0 && layer <= 3) || !(index >= 0 && index < 96) || !/^[0-9a-f]{6}$/i.test(codeArg ?? "")) {
-      throw new Error("usage: node yogo.ts setkey <layer 0-3> <index 0-95> <TTXXYY>");
+      throw new Error("usage: pnpm yogo75 setkey <layer 0-3> <index 0-95> <TTXXYY>");
     }
-    if (!existsSync(KEYMAP_BACKUP)) throw new Error(`run \`node yogo.ts keymap-backup\` first`);
+    if (!existsSync(KEYMAP_BACKUP)) throw new Error(`run \`pnpm yogo75 keymap-backup\` first`);
     if (!(layer in JSON.parse(readFileSync(KEYMAP_BACKUP, "utf8")))) throw new Error(`layer ${layer} is not in ${KEYMAP_BACKUP}`);
     const map = k.readKeymap(layer);
     console.log(`layer ${layer} key ${index}: ${hex(map.subarray(index * 3, index * 3 + 3))} -> ${codeArg}`);
