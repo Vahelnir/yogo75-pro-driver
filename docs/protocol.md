@@ -307,7 +307,7 @@ Statut : vérifié pour la couche 0 (`0x1B`) et la couche Fn (`0x1D`). Même dé
 |---|---|---|
 | 0 | 0–15 | Esc, F1…F12, Impr. écran, Inser, Suppr |
 | 1 | 16–31 | `²`, 1…0, `-`, `=`, Retour arrière, Début, Fin |
-| 2 | 32–47 | Tab, Q…P, `[`, `]`, `\`, puis 46–47 : en usine `30 cb 01` et `30 cf 00` (le configurateur les masque) ; sur ce clavier `10 00 56` et `10 00 46`. Ce n'est pas la rotation de la molette (vérifié) |
+| 2 | 32–47 | Tab, Q…P, `[`, `]`, `\`, puis 46–47 : les deux boutons à droite du clavier, sous la molette : « afficher le bureau » et « verrouiller la session » (guide papier : boutons 3 et 4, personnalisables), en usine `30 cb 01` et `30 cf 00` ; sur ce clavier `10 00 56` (bouton du haut) et `10 00 46` (bouton du bas), confirmé par l'utilisateur. Ce n'est pas la rotation de la molette (vérifié) |
 | 3 | 48–63 | Verr. maj, A…L, `;`, `'`, (60 : `#` ISO, absente), Entrée, Page préc., Page suiv. |
 | 4 | 64–79 | Maj gauche, (65 : `<` ISO, absente), Z…M, `,`, `.`, `/`, (vide), Maj droite, Flèche haut, (vide) |
 | 5 | 80–95 | Ctrl gauche, Win, Alt, (vide ×2), Espace, (vide ×3), Alt droit, Fn, (vide), Ctrl droit, ←, ↓, → |
@@ -319,6 +319,7 @@ Statut : vérifié pour la couche 0 (`0x1B`) et la couche Fn (`0x1D`). Même dé
 | `0x10` : touche clavier | octet 1 = modificateurs, octet 2 = code HID | `10 00 04` = A ; `10 01 00` = Ctrl gauche ; `10 08 2b` = Win+Tab | vérifié |
 | `0x30` : touche multimédia (HID *consumer*) | code consumer sur 16 bits, LE | `30 cd 00` = lecture/pause ; `30 e9 00` = volume + | vérifié (codes standards reconnus) |
 | `0x50` : fonction du clavier | octet 1 = numéro de fonction | `50 02 00` = touche Fn | code |
+| `0x40` : système et souris | `40 01 00` arrêt, `40 02 00` veille, `40 04 00` réveil ; `40 00 xx` = clic souris : `01` gauche, `02` droit, `04` milieu, `08` précédent, `10` suivant | `40 00 01` / `40 00 02` = clic gauche / droit | vérifié (clics gauche et droit) / code (le reste) |
 | `00 00 00` | aucune action | | code |
 
 Modificateurs (octet 1 du type `0x10`) : `01` Ctrl G, `02` Maj G, `04` Alt G, `08` Win G, `10` Ctrl D, `20` Maj D, `40` Alt D, `80` Win D.
@@ -330,20 +331,42 @@ Fonctions `0x50` connues (libellés de `keyboard-info.util-*.js` et `keymap-*.js
 | `02` | Fn (couche 1, tant que la touche est tenue) ; plusieurs touches peuvent porter ce code (vérifié : Verr. maj → `50 02 00` agit comme Fn, la touche Fn d'origine aussi) | `2b` | écran à points : effet suivant |
 | `03` | couche 2 tant que la touche est tenue (vérifié ; absent du configurateur) | `04` | couche 3 tant que la touche est tenue (vérifié ; absent du configurateur) |
 | `09` | éclairage marche/arrêt | `2d` | écran à points : couleur suivante |
-| `0a` / `0b` | mode d'éclairage + / − | `2f` / `30` | écran à points : luminosité + / − |
-| `0c` / `0d` | teinte + / − | `39` | afficher le niveau de batterie |
-| `0e` / `0f` | luminosité + / − | `47` / `48` | rotation gauche / droite (molette) |
-| `10` / `11` | vitesse de l'effet + / − | | |
+| `0a` / `0b` | mode d'éclairage + / − (vérifié pour `0b` : 0 → 20, il boucle) | `2f` / `30` | écran à points : luminosité + / − |
+| `0c` / `0d` | couleur suivante / précédente dans la palette (vérifié) | `39` | afficher le niveau de batterie |
+| `0e` / `0f` | luminosité + / − (vérifié : 15 par appui, 90 ↔ 75) | `47` / `48` | rotation gauche / droite (molette) |
+| `10` / `11` | vitesse de l'effet + / − (vérifié : `ledSpeed` brut −1 / +1 par appui, 0 = le plus rapide) | | |
 | `19`, `1b`, `1d`, `1e` | bande latérale : effet, couleur, luminosité + / − | | |
 
-Inconnus, présents dans la couche Fn d'usine : `31`, `32`, `33` (Fn + `=`, `-`, Retour arrière), `34`–`37` (Fn + 1…4, probablement les canaux Bluetooth / 2.4 GHz : hypothèse), `3c` (Fn + Win, probablement le verrouillage Win : hypothèse), `3e` (Fn + H), `41` (Fn + Esc).
+Touches spéciales du configurateur (onglet « Touche supplémentaire », tableaux `Xi`, `Io`, `Et`, `Go`/`Vo`, `ji`, `Hi` de `keyboard-info.util-*.js` ; code, icônes confirmées par capture d'écran) :
+
+| Catégorie | Codes |
+|---|---|
+| Média | volume − `30 ea 00`, + `30 e9 00`, muet `30 e2 00`, lecture/pause `30 cd 00`, stop `30 b7 00` (masqué), précédent `30 b6 00`, suivant `30 b5 00` |
+| Windows | mail `30 8a 01`, calculatrice `30 92 01`, lecteur média `30 83 01`, poste de travail `30 94 01`, recherche `30 21 02`, navigateur : accueil `30 23 02`, précédent `30 24 02`, suivant `30 25 02`, actualiser `30 27 02`, favoris `30 2a 02`, stop `30 26 02` (masqué) ; zoom + / − = Ctrl+`=` / Ctrl+`-` ; luminosité écran − / + `30 70 00` / `30 6f 00` |
+| macOS | Mission Control = Ctrl+Espace, Launchpad = Ctrl+↓, Siri = Ctrl+Verr. num., Spotlight = Win+Espace |
+| Bureautique | raccourcis Ctrl : Z annuler, S enregistrer, A tout sélectionner, C copier, X couper, V coller, O ouvrir, N nouveau, F rechercher ; Ctrl+Maj+C capture et traduction |
+| Extension | bureau = Win+D (`10 08 07`, alias `30 cb 01`) ; bureau Mac = F4 (`10 00 3d`) ; verrouillage = Win+L (`10 08 0f`, alias `30 cf 00`) |
+| Souris | voir le type `0x40` |
+
+Le configurateur dessine donc F4 de la couche 0 avec l'icône « bureau » : c'est bien F4 qui est envoyé (vérifié en lecture). Il affiche « NO » pour toute fonction `0x50` qu'il ne connaît pas (Fn + Esc, 1…4, `-`, `=`, Retour arrière, H, Win), et ne montre que la touche, sans le modificateur (Win+Tab s'affiche « TAB », Win+H « H »).
+
+`34`, `35`, `36` (Fn + 1, 2, 3 de la couche Fn d'usine) : appareils Bluetooth 1, 2, 3 (vérifié en mode Bluetooth). Un appui bref passe à l'appareil déjà appairé sur ce canal ; un appui de quelques secondes lance l'appairage. `37` (Fn + 4) : aucun effet observé en Bluetooth, absent du guide papier ; peut-être l'appairage du dongle 2,4 GHz (hypothèse, non testé).
+
+`33` et `41` (Fn + Retour arrière, Fn + Esc) : probablement les deux moitiés du reset usine. Le guide papier indique « Fn + Esc + Retour arrière, maintenir 5 s : retour aux réglages d'usine » (hypothèse ; **ne pas tester** sans l'accord de l'utilisateur, cela effacerait la config).
+
+Testés au clavier en remettant les codes d'usine dans la couche Fn (vérifié) :
+
+- `3c` (Fn + Win) : verrouillage de la touche Win, bascule. La LED de Win s'allume en rouge et l'octet `winLock` du bloc de config passe à 1, puis revient à 0.
+- `31` (Fn + `=`) / `32` (Fn + `-`) : vitesse de l'écran à points + / −. `LedTFTSpeed` (valeur brute, 0 = le plus rapide) descend jusqu'à 0 avec `31` et monte d'un cran par appui avec `32` (0 → 3 relu). Verr. maj et Win clignotent à chaque appui, peut-être pour signaler la butée (hypothèse).
+- `3e` (Fn + H) : aucun effet visible et aucun octet du bloc de config modifié, en mode Windows comme en mode Mac. Rôle inconnu.
 
 ### Couche Fn d'usine
 
 Lue avec `0x17` (vérifié pour les codes ; les fonctions viennent des tables ci-dessus) :
 
 - F1 / F2 : luminosité de l'écran − / + (`30 70 00`, `30 6f 00`) ; F3 : Win+Tab ; F4 : recherche (`30 21 02`) ; F5 : Win+H ; F7 / F8 / F9 : précédent / lecture-pause / suivant ; F10 : muet ; F11 / F12 : volume − / +.
-- Inser : éclairage marche/arrêt. Q / A : mode − / + ; W / S : teinte − / + ; E / D : vitesse + / − ; R / F : luminosité + / −.
+- Inser : éclairage marche/arrêt. Q / A : mode − / + ; W / S : teinte − / + ; E / D : vitesse + / − ; R / F : luminosité + / −. Le guide papier annonce l'inverse (Q / W / E = **+**, A / S / D = **−**) ; le clavier donne raison au configurateur pour Q : depuis le mode 0, Fn + Q passe au mode 20 (vérifié). L'ordre visuel en reculant : éteint, uni, respiration, couleur qui change sur toutes les touches, vague de gauche à droite. W / S, E / D, R / F vérifiés dans le sens du configurateur (lecture du bloc de config après chaque appui). Palette de W / S : indice 0 = couleur personnalisée (`colorR/G/B` d'origine), 1 = rouge `ff 00 00`, …, 5 = bleu `00 81 ff`, puis l'arc-en-ciel en dernier (`colorful` = 1), et la palette boucle : W depuis 0 donne l'arc-en-ciel. Les touches réécrivent `colorIndex`, `colorful` et `colorR/G/B`. Le guide ne mentionne pas R / F.
+- Guide papier, autres points cohérents avec la keymap : F3 « fenêtre multitâche » (Win+Tab), F5 « dictée » (Win+H), F6 = F6 sous Windows et « mode Concentration » sous Mac. Molette : rotation = volume, clic = muet.
 - Maj droite : batterie. ← / → : couleur / effet de l'écran à points ; ↑ / ↓ : luminosité de l'écran à points.
 
 ## Macros
@@ -472,3 +495,10 @@ Réécrire ces quatre ressources telles quelles, puis les relire dans une nouvel
 - 2026-10-17 : retour en filaire. Lectures identiques aux sauvegardes ; config, keymap, couleurs et macros réécrites telles quelles en paquets de 56 octets, puis relues à l'identique.
 - 2026-10-17 : sauvegarde complète (config, 4 couches, couleurs, macros) vérifiée en USB et à travers le dongle : contenus identiques d'un transport à l'autre ; après `sleepL` = 179, tout réécrire ramène 180. Une nouvelle connexion HID dans le même processus suffit pour relire les nouvelles valeurs.
 - 2026-10-17 : la doc du protocole devient indépendante de `yogo.ts` ; l'utilisation de l'outil passe dans `cli.md`.
+- 2026-10-17 : comparaison des couches d'usine avec les captures du configurateur : 46–47 sont les boutons d'extension bureau / verrouillage ; table des touches spéciales (types `0x30`, `0x40`, raccourcis) relevée. Les fonctions `0x50` inconnues restent inconnues : l'interface les affiche « NO ».
+- 2026-10-17 : l'utilisateur confirme que Fn + 1…4 (`50 34`–`50 37`) sont les boutons Bluetooth.
+- 2026-10-17 : guide papier du clavier : confirme les boutons 46–47 (bureau, verrouillage), Fn + 1…3 pour le Bluetooth, et le reset par Fn + Esc + Retour arrière tenus 5 s (d'où l'hypothèse sur `33` et `41`). Il contredit le sens Q/A, W/S du configurateur.
+- 2026-10-17 : la page manuals.plus du clavier est une retranscription automatique du guide papier, pleine d'erreurs (Fn + F1 = éclairage, touches Arrêt défil. et Pause qui n'existent pas, Fn + 1/2/3 = câble/BT/2,4 GHz alors qu'un sélecteur physique choisit le mode). Ne pas s'en servir comme source.
+- 2026-10-17 : codes d'usine remis dans la couche Fn pour les tester : `3c` = verrouillage Win (`winLock`), `31` / `32` = vitesse de l'écran à points + / −, `0b` = mode − (0 → 20), `3e` sans effet visible. Preset de l'utilisateur restauré depuis la sauvegarde complète.
+- 2026-10-17 : réglages d'éclairage de la couche Fn vérifiés au clavier : W / S = couleur précédente / suivante (palette qui boucle sur l'arc-en-ciel), E / D = vitesse + / −, R / F = luminosité + / − (15 par appui). Clics souris `40 00 01` / `40 00 02` vérifiés. Preset restauré.
+- 2026-10-17 : Fn + H (`3e`) sans effet aussi en mode Mac. En Bluetooth, Fn + 1, 2, 3 (`34`–`36`) choisissent l'appareil 1, 2, 3 (appui long : appairage) ; Fn + 4 (`37`) sans effet observé.
