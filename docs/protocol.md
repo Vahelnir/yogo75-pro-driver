@@ -133,7 +133,7 @@ Table `oo` du configurateur.
 | Cmd | Nom | Usage | Statut |
 |---|---|---|---|
 | `0x10` | start | ouvre la session ; le configurateur le renvoie si plus de 5 s se sont écoulées | vérifié |
-| `0x11` | end | ferme la session (le configurateur ne l'appelle presque jamais) | code |
+| `0x11` | end | ferme la session (le configurateur ne l'appelle presque jamais). Accepté ; ensuite, la lecture du bloc de config renvoie des zéros jusqu'au prochain `0x10` | vérifié |
 | `0x12` | get_keyboard_info | capacités de l'appareil, voir [infos](#get_keyboard_info-0x12) | vérifié |
 | `0x14` | get_keyboard_function | lit le bloc de config | vérifié |
 | `0x15` | write_keyboard_function | écrit le bloc de config | vérifié |
@@ -188,7 +188,7 @@ Un bloc de 64 octets, échangé en **deux paquets** (vérifié) :
 
 **Écriture** : on écrit le bloc entier, sans commande de validation (vérifié). Toujours faire lire → modifier → réécrire pour ne pas écraser les autres réglages. Le configurateur écrit des zéros dans le second paquet ; il faut y réécrire ce qu'on vient de lire.
 
-**Piège** (vérifié) : une relecture dans la **même session**, juste après une écriture, renvoie encore l'ancienne valeur. Il faut relire dans une nouvelle session : fermer puis rouvrir l'appareil HID et renvoyer `0x10` suffit, même dans le même processus (vérifié : `sleepL` écrit à 180 par-dessus 179, relu à 180 après réouverture). Cause inconnue.
+**Piège** (vérifié) : le clavier accuse l'écriture avant de l'appliquer. Une relecture lancée moins de ~5 ms après le dernier paquet renvoie encore l'ancienne valeur ; à partir de 10 ms, elle renvoie la nouvelle (`sleepL` 179 ↔ 180 en USB : périmée 4/4 à 0 ms, 3/4 à 5 ms, juste 12/12 entre 10 et 30 ms). La session n'y est pour rien : `0x10`, `0x11` + `0x10` ou une réouverture de l'appareil HID ne marchent que par le temps qu'ils prennent (une réouverture suivie de `0x10` a encore donné l'ancienne valeur en USB). À travers le dongle, plus lent, une seule relecture a été périmée sur 24 essais (tous délais confondus). Après `0x11`, la lecture du bloc renvoie des zéros jusqu'au prochain `0x10`.
 
 Table `fieldMap` : position dans le bloc.
 
@@ -215,7 +215,7 @@ Table `fieldMap` : position dans le bloc.
 | 44 | fkeyChange | aucun effet observé à 1, en mode Windows comme en mode Mac (F1, F12 avec et sans Fn) ; rôle inconnu | vérifié (sans effet visible) |
 | 45 | wheelMode | 0 = la rotation de la molette règle le volume ; 1 ou 2 = la rotation ne fait plus rien de visible (ni volume, ni défilement, ni éclairage, ni écran à points), l'appui reste lecture/pause. Mettre volume ± dans les emplacements 46–47 n'y change rien | vérifié (effet partiel) |
 | 46–48 | sleepL/M/H | délai de mise en veille sur 24 bits, LE, en secondes (choix du configurateur : 60, 180, 300, 600, 1800, « jamais » = 65535 ; valeur relevée : 180). En USB, aucune mise en veille observée avec 60. En 2,4 GHz avec 60, le clavier s'éteint au bout de 60 s sans activité (chronométré). Une touche le réveille presque instantanément. Pendant la veille, le dongle ne répond plus aux commandes (`0x10` sans réponse en 3 s), et une commande ne réveille pas le clavier | vérifié (sans-fil) |
-| 49–51 | dsSleepL/M/H | veille de l'écran à points | code |
+| 49–51 | dsSleepL/M/H | veille de l'écran à points d'après le nom (24 bits, LE, comme `sleepL/M/H`, supposé). Le configurateur ne les lit ni ne les écrit jamais : ils n'apparaissent que dans `fieldMap` et les valeurs par défaut. Aucun libellé de veille de l'écran à points dans ses traductions (seulement luminosité, couleur, effet, éditeur). Valeur relevée : 0. En 2,4 GHz, avec `dsSleepL` = 20 puis 1 (`sleepL` = 180), l'écran à points reste allumé après 60 s puis 2 min sans activité : aucun effet observé, que l'unité soit la seconde ou la minute | vérifié (sans effet visible) |
 | 52–57 | lcdPower, lcdMode, lcdGif, lcdGifCount, lcdLanguage, lcdUsb | ce clavier n'a pas d'écran LCD | code |
 
 ## Modes d'éclairage (`ledMode`)
@@ -440,7 +440,6 @@ Réécrire ces quatre ressources telles quelles, puis les relire dans une nouvel
 
 
 - Que vaut l'octet 7 de la réponse (`0x55`) ?
-- Pourquoi la relecture dans la même session est-elle en retard ?
 - Rôle des emplacements 46–47 (`30 cb 01`, `30 cf 00`) et des fonctions `0x50` inconnues.
 
 ## Journal
@@ -505,3 +504,6 @@ Réécrire ces quatre ressources telles quelles, puis les relire dans une nouvel
 - 2026-10-17 : deux affirmations trouvées en ligne infirmées : Fn + 4 (`37`) ne bascule pas Win/Mac et Fn + H (`3e`) ne change pas l'écran à points.
 - 2026-10-17 : en 2,4 GHz, Fn + H et Fn + 4 (appui bref) : rien de visible, pas de mise en veille. Pistes « batterie » et « veille » écartées.
 - 2026-10-17 : modes d'éclairage 2, 5, 6, 8–20 vérifiés au clavier (réaction à la frappe, réglages effectifs). Palette de Fn + W / S corrigée (5 = arc-en-ciel, pas bleu). `customColorIndex` sans effet aussi sur le mode 8.
+- 2026-10-17 : relecture périmée élucidée (script jetable, `sleepL` 179 ↔ 180) : c'est un délai d'application, pas une question de session. Périmée jusqu'à ~5 ms après l'écriture, juste à partir de 10 ms. `0x10`, `0x11` + `0x10` et une réouverture ne sont pas fiables en USB. `0x11` seul : bloc relu à zéro.
+- 2026-10-17 : `dsSleepL` = 20 puis 1 en 2,4 GHz : l'écran à points reste allumé après 60 s puis 2 min. Remis à 0. `power` : état toujours 1 à 100 %, câble branché.
+- 2026-10-17 : configurateur relu pour `dsSleepL/M/H` : jamais lus ni écrits (seul `sleepL/M/H` l'est, via `sleepTime`) et aucun libellé de veille de l'écran à points dans les traductions.

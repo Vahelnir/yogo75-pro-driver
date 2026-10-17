@@ -180,7 +180,7 @@ function readAll(k: Yogo): Record<string, string> {
 const FULL_SIZES: Record<string, number> = { config: 64, keymap0: MATRIX_BYTES, keymap1: MATRIX_BYTES, keymap2: MATRIX_BYTES, keymap3: MATRIX_BYTES, leds: MATRIX_BYTES, macros: MACROS_BYTES };
 
 const [cmd, arg, modeArg, codeArg] = process.argv.slice(2);
-let k = new Yogo();
+const k = new Yogo();
 try {
   k.transfer(CMD_START);
   if (cmd === "color") {
@@ -193,7 +193,6 @@ try {
     // Modes from the hub: 0 = all off, 4 = steady, 253 = per-key custom, 254 = music.
     if (modeArg !== undefined) cfg[at("ledMode")] = Number(modeArg);
     k.writeConfig(cfg);
-    // Reading back in the same session still returns the old values; re-run `node yogo.ts` to check.
     console.log(`colour set to ${arg} (mode ${cfg[at("ledMode")]})`);
   } else if (cmd === "dot") {
     const mode = Number(arg);
@@ -335,10 +334,8 @@ try {
     for (const l of [0, 1, 2, 3]) k.writeKeymap(l, data[`keymap${l}`]);
     k.writeCustomLeds(data.leds);
     writeMacros(k, [...data.macros]);
-    // Reads in the same session as a write return stale values, so check through a fresh connection.
-    k.close();
-    k = new Yogo();
-    k.transfer(CMD_START);
+    // The keyboard acks a write before applying it: reads within ~5 ms return the old values.
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
     const now = readAll(k);
     const bad = Object.keys(FULL_SIZES).filter((name) => now[name] !== hex(data[name]));
     if (bad.length) throw new Error(`read-back differs from ${file} for: ${bad.join(", ")}`);

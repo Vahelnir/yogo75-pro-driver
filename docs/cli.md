@@ -67,7 +67,7 @@ node yogo.ts restore [fichier]        # réécrit tout, puis relit et compare oc
 ```
 
 - `backup` refuse d'écraser un fichier existant. L'image fixe de l'écran à points n'est pas sauvegardée : le protocole n'a pas de commande pour la relire.
-- `restore` vérifie la taille de chaque partie avant tout envoi. Après l'écriture, il rouvre la connexion pour relire (voir le piège de relecture dans [`protocol.md`](protocol.md#bloc-de-config-0x14--0x15)), et s'arrête en erreur en nommant les parties qui diffèrent.
+- `restore` vérifie la taille de chaque partie avant tout envoi. Après l'écriture, il attend 50 ms avant de relire (voir le piège de relecture dans [`protocol.md`](protocol.md#bloc-de-config-0x14--0x15)), et s'arrête en erreur en nommant les parties qui diffèrent.
 - Vérifié en USB et à travers le dongle (restauration complète en 1,1 s par le dongle).
 
 ## Commandes à ne pas envoyer
