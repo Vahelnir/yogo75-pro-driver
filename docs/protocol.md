@@ -138,7 +138,7 @@ Table `oo` du configurateur.
 | `0x23`…`0x2B` (impairs) | write_custom_led_matrix 1–5 | écrit les couleurs par touche ; le configurateur n'utilise que `0x23` | vérifié (`0x23`) |
 | `0x2C` / `0x2D` | get_macro / write_macro | macros, voir [macros](#macros) | vérifié |
 | `0x2E` / `0x2F` | open/close_sync_led = start/end_sync_music | synchro de l'éclairage avec la musique | code |
-| `0x30` | power_info | `[0]` = niveau de batterie, `[1] == 2` = en charge | code |
+| `0x30` | power_info | paquet sans longueur ; `[0]` = niveau de batterie en %, `[1] == 2` = en charge (le configurateur borne à 100). Relevé en USB : `5b 01` = 91 %, état 1 | vérifié (lecture) |
 | `0x31` | **reset_device** | **remet le clavier en config d'usine**. Ne pas envoyer sans accord explicite | code |
 | `0x32` | get_led_matrix | correspondance touche → LED (384 octets) | vérifié |
 | `0x3B` | set_dotscreen_matrix | image de l'écran à points (mode 6), voir [image](#écran-à-points--image) | vérifié |
@@ -189,14 +189,14 @@ Table `fieldMap` : position dans le bloc.
 | Pos | Champ | Notes | Statut |
 |---|---|---|---|
 | 0 | profile | profil embarqué | code |
-| 1 | ledOnOff | le configurateur écrit toujours 0 ; valait 0 même LEDs éteintes | hypothèse : 0 = activé |
+| 1 | ledOnOff | 0 = rétroéclairage actif, 1 = rétroéclairage éteint (l'écran à points reste allumé). Le configurateur écrit toujours 0 et éteint plutôt par le mode 0 | vérifié |
 | 2 | ledMode | voir [modes](#modes-déclairage-ledmode) | vérifié (0, 4) |
-| 3 | ledBrightness | 0–90 (max d'après `get_keyboard_info`) | code |
-| 4 | ledSpeed | **inversé** : le configurateur écrit `abs(vitesse - 6)` | code |
-| 5 | colorful | 1 = multicolore, 0 = couleur unique | vérifié (0) |
+| 3 | ledBrightness | 0–90 (max d'après `get_keyboard_info`) ; 10 nettement plus sombre que 90 | vérifié |
+| 4 | ledSpeed | **inversé** : le configurateur écrit `abs(vitesse - 6)`. En respiration (mode 3) : brut 0 ≈ 1 s par cycle, brut 6 ≈ 8 s | vérifié |
+| 5 | colorful | 1 = multicolore (en mode 4 : arc-en-ciel figé), 0 = couleur unique | vérifié |
 | 6 | colorIndex | | code |
 | 7–9 | colorR, colorG, colorB | couleur du rétroéclairage | vérifié |
-| 10 | customColorIndex | « direction » de l'effet dans le configurateur | code |
+| 10 | customColorIndex | « direction » de l'effet dans le configurateur (choix « de gauche à droite » / « de droite à gauche ») ; 0 et 1 ne changent rien sur les effets 1 et 7 | vérifié (sans effet visible) |
 | 11–19 | logo : onOff, mode, brightness, speed, colorful, colorIndex, R, G, B | ce clavier n'a pas de logo (`hasLogoLight = 0`) | code |
 | 20–28 | bande latérale : mêmes champs | `hasSideLight = 0` | code |
 | 29–37 | écran à points (« LedTFT ») : mêmes champs | voir [écran à points](#écran-à-points-modes-intégrés) | vérifié (mode, luminosité, vitesse) / code (le reste) |
@@ -219,13 +219,14 @@ Liste `Ns` dans `keyboard-info.util-*.js`. Les noms viennent des clés de traduc
 | Valeur | Nom | Statut |
 |---|---|---|
 | 0 | allClose : tout éteint | vérifié |
-| 1 | rainbowFlowingLight1 | code |
+| 1 | Rainbow Flow 1 : arc-en-ciel qui défile vers la droite ; avec `colorful = 0`, ressemble à une respiration de la couleur choisie | vérifié |
 | 2 | colorBreathing | code |
-| 3 | breath | code |
+| 3 | Monochrome Breath : respiration de la couleur choisie | vérifié |
 | 4 | rainbow (icône « normal ») : **fixe, une couleur** quand `colorful = 0` | vérifié |
 | 5 | singleLightUp | code |
 | 6 | colorfulVortex1 | code |
-| 7–11 | rainbowFlowingLight2/4, spectralFluctuation1–3 | code |
+| 7 | Rainbow Flow 2 : arc-en-ciel qui tourne autour du centre du clavier, sens antihoraire | vérifié |
+| 8–11 | Rainbow Flow 4, Spectral Fluctuation 1–3 | code |
 | 12 | neon | code |
 | 13–19 | cloudBurst, colorfulVortex2, colorfulRibbonFluttering1, spectralDiffusion1, rainbowIntersection, spectralDiffusion2, rainbowFlowingLight3 | code |
 | 20 | dynamicRainbow | code |
@@ -425,7 +426,7 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 ## Questions ouvertes
 
 
-- Que signifie exactement `ledOnOff` ? Que vaut l'octet 7 de la réponse (`0x55`) ?
+- Que vaut l'octet 7 de la réponse (`0x55`) ?
 - Pourquoi la relecture dans la même session est-elle en retard ?
 - Rôle des emplacements 46–47 (`30 cb 01`, `30 cf 00`) et des fonctions `0x50` inconnues.
 
@@ -465,3 +466,7 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : Verr. maj → `50 02 00` : deuxième touche Fn fonctionnelle. Verr. maj → `50 03 00` avec Inser → `x` en couche 2 : Verr. maj + Inser tape `x`, Verr. maj + B tape `b` (la couche 1 n'est pas utilisée), rien ne reste bloqué. `50 03` = couche 2 tant que la touche est tenue. `setkey` accepte maintenant les couches 0–3.
 - 2026-10-17 : hypothèse « le mode Mac utilise les couches 2 et 3 » infirmée : en mode Mac, Inser (`x` en couche 2 seulement) ne tape pas `x`, et Fn + B reste lecture/pause (couche 1). `macWin` remis à 0.
 - 2026-10-17 : `50 04 00` = couche 3 tant que la touche est tenue (vérifié : Inser → `x` en couche 3 seulement, Verr. maj + Inser tape `x`). Keymap des 4 couches restaurée et relue identique à la sauvegarde ; `keymap-backup` sauvegarde désormais les 4 couches.
+- 2026-10-17 : `power_info` (`0x30`) lu : `5b 01`, soit 91 % et état 1 (pas « en charge » = 2 selon le configurateur), clavier branché en USB. Nouvelle commande `node yogo.ts power`. README ajouté (anglais).
+- 2026-10-17 : rétroéclairage : luminosité (90 → 10), `colorful` = 1 (arc-en-ciel figé en mode 4) et vitesse (mode 3, brut 0 ≈ 1 s, brut 6 ≈ 8 s) vérifiés ; tout remis (mode 4, luminosité 90, vitesse 3, couleur unique). Test de `ledOnOff` = 1.
+- 2026-10-17 : `ledOnOff` = 1 éteint le rétroéclairage, l'écran à points reste allumé (vérifié). Remis à 0.
+- 2026-10-17 : effets 1 (défilement vers la droite, avec `colorful` = 1) et 7 (rotation antihoraire) observés ; `customColorIndex` 0 ou 1 ne change pas leur sens. Rétroéclairage remis : mode 4, vert, luminosité 90, vitesse 3, couleur unique.

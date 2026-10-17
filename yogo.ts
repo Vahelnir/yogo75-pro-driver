@@ -24,6 +24,7 @@ const CMD_SET_CUSTOM_LEDS = 0x23;
 const CMD_GET_LED_MATRIX = 0x32; // first 96 bytes: key index -> LED number (0xff = no LED)
 const LEDS_BACKUP = "leds-backup.json";
 const CMD_SET_DOT_IMAGE = 0x3b; // set_dotscreen_matrix: 6×6 RGB888 image shown by dot screen mode 6
+const CMD_POWER_INFO = 0x30; // battery: data[0] = level, data[1] == 2 when charging
 const CMD_GET_MACRO = 0x2c; // blob: "aa 55", total len LE, count LE, offsets table, then the macros
 const CMD_SET_MACRO = 0x2d;
 const MACROS_BACKUP = "macros-backup.json";
@@ -230,6 +231,10 @@ try {
     if (!(layer >= 0 && layer <= 3)) throw new Error("usage: node yogo.ts keymap [0-3] [factory]");
     const map = k.readKeymap(layer, modeArg === "factory");
     for (let i = 0; i < map.length; i += 3) console.log(String(i / 3).padStart(3), hex(map.subarray(i, i + 3)));
+  } else if (cmd === "power") {
+    const r = k.transfer(CMD_POWER_INFO);
+    // Hub: power = min(data[0], 100), charging when data[1] == 2.
+    console.log(`raw: ${hex(r.subarray(8, 16))}  battery ${r[8]}%  ${r[9] === 2 ? "charging" : "not charging"}`);
   } else if (cmd === "macros") {
     console.log(hex(k.readChunks(CMD_GET_MACRO, Number(arg ?? 4) * DATA_LEN)));
   } else if (cmd === "setmacro") {
