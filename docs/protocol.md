@@ -446,7 +446,7 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 
 `backup` lit, en une fois, le bloc de config (64 octets), les 4 couches de keymap, les couleurs par touche (336 octets chacune) et la zone des macros (224 octets). Il les enregistre en hex dans un seul JSON, `full-backup.json` par défaut (local, non versionné), et refuse d'écraser un fichier existant. L'image fixe de l'écran à points n'y est pas : aucune commande ne permet de la relire.
 
-`restore` vérifie d'abord la taille de chaque partie : un fichier invalide est refusé avant tout envoi. Il réécrit ensuite le tout, puis rouvre la connexion et relit tout. Si une partie relue diffère de la sauvegarde, il s'arrête en erreur en la nommant. Vérifié en USB.
+`restore` vérifie d'abord la taille de chaque partie : un fichier invalide est refusé avant tout envoi. Il réécrit ensuite le tout, puis rouvre la connexion et relit tout. Si une partie relue diffère de la sauvegarde, il s'arrête en erreur en la nommant. Vérifié en USB et à travers le dongle 2,4 GHz (restauration complète en 1,1 s par le dongle).
 
 ```sh
 node yogo.ts backup [fichier]       # tout sauvegarder
@@ -511,3 +511,4 @@ node yogo.ts restore [fichier]      # tout réécrire, puis relire et comparer
 - 2026-10-17 : le mode de connexion se choisit avec un sélecteur physique (Bluetooth / câble / 2,4 GHz) ; sur 2,4 GHz, le câble ne sert qu'à charger.
 - 2026-10-17 : retour en filaire avec le nouveau code. Lectures identiques aux sauvegardes ; config, keymap, couleurs et macros réécrites telles quelles en paquets de 56 octets, puis relues à l'identique.
 - 2026-10-17 : `backup` / `restore` complets (issue #1). En USB : le contenu de `backup` est identique aux sauvegardes séparées ; `restore` d'un fichier tronqué est refusé sans rien écrire ; `restore` après `set sleepL 179` remet 180, relu identique. Une nouvelle connexion HID dans le même processus suffit pour relire les nouvelles valeurs.
+- 2026-10-17 : `backup` / `restore` vérifiés à travers le dongle : sauvegarde identique, partie par partie, à celle faite en USB ; `restore` relu identique en 1,1 s ; `restore` après `set sleepL 179` remet 180 (confirmé par un `node yogo.ts` séparé).
