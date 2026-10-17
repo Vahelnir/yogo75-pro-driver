@@ -5,7 +5,7 @@
   "scripts": {
     "yogo75": "node apps/cli/yogo.ts",
     "test": "node --test",
-    "typecheck": "tsc -p apps/cli && tsc -p packages/core",
+    "typecheck": "tsc -p apps/cli && tsc -p packages/core && tsc -p packages/core/test",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

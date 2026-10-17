@@ -10,5 +10,7 @@
     // No Node types: the core must also run in the browser
     "types": [],
     "noUncheckedSideEffectImports": true
-  }
+  },
+  // Tests use Node: type-checked by test/tsconfig.json
+  "include": ["src"]
 }
