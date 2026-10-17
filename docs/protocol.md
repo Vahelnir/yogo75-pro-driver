@@ -357,7 +357,7 @@ Lecture `0x2C`, écriture `0x2D` (`getMacro`, `setMacro`, classes `tW` / `vI`). 
 
 **Le configurateur ne relit pas les macros du clavier** : il garde la liste de son côté (stockage local / compte) et se contente de l'écrire. Son `getMacro` ne lit qu'un paquet à l'offset 0 et n'en fait rien. Relevé du 2026-10-17 avec `node yogo.ts macros 8` (vérifié) : 16 octets `ff`, puis des zéros jusqu'à 448 octets, donc aucune macro.
 
-### Format du bloc (vérifié pour une macro de touches clavier)
+### Format du bloc (vérifié)
 
 Le configurateur écrit toute la liste d'un coup, par paquets de 56 octets (offset 0, 56…), l'octet de longueur valant toujours 56.
 
@@ -375,19 +375,20 @@ Une action : `délai (LE 16 bits)`, `code`, `type | appui << 7`. **Bit 7 = 1 pou
 | Type | Action | Code |
 |---|---|---|
 | 1 | touche clavier | code HID |
-| 2 | modificateur | masque, comme dans la keymap (`01` Ctrl G… `80` Win D) |
+| 2 | modificateur | masque, comme dans la keymap (`01` Ctrl G… `80` Win D) ; vérifié avec Maj G (`02`) |
 | 3, 5, 7 | autres types de l'interface (4, 5, 6 ; probablement souris) | inconnu |
 
-Unité du délai : probablement la milliseconde (hypothèse ; à 20, la frappe semble instantanée). La relecture par `0x2C` renvoie exactement le bloc écrit (vérifié).
+Le délai est en **millisecondes** et s'applique après chaque action (vérifié : à 500, chaque touche reste enfoncée assez longtemps pour déclencher la répétition automatique de macOS, « hi » donne `hhhiii`). La relecture par `0x2C` renvoie exactement le bloc écrit (vérifié).
 
 ```sh
 node yogo.ts macros [paquets]       # bloc brut (4 paquets par défaut)
 node yogo.ts setmacro 0b0c          # macro 0 = taper h puis i ; sauvegarde la zone dans macros-backup.json au premier appel
+node yogo.ts setmacro e10b0c,0b0c@500   # macro 0 = « HI » (Maj tenue), macro 1 = « hi » avec 500 ms entre actions
 node yogo.ts setkey 0 14 600000     # Inser -> macro 0, mode 0
 node yogo.ts macros-restore         # réécrit la sauvegarde
 ```
 
-### Lier une touche à une macro (vérifié pour `60 n 0` ; code pour le reste)
+### Lier une touche à une macro (vérifié)
 
 Dans la keymap, avec le contrôleur de ce clavier (`Ui`) :
 
@@ -449,3 +450,5 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : premier test de macro (« hi » sur Inser via `60 00 00`) : `h` tapé puis `i` répété en continu, la touche I physique ne répond plus. Cause : bit 7 inversé (1 = appui). L'hypothèse « dernière action ignorée » est infirmée (un relâchement ajouté à la fin n'y changeait rien, puisque c'était en fait un appui). Inser et macros restaurés et relus (`10 00 49`, zone des macros à `ff`×16 puis zéros). La liaison touche → macro `60 n mode` et l'écriture `0x2D` sont vérifiées.
 - 2026-10-17 : touche I bloquée jusqu'au débranchement / rebranchement USB (état du firmware en mémoire vive, keymap intacte). Après rebranchement, config, écran à points et keymap sont intacts : **les réglages survivent à un débranchement** (vérifié).
 - 2026-10-17 : macro corrigée (appui = bit 7) : Inser tape exactement `hi`, plus de touche bloquée. Inser et macros restaurés et relus.
+- 2026-10-17 : 3 macros écrites d'un coup (offsets `0e`, `2a`, `3e`). Vérifié : Maj G en type 2 (`HI`), mode 4 avec `61 01 03` (`hihihi`), délai en ms (500 → `hhhiii` par répétition automatique de macOS).
+- 2026-10-17 : modes 1–3 vérifiés avec `60 01 m` : 1 répète tant que la touche est tenue et finit toujours le tour ; 2 répète jusqu'à un nouvel appui ; 3 répète tant que la touche est tenue et s'arrête net (peut finir sur `h`). Keymap et macros restaurées et relues.

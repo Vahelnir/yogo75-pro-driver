@@ -125,6 +125,36 @@ class Yogo {
   }
 }
 
+/**
+ * Macro blob as the hub's setMacro builds it: "aa 55", total len LE, count LE, 0 0, an offset (LE) per macro,
+ * then per macro: action count LE, 0 0, and 4-byte actions (delay LE, code, type | 0x80 when pressed).
+ * Spec: HID codes tapped in turn; modifiers (e0-e7) are held around the rest, as type 2 with their bitmask.
+ */
+function macroBlob(specs: string[]): number[] {
+  const body: number[] = [];
+  const offsets: number[] = [];
+  for (const spec of specs) {
+    const [codes, delay = String(MACRO_DELAY)] = spec.split("@");
+    const d = Number(delay);
+    const keys = [...Buffer.from(codes, "hex")];
+    const mods = keys.filter((c) => c >= 0xe0 && c <= 0xe7).map((c) => 1 << (c - 0xe0));
+    const act = (code: number, type: number, down: boolean) => [d & 0xff, d >> 8, code, type | (down ? 0x80 : 0)];
+    const actions = [
+      ...mods.flatMap((m) => act(m, 2, true)),
+      ...keys.filter((c) => c < 0xe0 || c > 0xe7).flatMap((c) => [...act(c, 1, true), ...act(c, 1, false)]),
+      ...mods.flatMap((m) => act(m, 2, false)),
+    ];
+    offsets.push(8 + specs.length * 2 + body.length);
+    body.push(actions.length / 4, 0, 0, 0, ...actions);
+  }
+  const total = 8 + specs.length * 2 + body.length;
+  return [0xaa, 0x55, total & 0xff, total >> 8, specs.length, 0, 0, 0, ...offsets.flatMap((o) => [o & 0xff, o >> 8]), ...body];
+}
+// Self-check against the blob verified on the keyboard (macro "hi" typed correctly).
+if (hex(Uint8Array.from(macroBlob(["0b0c"]))) !== "aa 55 1e 00 01 00 00 00 0a 00 04 00 00 00 14 00 0b 81 14 00 0b 01 14 00 0c 81 14 00 0c 01") {
+  throw new Error("macroBlob regression");
+}
+
 /** Writes the macro blob as the hub does: 56-byte packets, len byte always 56 (last one zero-padded). */
 function writeMacros(k: Yogo, blob: number[]) {
   for (let off = 0; off < blob.length; off += DATA_LEN) k.transfer(CMD_SET_MACRO, DATA_LEN, off, blob.slice(off, off + DATA_LEN));
@@ -203,20 +233,17 @@ try {
   } else if (cmd === "macros") {
     console.log(hex(k.readChunks(CMD_GET_MACRO, Number(arg ?? 4) * DATA_LEN)));
   } else if (cmd === "setmacro") {
-    // shortcut: writes a single macro (slot 0) that taps each HID key in turn; extend if more slots are needed.
-    const keys = Buffer.from(arg ?? "", "hex");
-    if (!/^([0-9a-f]{2})+$/i.test(arg ?? "") || keys.length > 30) throw new Error("usage: node yogo.ts setmacro <HID codes, e.g. 0b0c for \"hi\">");
+    const specs = (arg ?? "").split(",");
+    if (!specs.every((m) => /^([0-9a-f]{2})+(@\d+)?$/i.test(m)) || specs.length > 4) {
+      throw new Error("usage: node yogo.ts setmacro <macro>[,<macro>...] ; macro = HID codes[@delay], e.g. e10b0c@20 for \"HI\"");
+    }
     if (!existsSync(MACROS_BACKUP)) {
       writeFileSync(MACROS_BACKUP, JSON.stringify(hex(k.readChunks(CMD_GET_MACRO, MACROS_BYTES))) + "\n");
       console.log(`current macros saved to ${MACROS_BACKUP}`);
     }
-    // Action: delay LE16, code, type (1 = key) | 0x80 when pressed (hub: KeyDown = 0 -> bit set).
-    const actions = [...keys].flatMap((code) => [MACRO_DELAY, 0, code, 0x81, MACRO_DELAY, 0, code, 0x01]);
-    const macro = [actions.length / 4, 0, 0, 0, ...actions];
-    const total = 8 + 2 + macro.length; // header, offsets table (1 macro), macro
-    const blob = [0xaa, 0x55, total & 0xff, total >> 8, 1, 0, 0, 0, 10, 0, ...macro];
+    const blob = macroBlob(specs);
     writeMacros(k, blob);
-    console.log(`macro 0 written: ${hex(Uint8Array.from(blob))}`);
+    console.log(`${specs.length} macro(s) written: ${hex(Uint8Array.from(blob))}`);
   } else if (cmd === "macros-restore") {
     writeMacros(k, [...Buffer.from(JSON.parse(readFileSync(MACROS_BACKUP, "utf8")).replaceAll(" ", ""), "hex")]);
     console.log(`macros restored from ${MACROS_BACKUP}`);
