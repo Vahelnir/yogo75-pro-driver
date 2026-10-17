@@ -13,3 +13,5 @@ export {
 export { CONFIG_BYTES, FIELDS } from "./config.ts";
 export { Keyboard, type PacketLogger, type Transport } from "./keyboard.ts";
 export { macroBlob, type Macro } from "./macro.ts";
+export { keycode, keycodeName } from "./keycode.ts";
+export { COLS, keyAt, keyIndex, keyNames, KEYS, ROWS } from "./keymap.ts";

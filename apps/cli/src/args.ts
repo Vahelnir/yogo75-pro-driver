@@ -1,7 +1,6 @@
 /** Argument parsers: each throws a `UsageError` naming the argument, before the keyboard is opened. */
-import { fromHex } from "@yogo75/core";
+import { fromHex, KEYS } from "@yogo75/core";
 
-export const KEYS = 96;
 export const LAYERS = [0, 1, 2, 3];
 export const LAST_LAYER = LAYERS.length - 1;
 
@@ -27,6 +26,15 @@ export function intArg(
   }
 
   return n;
+}
+
+/** Runs a core parser, reporting its error as a bad `name` argument. */
+export function coreArg<T>(name: string, parse: () => T): T {
+  try {
+    return parse();
+  } catch (e) {
+    throw new UsageError(`${name}: ${(e as Error).message}`);
+  }
 }
 
 export function hexArg(

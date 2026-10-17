@@ -1,6 +1,6 @@
-import { fromHex, hex, MATRIX_BYTES } from "@yogo75/core";
+import { fromHex, hex, KEYS, MATRIX_BYTES } from "@yogo75/core";
 import { defineCommand } from "citty";
-import { intArg, keyArg, KEYS, rgbArg } from "../args.ts";
+import { intArg, keyArg, rgbArg } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
 import { printTriplets, readJson, saveOnce } from "../io.ts";
 import { at } from "./config.ts";

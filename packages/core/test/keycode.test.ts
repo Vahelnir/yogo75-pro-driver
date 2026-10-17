@@ -1,0 +1,99 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import {
+  fromHex,
+  hex,
+  keycode,
+  keycodeName,
+  keyIndex,
+  keyNames,
+} from "../src/index.ts";
+import { BACKUP } from "./fake-transport.ts";
+
+const code = (name: string) => hex(keycode(name));
+const name = (h: string) => keycodeName(fromHex(h));
+
+test("names map to codes, whatever the case, prefix or alias", () => {
+  for (const n of ["ESC", "esc", "kc_esc", "KC_ESCAPE", "Escape"]) {
+    assert.equal(code(n), "10 00 29", n);
+  }
+
+  assert.equal(code("CAPS_LOCK"), "10 00 39");
+  assert.equal(code("LEFT_SHIFT"), "10 02 00");
+  assert.equal(code("FN"), "50 02 00");
+  assert.equal(code("MO(1)"), "50 02 00");
+  assert.equal(code("mo(3)"), "50 04 00");
+  assert.equal(code("MACRO(2)"), "60 02 00");
+  assert.equal(code("MACRO(2,3)"), "60 02 03");
+  assert.equal(code("LGUI(TAB)"), "10 08 2b");
+  assert.equal(code("lctl(lsft(kc_c))"), "10 03 06");
+  assert.equal(code("VOLU"), "30 e9 00");
+  assert.equal(code("BTN2"), "40 00 02");
+});
+
+test("unknown names are rejected", () => {
+  for (const n of ["NOPE", "MO(4)", "MACRO(2,4)", "LGUI(VOLU)", "0x5000"]) {
+    assert.throws(() => keycode(n), /unknown key/, n);
+  }
+});
+
+test("codes print as their first name", () => {
+  assert.equal(name("10 00 29"), "ESC");
+  assert.equal(name("10 02 00"), "LSFT");
+  assert.equal(name("50 02 00"), "FN");
+  assert.equal(name("50 04 00"), "MO(3)");
+  assert.equal(name("60 01 00"), "MACRO(1)");
+  assert.equal(name("60 01 02"), "MACRO(1,2)");
+  assert.equal(name("10 08 2b"), "LGUI(TAB)");
+  assert.equal(name("10 03 00"), "LSFT(LCTL)");
+});
+
+test("unknown codes round-trip as hex", () => {
+  for (const h of ["50 3e 00", "61 01 03", "00 00 00", "10 00 ff"]) {
+    const n = name(h);
+    assert.match(n, /^0x[0-9a-f]{6}$/);
+    assert.equal(code(n), h);
+  }
+});
+
+test("every name printed for the fixture parses back to its code", () => {
+  for (const l of [0, 1, 2, 3]) {
+    const map = BACKUP[`keymap${l}`];
+    keyNames(map).forEach((n, i) =>
+      assert.equal(code(n), hex(map.subarray(i * 3, i * 3 + 3)), n),
+    );
+  }
+});
+
+test("a fixture layer lists as names", () => {
+  const names = keyNames(BACKUP.keymap1);
+  assert.equal(names.length, 96);
+  assert.deepEqual(names.slice(16, 21), [
+    "GRV",
+    "BT_1",
+    "BT_2",
+    "BT_3",
+    "0x503700",
+  ]);
+  assert.deepEqual(names.slice(46, 49), ["DESKTOP", "LOCK", "LCTL"]);
+  assert.deepEqual(names.slice(88, 91), ["NO", "RALT", "FN"]);
+});
+
+test("positions resolve by factory name or row,col", () => {
+  assert.equal(keyIndex("CAPS"), 48);
+  assert.equal(keyIndex("kc_caps_lock"), 48);
+  assert.equal(keyIndex("FN"), 90);
+  assert.equal(keyIndex("DESKTOP"), 46);
+  assert.equal(keyIndex("NUHS"), 60);
+  assert.equal(keyIndex("3,0"), 48);
+  assert.equal(keyIndex("2, 15"), 47);
+  assert.equal(keyIndex("5,15"), 95);
+});
+
+test("ambiguous, unknown and out-of-range positions are rejected", () => {
+  assert.throws(() => keyIndex("NO"), /ambiguous/);
+  assert.throws(() => keyIndex("F13"), /no factory key/);
+  assert.throws(() => keyIndex("NOPE"), /unknown key/);
+  assert.throws(() => keyIndex("6,0"), /row/);
+  assert.throws(() => keyIndex("0,16"), /col/);
+});

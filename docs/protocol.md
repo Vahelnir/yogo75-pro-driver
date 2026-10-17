@@ -321,6 +321,7 @@ Status: verified for layer 0 (`0x1B`) and the Fn layer (`0x1D`). Same split as r
 | `0x50`: keyboard function               | byte 1 = function number                                                                                                                       | `50 02 00` = Fn key                                          | code                                               |
 | `0x40`: system and mouse                | `40 01 00` power off, `40 02 00` sleep, `40 04 00` wake; `40 00 xx` = mouse click: `01` left, `02` right, `04` middle, `08` back, `10` forward | `40 00 01` / `40 00 02` = left / right click                 | verified (left and right clicks) / code (the rest) |
 | `00 00 00`                              | no action                                                                                                                                      |                                                              | code                                               |
+| `10 00 00`                              | no key: what the factory keymap holds in its empty slots (the ISO-free and unused matrix positions)                                            |                                                              | verified (read with `0x16` / `0x17`)               |
 
 Modifiers (byte 1 of type `0x10`): `01` L Ctrl, `02` L Shift, `04` L Alt, `08` L Win, `10` R Ctrl, `20` R Shift, `40` R Alt, `80` R Win.
 
@@ -513,3 +514,4 @@ Writing these four resources back as is, then reading them in a new session, giv
 - 2026-10-17: battery at 100 %, cable plugged in: `power_info` stays at `64 01` over about an hour. State `2` doesn't appear when the battery is full; `1` = cable plugged in.
 - 2026-10-17: configurator reread for macro limits: none for the Yogo 75 PRO (unlimited number of macros and actions, no maximum block size). Only `macroSize` = 4 (`get_keyboard_info`).
 - 2026-10-17: read of 4480 bytes with `0x2C`, no error: empty area (`ff`×16 then zeros) up to 1023, data unrelated to macros from 1024. Hypothesis: 1024-byte macro area; the read is not bounded by the firmware.
+- 2026-10-17: factory layers 0 and 1 read again (`0x16`, `0x17`): every empty slot is `10 00 00`, not `00 00 00`; factory Fn + Esc is `50 41 00`.

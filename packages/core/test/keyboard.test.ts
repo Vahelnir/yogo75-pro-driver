@@ -191,3 +191,33 @@ test("raw refuses factory reset and firmware flashing unless forced", async () =
   await kb.raw(0x31, 0, 0, [], true);
   assert.deepEqual(packets(fake), [[0x31, 0, 0]]);
 });
+
+for (const layer of [0, 1]) {
+  test(`setKey rewrites layer ${layer} with only one slot changed`, async () => {
+    const { fake, kb } = setup();
+    const before = BACKUP[`keymap${layer}`];
+
+    const old = await kb.setKey(layer, 48, Uint8Array.of(0x50, 0x02, 0x00));
+
+    assert.deepEqual(old, before.subarray(48 * 3, 48 * 3 + 3));
+    const written = fake.data[`keymap${layer}`];
+    const expected = before.slice();
+    expected.set([0x50, 0x02, 0x00], 48 * 3);
+    assert.deepEqual(written, expected);
+    assert.equal(
+      packets(fake).filter(([cmd]) => cmd === [0x1b, 0x1d][layer]).length,
+      6,
+    );
+  });
+}
+
+test("resetKey puts back the factory code", async () => {
+  const { fake, kb } = setup();
+  fake.data.factory1[48 * 3] = 0x50;
+
+  const { old, code } = await kb.resetKey(1, 48);
+
+  assert.deepEqual(old, BACKUP.keymap1.subarray(48 * 3, 48 * 3 + 3));
+  assert.deepEqual(code, fake.data.factory1.subarray(48 * 3, 48 * 3 + 3));
+  assert.deepEqual(fake.data.keymap1, fake.data.factory1);
+});
