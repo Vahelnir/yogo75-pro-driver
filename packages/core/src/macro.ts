@@ -11,23 +11,28 @@ const ACTION_KEY = 1;
 const ACTION_MODIFIER = 2; // code is the modifier bitmask, as in a HID report
 const PRESSED = 0x80; // or-ed into the action type; released without it
 
-const isModifier = (code: number) => code >= 0xe0 && code <= 0xe7;
+function isModifier(code: number) {
+  return code >= 0xe0 && code <= 0xe7;
+}
+
 /** Left Ctrl (e0) is bit 0, …, Right GUI (e7) bit 7. */
-const modifierBit = (code: number) => 1 << (code - 0xe0);
+function modifierBit(code: number) {
+  return 1 << (code - 0xe0);
+}
 
 /** One 4-byte action: delay LE, code, type (| PRESSED). */
-const action = (delay: number, code: number, type: number, down: boolean) => [
-  ...u16le(delay),
-  code,
-  down ? type | PRESSED : type,
-];
+function action(delay: number, code: number, type: number, down: boolean) {
+  return [...u16le(delay), code, down ? type | PRESSED : type];
+}
 
 function actions({ keys, delay }: Macro): number[] {
   const mods = keys.filter(isModifier).map(modifierBit);
-  const tap = (code: number) => [
-    ...action(delay, code, ACTION_KEY, true),
-    ...action(delay, code, ACTION_KEY, false),
-  ];
+  function tap(code: number) {
+    return [
+      ...action(delay, code, ACTION_KEY, true),
+      ...action(delay, code, ACTION_KEY, false),
+    ];
+  }
 
   return [
     ...mods.flatMap((m) => action(delay, m, ACTION_MODIFIER, true)),

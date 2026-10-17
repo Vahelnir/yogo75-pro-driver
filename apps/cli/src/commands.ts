@@ -6,7 +6,7 @@ import { defineCommand, type CommandDef } from "citty";
 import { backupCommands } from "./commands/backup.ts";
 import { configCommands } from "./commands/config.ts";
 import { dotCommands } from "./commands/dot.ts";
-import { keymapCommands } from "./commands/keymap.ts";
+import { keyCommands } from "./commands/key.ts";
 import { lightingCommands } from "./commands/lighting.ts";
 import { macroCommands } from "./commands/macros.ts";
 import { rawCommands } from "./commands/raw.ts";
@@ -16,7 +16,7 @@ export const commands: Record<string, CommandDef<any>> = {
   ...configCommands,
   ...lightingCommands,
   ...dotCommands,
-  ...keymapCommands,
+  ...keyCommands,
   ...macroCommands,
   ...backupCommands,
   ...rawCommands,

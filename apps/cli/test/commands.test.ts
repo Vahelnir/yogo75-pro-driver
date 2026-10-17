@@ -14,7 +14,11 @@ test("invalid arguments are rejected before the keyboard is opened", async () =>
     ["set", "ledMode", "1.5"],
     ["dot", "13"],
     ["setled", "96", "ff0000"],
-    ["setkey", "4", "0", "000400"],
+    ["key", "set", "CAPS", "FN", "--layer", "4"],
+    ["key", "set", "NO", "FN"],
+    ["key", "set", "6,0", "FN"],
+    ["key", "set", "CAPS", "NOPE"],
+    ["key", "reset", "F13"],
     ["dotimage", "ff"],
     ["raw", "0x14", "0", "8", "zz"],
   ]) {

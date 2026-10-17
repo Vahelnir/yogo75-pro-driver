@@ -4,14 +4,19 @@ import { intArg, UsageError } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
 
 /** Offset of a config field. */
-export const at = (field: string) => FIELDS.indexOf(field);
+export function at(field: string): number {
+  return FIELDS.indexOf(field);
+}
 
 const info = defineCommand({
   meta: { description: "Show keyboard info and every config field" },
   async run() {
     await withKeyboard(async (k) => {
       const info = await k.readInfo();
-      const h = (n: number) => n.toString(16).padStart(2, "0");
+      function h(n: number) {
+        return n.toString(16).padStart(2, "0");
+      }
+
       console.log("info raw:", hex(info));
       console.log(
         `  vid=${h(info[3])}${h(info[2])} pid=${h(info[5])}${h(info[4])} fw=${h(info[7])}${h(info[6])} ` +

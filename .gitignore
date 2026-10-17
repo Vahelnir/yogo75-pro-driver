@@ -1,11 +1,9 @@
 node_modules/
-# Copie du configurateur ATK : code propriétaire, à retélécharger (voir docs/protocol.md)
+# Copy of ATK's configurator: proprietary code, download it again (see docs/protocol.md)
 web-dump/
 .DS_Store
-# Sauvegarde de la config de mon clavier, gardée en local
+# Local backups of the keyboard's state
 config-backup.txt
-# Sauvegarde locale de ma keymap
-keymap-backup.json
 leds-backup.json
 macros-backup.json
 full-backup.json

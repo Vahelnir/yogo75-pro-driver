@@ -35,7 +35,8 @@ pnpm install
 pnpm yogo75 --help                    # every command; `pnpm yogo75 <command> --help` for its arguments
 pnpm yogo75 info                      # device info and current config
 pnpm yogo75 color 00ff00 4            # steady green backlight
-pnpm yogo75 keymap 0                  # dump layer 0
+pnpm yogo75 key list --layer 1        # the Fn layer, as key names
+pnpm yogo75 key set CAPS FN           # Fn on Caps Lock (QMK names; `key reset CAPS` undoes it)
 pnpm yogo75 backup                    # config, 4 layers, per-key colours, macros -> full-backup.json
 pnpm yogo75 restore                   # write it all back, then read back and compare
 pnpm yogo75 raw 0x32 0 56             # send one packet and print the reply data (here: the start of the LED matrix)

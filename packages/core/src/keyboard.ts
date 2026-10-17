@@ -23,6 +23,7 @@ import {
   MATRIX_BYTES,
 } from "./commands.ts";
 import { CONFIG_BYTES } from "./config.ts";
+import { keyAt } from "./keymap.ts";
 import {
   answers,
   encodePacket,
@@ -46,11 +47,13 @@ const MAX_REPORTS = 20;
 /** The hub reads only this many info bytes through the dongle. */
 const WIRELESS_INFO_BYTES = 39;
 
-const cmdName = (cmd: number) => `cmd 0x${cmd.toString(16)}`;
+function cmdName(cmd: number) {
+  return `cmd 0x${cmd.toString(16)}`;
+}
 
 /**
  * One method per resource. Every write rewrites the whole resource, as the hub does: read → modify → write
- * is the caller's job.
+ * is the caller's job, except for `setKey` and `resetKey`.
  */
 export class Keyboard {
   #transport: Transport;
@@ -154,6 +157,34 @@ export class Keyboard {
   /** Rewrites a whole layer, as the hub does (it never writes a single key). */
   writeKeymap(layer: number, map: Uint8Array) {
     return this.#writeChunks(CMD_SET_KEYMAP[layer], map);
+  }
+
+  /** Changes one key's code: reads the layer, sets the slot, rewrites the layer. Resolves with the old code. */
+  async setKey(
+    layer: number,
+    index: number,
+    code: Uint8Array,
+  ): Promise<Uint8Array> {
+    const map = await this.readKeymap(layer);
+    const slot = keyAt(map, index);
+    const old = slot.slice();
+
+    slot.set(code);
+    await this.writeKeymap(layer, map);
+
+    return old;
+  }
+
+  /** Puts one key back to its factory code, as `setKey` does. Resolves with the old and new codes. */
+  async resetKey(
+    layer: number,
+    index: number,
+  ): Promise<{ old: Uint8Array; code: Uint8Array }> {
+    const code = keyAt(await this.readKeymap(layer, true), index);
+
+    const old = await this.setKey(layer, index, code);
+
+    return { old, code };
   }
 
   /** Per-key colours (used by ledMode 253): RGB triplets indexed by LED number. */
