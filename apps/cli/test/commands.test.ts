@@ -1,13 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { runCommand } from "citty";
-import { UsageError } from "../src/args.ts";
-import { main } from "../src/commands.ts";
+import { Command, CommanderError } from "@commander-js/extra-typings";
+import { yogo75 } from "../src/commands.ts";
 
 // Every case must fail validation: a valid one would open the real keyboard, so no dangerous command here
 // (the core tests its refusal of those).
 test("invalid arguments are rejected before the keyboard is opened", async () => {
-  for (const rawArgs of [
+  for (const args of [
     ["color", "zz0000"],
     ["color", "ff0000", "256"],
     ["set", "nope", "1"],
@@ -19,13 +18,23 @@ test("invalid arguments are rejected before the keyboard is opened", async () =>
     ["key", "set", "6,0", "FN"],
     ["key", "set", "CAPS", "NOPE"],
     ["key", "reset", "F13"],
+    ["key", "list", "--nope"],
+    ["key", "nope"],
+    ["nope"],
+    ["leds", "extra"],
     ["dotimage", "ff"],
+    ["setmacro", "zz"],
     ["raw", "0x14", "0", "8", "zz"],
   ]) {
+    // inherited by every subcommand registered after: throw instead of exiting, and stay quiet
+    const program = new Command()
+      .exitOverride()
+      .configureOutput({ writeErr: () => {} });
+
     await assert.rejects(
-      runCommand(main, { rawArgs }),
-      UsageError,
-      rawArgs.join(" "),
+      yogo75(program).parseAsync(args, { from: "user" }),
+      CommanderError,
+      args.join(" "),
     );
   }
 });
