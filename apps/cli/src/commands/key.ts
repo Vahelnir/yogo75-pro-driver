@@ -10,13 +10,13 @@ import { defineCommand } from "citty";
 import { coreArg, intArg, LAST_LAYER } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
 
-const layer = {
+const layerOption = {
   type: "string",
   default: "0",
   description: `Layer 0-${LAST_LAYER} (1 = Fn)`,
 } as const;
 
-const position = {
+const positionArg = {
   type: "positional",
   required: true,
   description: `Key by its factory layer-0 name (CAPS) or as row,col (3,0); row 0-${ROWS - 1}, col 0-${COLS - 1}`,
@@ -35,14 +35,14 @@ const printChange = (
 const list = defineCommand({
   meta: { description: "Print a layer as key names, one line per row" },
   args: {
-    layer,
+    layer: layerOption,
     factory: { type: "boolean", description: "Read the factory keymap" },
   },
   async run({ args }) {
-    const l = intArg("layer", args.layer, 0, LAST_LAYER);
+    const layer = intArg("layer", args.layer, 0, LAST_LAYER);
 
     const names = await withKeyboard(async (k) =>
-      keyNames(await k.readKeymap(l, args.factory)),
+      keyNames(await k.readKeymap(layer, args.factory)),
     );
 
     const width = Math.max(...names.map((n) => n.length));
@@ -64,36 +64,36 @@ const set = defineCommand({
       "Bind one key, e.g. `key set CAPS FN`; prints the old and new binding",
   },
   args: {
-    position,
+    position: positionArg,
     action: {
       type: "positional",
       required: true,
       description:
         "QMK name (KC_ optional: ESC, LGUI(TAB), MO(2), MACRO(0)…), ATK function (FN, BT_1…) or 0x + 6 hex digits",
     },
-    layer,
+    layer: layerOption,
   },
   async run({ args }) {
-    const l = intArg("layer", args.layer, 0, LAST_LAYER);
+    const layer = intArg("layer", args.layer, 0, LAST_LAYER);
     const index = coreArg("position", () => keyIndex(args.position));
     const code = coreArg("action", () => keycode(args.action));
 
-    const old = await withKeyboard((k) => k.setKey(l, index, code));
+    const old = await withKeyboard((k) => k.setKey(layer, index, code));
 
-    printChange(l, index, old, code);
+    printChange(layer, index, old, code);
   },
 });
 
 const reset = defineCommand({
   meta: { description: "Put one key back to its factory binding" },
-  args: { position, layer },
+  args: { position: positionArg, layer: layerOption },
   async run({ args }) {
-    const l = intArg("layer", args.layer, 0, LAST_LAYER);
+    const layer = intArg("layer", args.layer, 0, LAST_LAYER);
     const index = coreArg("position", () => keyIndex(args.position));
 
-    const { old, code } = await withKeyboard((k) => k.resetKey(l, index));
+    const { old, code } = await withKeyboard((k) => k.resetKey(layer, index));
 
-    printChange(l, index, old, code);
+    printChange(layer, index, old, code);
   },
 });
 

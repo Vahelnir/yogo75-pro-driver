@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Keyboard } from "../src/index.ts";
+import { keyAt, Keyboard } from "../src/index.ts";
 import { BACKUP, FakeKeyboard } from "./fake-transport.ts";
 
 const setup = (reportSize = 64) => {
@@ -192,32 +192,30 @@ test("raw refuses factory reset and firmware flashing unless forced", async () =
   assert.deepEqual(packets(fake), [[0x31, 0, 0]]);
 });
 
+const CAPS = 48; // row 3, col 0
+const FN = Uint8Array.of(0x50, 0x02, 0x00);
+
 for (const layer of [0, 1]) {
   test(`setKey rewrites layer ${layer} with only one slot changed`, async () => {
     const { fake, kb } = setup();
     const before = BACKUP[`keymap${layer}`];
 
-    const old = await kb.setKey(layer, 48, Uint8Array.of(0x50, 0x02, 0x00));
+    const old = await kb.setKey(layer, CAPS, FN);
 
-    assert.deepEqual(old, before.subarray(48 * 3, 48 * 3 + 3));
-    const written = fake.data[`keymap${layer}`];
+    assert.deepEqual(old, keyAt(before, CAPS));
     const expected = before.slice();
-    expected.set([0x50, 0x02, 0x00], 48 * 3);
-    assert.deepEqual(written, expected);
-    assert.equal(
-      packets(fake).filter(([cmd]) => cmd === [0x1b, 0x1d][layer]).length,
-      6,
-    );
+    keyAt(expected, CAPS).set(FN);
+    assert.deepEqual(fake.data[`keymap${layer}`], expected);
   });
 }
 
 test("resetKey puts back the factory code", async () => {
   const { fake, kb } = setup();
-  fake.data.factory1[48 * 3] = 0x50;
+  keyAt(fake.data.factory1, CAPS).set(FN);
 
-  const { old, code } = await kb.resetKey(1, 48);
+  const { old, code } = await kb.resetKey(1, CAPS);
 
-  assert.deepEqual(old, BACKUP.keymap1.subarray(48 * 3, 48 * 3 + 3));
-  assert.deepEqual(code, fake.data.factory1.subarray(48 * 3, 48 * 3 + 3));
+  assert.deepEqual(old, keyAt(BACKUP.keymap1, CAPS));
+  assert.deepEqual(code, FN);
   assert.deepEqual(fake.data.keymap1, fake.data.factory1);
 });

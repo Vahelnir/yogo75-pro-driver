@@ -164,9 +164,10 @@ export class Keyboard {
     code: Uint8Array,
   ): Promise<Uint8Array> {
     const map = await this.readKeymap(layer);
-    const old = keyAt(map, index).slice();
+    const slot = keyAt(map, index);
+    const old = slot.slice();
 
-    keyAt(map, index).set(code);
+    slot.set(code);
     await this.writeKeymap(layer, map);
 
     return old;
@@ -178,7 +179,10 @@ export class Keyboard {
     index: number,
   ): Promise<{ old: Uint8Array; code: Uint8Array }> {
     const code = keyAt(await this.readKeymap(layer, true), index);
-    return { old: await this.setKey(layer, index, code), code };
+
+    const old = await this.setKey(layer, index, code);
+
+    return { old, code };
   }
 
   /** Per-key colours (used by ledMode 253): RGB triplets indexed by LED number. */
