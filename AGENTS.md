@@ -4,7 +4,7 @@ Reverse engineering of the ATK Yogo 75 PRO keyboard and its web configurator (`h
 
 ## Documentation
 
-- **Protocol** (commands, config fields, transports, configurator): read `docs/protocol.md` before sending anything to the keyboard or searching `web-dump/`. Every discovery goes in as soon as it is made (configurator reading, keyboard test, disproved hypothesis), with its status (verified / code / hypothesis) and a journal line. It describes the protocol alone, not our tools.
+- **Protocol** (commands, config fields, transports, configurator): read `docs/protocol.md` before sending anything to the keyboard or searching `web-dump/`. Every discovery goes in as soon as it is made (configurator reading, keyboard test, disproved hypothesis), with its status (verified / code / hypothesis). It describes the protocol alone, not our tools: what each command and value does and what the keyboard can do, not a log of tests (no journal, no dates).
 - **Language**: docs, README, commits, issues and PRs in English.
 
 ## Code

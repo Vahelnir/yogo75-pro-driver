@@ -44,7 +44,9 @@ Each fact carries a status:
 - **code**: read in the configurator's JS, not tested yet;
 - **hypothesis**: inferred, to be confirmed.
 
-This document is updated **as discoveries are made**, whether they come from reading the configurator's code or from a test on the keyboard. We don't wait for the end of a task: we add the fact with its status, correct the one that was wrong, and record the discovery in the [journal](#journal).
+This document is updated **as discoveries are made**, whether they come from reading the configurator's code or from a test on the keyboard. We don't wait for the end of a task: we add the fact with its status and correct the one that was wrong.
+
+The keyboard's manuals.plus page is an automatic transcription of the paper guide, full of errors (Fn + F1 = lighting, Scroll Lock and Pause keys that don't exist, Fn + 1/2/3 = cable / BT / 2.4 GHz): not a source.
 
 ## Hardware
 
@@ -154,7 +156,7 @@ Bootloader (table `Ec`): `0xA0` START, `0xA1` FLASH_WRITE, `0xA2` FLASH_READ, `0
 
 ## get_keyboard_info (0x12)
 
-Read: `len = 56`, `offset = 0`. Index into the data area (byte 8 onwards). Values read on 2026-10-17.
+Read: `len = 56`, `offset = 0`. Index into the data area (byte 8 onwards). The values given are those read on the test keyboard.
 
 | Index | Field                                                                    | Value read         |
 | ----- | ------------------------------------------------------------------------ | ------------------ |
@@ -378,7 +380,7 @@ Read `0x2C`, write `0x2D` (`getMacro`, `setMacro`, classes `tW` / `vI`). `get_ke
 
 **Probable size of the area: 1024 bytes** (hypothesis, based on one read). Reading 4480 bytes with `0x2C` (80 packets, no error), we find 16 `ff` bytes, then zeros up to offset 1023, then from 1024 data unrelated to macros (regular `ff ff ff` patterns, then what looks like RAM: addresses `0x2000xxxx`). So the firmware doesn't bound the read. To be confirmed in the firmware before writing beyond it.
 
-**The configurator doesn't read the macros back from the keyboard**: it keeps the list on its side (local storage / account) and only writes it. Its `getMacro` only reads one packet at offset 0 and does nothing with it. Reading of 2026-10-17, 8 packets with `0x2C` (verified): 16 `ff` bytes, then zeros up to 448 bytes, so no macro.
+**The configurator doesn't read the macros back from the keyboard**: it keeps the list on its side (local storage / account) and only writes it. Its `getMacro` only reads one packet at offset 0 and does nothing with it. With no macro, the area reads as 16 `ff` bytes then zeros (verified, 8 packets with `0x2C`).
 
 ### Block format (verified)
 
@@ -393,7 +395,7 @@ The configurator writes the whole list at once, in 56-byte packets (offset 0, 56
 | 8…    | table: for each macro, its offset from the start of the block (LE 16 bits)   |
 | then  | each macro: number of actions (LE 16 bits), `00 00`, then 4 bytes per action |
 
-An action: `delay (LE 16 bits)`, `code`, `type | press << 7`. **Bit 7 = 1 for a press, 0 for a release** (verified the hard way: the configurator computes `keyStatus ? 0 : 1` with `KeyDown = 0`, `KeyUp = 1`). With the bit inverted, the macro "hi" typed `h` then left `i` pressed, and the physical I key no longer responded.
+An action: `delay (LE 16 bits)`, `code`, `type | press << 7`. **Bit 7 = 1 for a press, 0 for a release** (verified the hard way: the configurator computes `keyStatus ? 0 : 1` with `KeyDown = 0`, `KeyUp = 1`). With the bit inverted, the macro "hi" typed `h` then left `i` pressed, and the physical I key no longer responded until the keyboard was unplugged and replugged (stuck state in RAM). Settings survive unplugging: config, keymap and dot screen intact (verified).
 
 | Type    | Action                                                 | Code                                                                           |
 | ------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
@@ -426,7 +428,7 @@ Used when `ledMode = 253` ("custom").
 
 **Colour matrix** (`0x22` read / `0x23` write; 6 packets of 56 bytes, offset 0 to 280). One RGB triplet per LED number: the colour of key `i` is at byte `3 × led[i]`. As for the keymap, the configurator always writes the whole matrix.
 
-Reading of 2026-10-17 (verified): the LEDs of W, A, S, D and the four arrows were white, all others off. Cross-referencing keymap ↔ LED table lands exactly on these keys.
+Verified: with W, A, S, D and the four arrows white and all other LEDs off, cross-referencing keymap ↔ LED table lands exactly on these keys.
 
 ## Full backup
 
@@ -445,73 +447,3 @@ Writing these four resources back as is, then reading them in a new session, giv
 
 - What is byte 7 of the reply (`0x55`)?
 - Role of slots 46–47 (`30 cb 01`, `30 cf 00`) and of the unknown `0x50` functions.
-
-## Journal
-
-- 2026-10-17: configurator downloaded; protocol extracted. Verified: handshake, `get_keyboard_info`, reading and writing the config block, colour, modes 0 and 4. Original config saved.
-- 2026-10-17: keymap read (4 layers, factory and current). Format `[type, x, y]` decoded; 6 × 16 layout identified; `0x50` function table extracted from the configurator. Layer 0 of this keyboard differs from factory on 5 keys and the Fn layer is heavily modified.
-- 2026-10-17: the user confirms making these changes (Caps Lock → Ctrl, Delete/Home swapped, media on Fn + B/N/M): the index ↔ physical key mapping is verified.
-- 2026-10-17: keymap write tested: Insert (layer 0, index 14) remapped to X with `0x1B`; reading back in a new session shows `10 00 1b`.
-- 2026-10-17: physical test passed (Insert types `x`), then the backup written back: layers 0 and 1 read back identical to the backup. So `0x1D` is accepted (identical rewrite).
-- 2026-10-17: Fn layer write validated: Fn + Insert (layer 1, index 14) remapped to X with `0x1D` types `x`, Insert alone stays unchanged (layer 0 read back as `10 00 49`; on macOS, Insert produces nothing, that's normal). Keymap restored and read back identical to the backup.
-- 2026-10-17: per-key colours: key → LED table (`0x32`) and matrix (`0x22`) read; WASD + arrows in white preset found. Esc set to red via `0x23` (read back correctly), switched to mode 253. Visual test pending. Layout probably ANSI (corrects the ISO hypothesis).
-- 2026-10-17: visual test passed (Esc red, WASD + arrows white, the rest off). QWERTY ANSI layout confirmed by the user. Per-key colours restored and back to green mode 4.
-- 2026-10-17: dot screen: `setDotLight` read (inverted speed, mode −1 → `0xFF`), list `Os` of the 13 modes. `LedTFTMode` changed from 8 to 12, read back as 12. Visual test pending.
-- 2026-10-17: visual test: in mode 12, the screen no longer shows the fireworks (the user can't confirm it is "YOGO"). Back to mode 8, read back as 8 (brightness 30, speed 2, colour ff0000 unchanged).
-- 2026-10-17: dot screen image: `0x3B` = 108-byte RGB888 still image shown in mode 6, with no read command; `0x3C` = RGB565 music visualizer frame (corrects the handover, which attributed RGB565 to the image); `0x3D` = end of stream.
-- 2026-10-17: test image sent with `0x3B` (top-left corner white, top row red, left column green) then mode 6: display as expected, no mirroring or rotation. The keyboard acknowledges both `len 56` packets (`55`). Back to mode 8, read back; the test image stays stored for mode 6 (the user had none).
-- 2026-10-17: `0x3C`: an RGB565 frame (blue diagonal, top-right corner red) shows briefly then the screen goes black; config unchanged. `0x3D` resets `LedTFTMode` to 0 (read back after each command). Mode 8 written back. Test of mode −1: `LedTFTMode` read back as 255, visual test pending.
-- 2026-10-17: mode −1 (`0xFF`): screen off (verified). Brightness: comparison 90 → 5 on the mode 6 image, clearly darker. Raw speed 2 → 6 → 2 on mode 8: slower then faster. Screen back to its original state (mode 8, brightness 30, speed 2) and read back.
-- 2026-10-17: dot screen colour verified (mode 0, green instead of red). Continuous `0x3C` stream (~20 frames/s, 60 s): image stable throughout. Then `0x3D` and mode 8 written back, colour `ff0000`; read back.
-- 2026-10-17: after the end of the `0x3C` stream, the screen stayed black until the `0x3D` (verified by the user).
-- 2026-10-17: macros: `0x2D` block format, action encoding, key → macro binding (`60 n mode` / `61 n N`) and run modes read in the configurator. Read `0x2C`: no macro on the keyboard.
-- 2026-10-17: first macro test ("hi" on Insert via `60 00 00`): `h` typed then `i` repeated continuously, the physical I key no longer responds. Cause: bit 7 inverted (1 = press). The "last action ignored" hypothesis is disproved (a release added at the end changed nothing, since it was actually a press). Insert and macros restored and read back (`10 00 49`, macro area at `ff`×16 then zeros). The key → macro binding `60 n mode` and the `0x2D` write are verified.
-- 2026-10-17: I key stuck until the USB was unplugged / replugged (firmware state in RAM, keymap intact). After replugging, config, dot screen and keymap are intact: **settings survive unplugging** (verified).
-- 2026-10-17: macro fixed (press = bit 7): Insert types exactly `hi`, no more stuck key. Insert and macros restored and read back.
-- 2026-10-17: 3 macros written at once (offsets `0e`, `2a`, `3e`). Verified: L Shift as type 2 (`HI`), mode 4 with `61 01 03` (`hihihi`), delay in ms (500 → `hhhiii` through macOS auto-repeat).
-- 2026-10-17: modes 1–3 verified with `60 01 m`: 1 repeats while the key is held and always finishes the round; 2 repeats until a new press; 3 repeats while the key is held and stops dead (can end on `h`). Keymap and macros restored and read back.
-- 2026-10-17: options: `winLock` = 1 locks the Win key, `wasd` = 1 swaps WASD and arrows both ways (verified). Reset to 0. Sleep unit read in the configurator (seconds).
-- 2026-10-17: `macWin` = 1 verified (Alt ↔ Win, F1–F12 multimedia without Fn; Fn + F11/F12 still sets the volume). Reset to 0. Sleep test: `sleepL` 180 → 60.
-- 2026-10-17: 60 s sleep over USB: no turn-off observed; the user thinks it only applies in Bluetooth / 2.4 GHz. `sleepL` reset to 180. The keyboard has a physical Win/Mac switch.
-- 2026-10-17: the physical Win/Mac switch sets `macWin` to 1 then to 0 (read back, only byte of the block changed).
-- 2026-10-17: `sixN` verified: at 0, 8 keys pressed together only give 6 letters; at 1 (original value, restored), all 8.
-- 2026-10-17: `fkeyChange` = 1: no change observed (Windows mode: the Fn layer of the F row is customized to F1–F12, so F12 and Fn + F12 give F12 in both cases; Mac mode: F1 and Fn + F1 lower the brightness in both cases). Reset to 0, `macWin` reset to 0. Test of `wheelMode` = 1.
-- 2026-10-17: `wheelMode` 1 and 2: rotating the knob no longer does anything visible, pressing stays play/pause. Hypothesis "the knob then sends slots 46–47" disproved (volume ± written to 46–47, no effect). Keymap restored, `wheelMode` reset to 0.
-- 2026-10-17: `layer` = 2: layer 0 stays active (Caps Lock → Ctrl, Delete in its customized place), even after replugging; value read back as 2 after replugging. Reset to 0.
-- 2026-10-17: `layer` figured out, test suggested by the user: Ins on layer 1 → `x`, `layer` = 1. Ins alone types the layer 0 code until the first Fn + Ins; then Ins alone types `x` and B (play/pause on layer 1) works without Fn; Fn alone doesn't bring back layer 0. After `layer` = 0, B stays on play/pause until the next Fn press-release, then types `b`. So `layer` = base layer, applied when Fn is released (this explains the previous test at 2, done without touching Fn). Keymap restored.
-- 2026-10-17: Caps Lock → `50 02 00`: second working Fn key. Caps Lock → `50 03 00` with Insert → `x` on layer 2: Caps Lock + Insert types `x`, Caps Lock + B types `b` (layer 1 is not used), nothing stays stuck. `50 03` = layer 2 while the key is held.
-- 2026-10-17: hypothesis "Mac mode uses layers 2 and 3" disproved: in Mac mode, Insert (`x` on layer 2 only) doesn't type `x`, and Fn + B stays play/pause (layer 1). `macWin` reset to 0.
-- 2026-10-17: `50 04 00` = layer 3 while the key is held (verified: Insert → `x` on layer 3 only, Caps Lock + Insert types `x`). Keymap of the 4 layers restored and read back identical to the backup.
-- 2026-10-17: `power_info` (`0x30`) read: `5b 01`, i.e. 91 % and state 1 (not "charging" = 2 according to the configurator), keyboard plugged in over USB.
-- 2026-10-17: backlight: brightness (90 → 10), `colorful` = 1 (frozen rainbow in mode 4) and speed (mode 3, raw 0 ≈ 1 s, raw 6 ≈ 8 s) verified; everything reset (mode 4, brightness 90, speed 3, single colour). Test of `ledOnOff` = 1.
-- 2026-10-17: `ledOnOff` = 1 turns the backlight off, the dot screen stays on (verified). Reset to 0.
-- 2026-10-17: effects 1 (scrolling to the right, with `colorful` = 1) and 7 (anticlockwise rotation) observed; `customColorIndex` 0 or 1 doesn't change their direction. Backlight reset: mode 4, green, brightness 90, speed 3, single colour.
-- 2026-10-17: lighting effects table completed with the configurator's labels and settings. Music sync (`0x2E` / `0x2F`, mode 254) left undetermined: specific to the desktop application, assumed to work like the dot screen stream.
-- 2026-10-17: effect 1 rechecked with `colorful` = 0, through a single write from mode 4: green wave scrolling from left to right, applied immediately (one block write, in 2 packets, is enough). Back to mode 4.
-- 2026-10-17: configurator's wireless code read (32-byte packets, 24 of data, config block split, write bug on positions 48–63). Nothing tested: dongle not plugged in yet.
-- 2026-10-17: `applyWirelessTransport()` and the wireless send read (same header, 32 bytes, report ID taken from the descriptor, 3 s timeout).
-- 2026-10-17: dongle plugged in. Reading the info and the config, then writing the backlight colour, verified through the dongle.
-- 2026-10-17: sleep verified on 2.4 GHz (`sleepL = 60` → turns off at 60 s, woken by a key, keyboard unreachable through the dongle during sleep).
-- 2026-10-17: keymap, per-key LEDs, macros, battery, dot screen (mode, image, live visualizer) verified through the dongle; everything restored, config identical to the original backup. The dot screen's original still image is overwritten (rainbow flag), with the user's approval.
-- 2026-10-17: battery through the dongle: `52 00` (82 %) without cable, `52 01` with the charging cable plugged in. So state 1 means "charging".
-- 2026-10-17: the connection mode is chosen with a physical switch (Bluetooth / cable / 2.4 GHz); on 2.4 GHz, the cable is only used for charging.
-- 2026-10-17: back to wired. Reads identical to the backups; config, keymap, colours and macros written back as is in 56-byte packets, then read back identically.
-- 2026-10-17: full backup (config, 4 layers, colours, macros) verified over USB and through the dongle: contents identical from one transport to the other; after `sleepL` = 179, writing everything back restores 180. A new HID connection in the same process is enough to read the new values back.
-- 2026-10-17: the protocol doc becomes independent of `yogo.ts`; using the tool moves to `cli.md`.
-- 2026-10-17: factory layers compared with the configurator's screenshots: 46–47 are the desktop / lock extension buttons; special keys table (types `0x30`, `0x40`, shortcuts) recorded. The unknown `0x50` functions stay unknown: the interface shows them as "NO".
-- 2026-10-17: the user confirms that Fn + 1…4 (`50 34`–`50 37`) are the Bluetooth buttons.
-- 2026-10-17: the keyboard's paper guide: confirms buttons 46–47 (desktop, lock), Fn + 1…3 for Bluetooth, and the reset by Fn + Esc + Backspace held 5 s (hence the hypothesis on `33` and `41`). It contradicts the configurator's Q/A, W/S direction.
-- 2026-10-17: the keyboard's manuals.plus page is an automatic transcription of the paper guide, full of errors (Fn + F1 = lighting, Scroll Lock and Pause keys that don't exist, Fn + 1/2/3 = cable/BT/2.4 GHz whereas a physical switch chooses the mode). Do not use it as a source.
-- 2026-10-17: factory codes put back in the Fn layer to test them: `3c` = Win lock (`winLock`), `31` / `32` = dot screen speed + / −, `0b` = mode − (0 → 20), `3e` no visible effect. User's preset restored from the full backup.
-- 2026-10-17: Fn layer lighting settings verified on the keyboard: W / S = previous / next colour (palette wrapping on the rainbow), E / D = speed + / −, R / F = brightness + / − (15 per press). Mouse clicks `40 00 01` / `40 00 02` verified. Preset restored.
-- 2026-10-17: Fn + H (`3e`) no effect in Mac mode either. In Bluetooth, Fn + 1, 2, 3 (`34`–`36`) choose device 1, 2, 3 (long press: pairing); Fn + 4 (`37`) no effect observed.
-- 2026-10-17: two claims found online disproved: Fn + 4 (`37`) doesn't toggle Win/Mac and Fn + H (`3e`) doesn't change the dot screen.
-- 2026-10-17: on 2.4 GHz, Fn + H and Fn + 4 (short press): nothing visible, no sleep. "Battery" and "sleep" leads ruled out.
-- 2026-10-17: lighting modes 2, 5, 6, 8–20 verified on the keyboard (reaction to typing, effective settings). Fn + W / S palette corrected (5 = rainbow, not blue). `customColorIndex` no effect on mode 8 either.
-- 2026-10-17: stale read-back figured out (throwaway script, `sleepL` 179 ↔ 180): it is an apply delay, not a session issue. Stale up to ~5 ms after the write, correct from 10 ms. `0x10`, `0x11` + `0x10` and a reopen are not reliable over USB. `0x11` alone: block read back as zeros.
-- 2026-10-17: `dsSleepL` = 20 then 1 on 2.4 GHz: the dot screen stays on after 60 s then 2 min. Reset to 0. `power`: state still 1 at 100 %, cable plugged in.
-- 2026-10-17: configurator reread for `dsSleepL/M/H`: never read or written (only `sleepL/M/H` is, via `sleepTime`) and no dot screen sleep label in the translations.
-- 2026-10-17: battery at 100 %, cable plugged in: `power_info` stays at `64 01` over about an hour. State `2` doesn't appear when the battery is full; `1` = cable plugged in.
-- 2026-10-17: configurator reread for macro limits: none for the Yogo 75 PRO (unlimited number of macros and actions, no maximum block size). Only `macroSize` = 4 (`get_keyboard_info`).
-- 2026-10-17: read of 4480 bytes with `0x2C`, no error: empty area (`ff`×16 then zeros) up to 1023, data unrelated to macros from 1024. Hypothesis: 1024-byte macro area; the read is not bounded by the firmware.
-- 2026-10-17: factory layers 0 and 1 read again (`0x16`, `0x17`): every empty slot is `10 00 00`, not `00 00 00`; factory Fn + Esc is `50 41 00`.
