@@ -1,32 +1,32 @@
 # yogo75-driver
 
-Reverse engineering du clavier ATK Yogo 75 PRO et de son configurateur web (`https://v3-hub.atk.store/`), pour le piloter avec nos propres outils : le CLI `yogo75`, puis une app web.
+Reverse engineering of the ATK Yogo 75 PRO keyboard and its web configurator (`https://v3-hub.atk.store/`), to drive it with our own tools: the `yogo75` CLI, then a web app.
 
 ## Documentation
 
-- **Protocole** (commandes, champs de config, transports, configurateur) : lire `docs/protocol.md` avant d'envoyer quoi que ce soit au clavier ou de chercher dans `web-dump/`. Chaque découverte y entre dès qu'elle est faite (lecture du configurateur, test sur le clavier, hypothèse infirmée), avec son statut (vérifié / code / hypothèse) et une ligne au journal. Elle décrit le protocole seul, sans nos outils.
-- **Langue** : docs, README, commits, issues et PR en anglais.
+- **Protocol** (commands, config fields, transports, configurator): read `docs/protocol.md` before sending anything to the keyboard or searching `web-dump/`. Every discovery goes in as soon as it is made (configurator reading, keyboard test, disproved hypothesis), with its status (verified / code / hypothesis) and a journal line. It describes the protocol alone, not our tools.
+- **Language**: docs, README, commits, issues and PRs in English.
 
 ## Code
 
-Monorepo pnpm (`npx` n'est pas installé) : `apps/cli` (le CLI) et `packages/core` (`@yogo75/core`, le protocole, partagé avec la future app web). TypeScript lancé directement par Node 24, sans build, en syntaxe _erasable only_ (pas d'`enum`, de `namespace` ni de propriétés de paramètre). Scripts racine : `pnpm typecheck`, `pnpm test` (node:test, fichiers `*.test.ts`), `pnpm format` (Prettier).
+pnpm monorepo (`npx` is not installed): `apps/cli` (the CLI) and `packages/core` (`@yogo75/core`, the protocol, shared with the future web app). TypeScript run directly by Node 24, no build, in _erasable only_ syntax (no `enum`, `namespace` or parameter properties). Root scripts: `pnpm typecheck`, `pnpm test` (node:test, `*.test.ts` files), `pnpm format` (Prettier).
 
-`@yogo75/core` tourne aussi dans le navigateur : il n'importe rien de Node (`node:*`, `Buffer`, `node-hid`) ; son `tsconfig` sans types Node le fait respecter.
+`@yogo75/core` also runs in the browser: it imports nothing from Node (`node:*`, `Buffer`, `node-hid`); its `tsconfig` without Node types enforces this.
 
-Lancer le CLI depuis la racine avec `pnpm yogo75 …` : il lit et écrit ses fichiers de sauvegarde dans le dossier courant.
+Run the CLI from the repo root with `pnpm yogo75 …`: it reads and writes its backup files in the working directory.
 
-`web-dump/` est une copie non fiable du site du configurateur : on la lit, on ne l'exécute jamais. Ses bundles sont minifiés sur une seule ligne : chercher avec `node -e` et une regex (ex. `(?<![\w$])NOM=class`) plutôt qu'avec `grep`.
+`web-dump/` is an untrusted copy of the configurator site: read it, never run it. Its bundles are minified on a single line: search with `node -e` and a regex (e.g. `(?<![\w$])NAME=class`) rather than `grep`.
 
-## Clavier
+## Keyboard
 
-- **Garde-fou** : toute écriture suit lire → modifier → réécrire. `0x31` (reset usine) et `0xA0`–`0xC0` (flash du firmware) demandent l'accord explicite de l'utilisateur à chaque fois.
-- **Un seul processus** peut ouvrir le clavier : lancer les commandes `yogo75` une par une, jamais en parallèle.
-- **Transport** : le sélecteur physique du clavier choisit câble, 2,4 GHz ou Bluetooth (non configurable). En 2,4 GHz, le câble ne fait que charger. Si le dongle ne répond plus (`no reply to cmd 0x10`), le clavier est en veille : demander à l'utilisateur d'appuyer sur une touche.
-- **Vérification visuelle** : l'utilisateur est les yeux du test. Lui dire quoi regarder ; pour un effet subtil, lui faire comparer deux valeurs extrêmes.
-- **Touche restée enfoncée** (macro malformée, flux interrompu) : débrancher et rebrancher le clavier ; les réglages survivent.
+- **Guardrail**: every write follows read → modify → write back. `0x31` (factory reset) and `0xA0`–`0xC0` (firmware flashing) need the user's explicit approval every time.
+- **One process** at a time can open the keyboard: run `yogo75` commands one by one, never in parallel.
+- **Transport**: the keyboard's physical switch picks cable, 2.4 GHz or Bluetooth (not configurable). In 2.4 GHz, the cable only charges. If the dongle stops answering (`no reply to cmd 0x10`), the keyboard is asleep: ask the user to press a key.
+- **Visual check**: the user is the test's eyes. Tell them what to look at; for a subtle effect, have them compare two extreme values.
+- **Stuck key** (malformed macro, interrupted stream): unplug and replug the keyboard; settings survive.
 
 ## Git
 
-Travail sur une branche, livré par PR. Commit, push et PR seulement avec l'accord de l'utilisateur.
+Work on a branch, delivered through a PR. Commit, push and open PRs only with the user's approval.
 
-Messages de commit au format [Conventional Commits](https://www.conventionalcommits.org/fr/) (`feat`, `fix`, `docs`, `refactor`, `test`, `build`, `chore`, `style`…) : `docs(protocol): probable size of the macro area`.
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat`, `fix`, `docs`, `refactor`, `test`, `build`, `chore`, `style`…): `docs(protocol): probable size of the macro area`.
