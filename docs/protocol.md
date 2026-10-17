@@ -219,7 +219,7 @@ Liste `Ns` dans `keyboard-info.util-*.js`. Noms : libellés anglais du configura
 | Valeur | Nom | Réglages | Statut |
 |---|---|---|---|
 | 0 | tout éteint | | vérifié |
-| 1 | Rainbow Flow 1 : arc-en-ciel qui défile vers la droite ; avec `colorful = 0`, ressemble à une respiration de la couleur choisie | L, V, C (M non proposé, mais nécessaire à l'arc-en-ciel) | vérifié |
+| 1 | Rainbow Flow 1 : vague qui défile de gauche à droite, en arc-en-ciel avec `colorful = 1`, dans la couleur choisie (aspect de respiration qui se déplace) avec `colorful = 0` | L, V, C (M non proposé, mais nécessaire à l'arc-en-ciel) | vérifié |
 | 2 | Color Breathing | L | code |
 | 3 | Monochrome Breath : respiration de la couleur choisie | L, V, C, M | vérifié |
 | 4 | Rainbow (icône « normal ») : **fixe**, une couleur avec `colorful = 0`, arc-en-ciel figé avec `colorful = 1` | L, C, M | vérifié |
@@ -478,3 +478,4 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : `ledOnOff` = 1 éteint le rétroéclairage, l'écran à points reste allumé (vérifié). Remis à 0.
 - 2026-10-17 : effets 1 (défilement vers la droite, avec `colorful` = 1) et 7 (rotation antihoraire) observés ; `customColorIndex` 0 ou 1 ne change pas leur sens. Rétroéclairage remis : mode 4, vert, luminosité 90, vitesse 3, couleur unique.
 - 2026-10-17 : table des effets d'éclairage complétée avec les libellés et réglages du configurateur. Synchro musicale (`0x2E` / `0x2F`, mode 254) laissée non déterminée : propre à l'application de bureau, supposée fonctionner comme le flux de l'écran à points.
+- 2026-10-17 : revérification de l'effet 1 avec `colorful` = 0, par une seule écriture depuis le mode 4 : vague verte qui défile de gauche à droite, appliquée immédiatement (une écriture du bloc, en 2 paquets, suffit). Retour au mode 4.
