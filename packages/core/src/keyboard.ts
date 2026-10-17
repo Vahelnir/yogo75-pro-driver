@@ -17,6 +17,7 @@ import {
   CMD_START,
   CMD_SYNC_DOT,
   CMD_WRITE_KB_FUNCTION,
+  INFO_MACRO_SIZE,
   isDangerous,
   LED_MATRIX_BYTES,
   MACROS_BYTES,
@@ -24,6 +25,12 @@ import {
 } from "./commands.ts";
 import { CONFIG_BYTES } from "./config.ts";
 import { keyAt } from "./keymap.ts";
+import {
+  EMPTY_MACRO,
+  joinMacros,
+  macroAreaLength,
+  splitMacros,
+} from "./macro.ts";
 import {
   answers,
   encodePacket,
@@ -204,13 +211,38 @@ export class Keyboard {
     return this.#readChunks(CMD_GET_LED_MATRIX, length);
   }
 
-  readMacros(length = MACROS_BYTES) {
-    return this.#readChunks(CMD_GET_MACRO, length);
+  /** The macro area, as long as its header says; with no header (no macro written yet), its first 224 bytes. */
+  async readMacros(): Promise<Uint8Array> {
+    const head = await this.#readChunks(CMD_GET_MACRO, this.#chunkBytes);
+    const length = macroAreaLength(head) ?? MACROS_BYTES;
+
+    return length <= head.length
+      ? head.subarray(0, length)
+      : this.#readChunks(CMD_GET_MACRO, length);
   }
 
-  /** Writes a `macroBlob` as the hub does: last packet zero-padded. */
-  writeMacros(blob: Uint8Array) {
-    return this.#writeChunks(CMD_SET_MACRO, blob);
+  /** Writes a `joinMacros` area as the hub does: last packet zero-padded. */
+  writeMacros(area: Uint8Array) {
+    return this.#writeChunks(CMD_SET_MACRO, area);
+  }
+
+  /**
+   * Replaces one macro (`encodeMacro` bytes): reads the area, fills any gap with empty macros, rewrites it.
+   * Throws on a number beyond the macro count the keyboard announces.
+   */
+  async setMacro(index: number, macro: Uint8Array) {
+    const slots = (await this.readInfo())[INFO_MACRO_SIZE];
+    if (!(Number.isInteger(index) && index >= 0 && index < slots)) {
+      throw new Error(`macro number must be 0 to ${slots - 1}`);
+    }
+
+    const macros = splitMacros(await this.readMacros());
+    while (macros.length < index) {
+      macros.push(EMPTY_MACRO);
+    }
+
+    macros[index] = macro;
+    await this.writeMacros(joinMacros(macros));
   }
 
   /** Reads every resource, one request at a time (the keyboard answers in order). */

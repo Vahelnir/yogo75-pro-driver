@@ -11,7 +11,10 @@ const MOUSE_SYSTEM = 0x40; // [MOUSE_SYSTEM, system action, mouse button]
 const FUNCTION = 0x50; // [FUNCTION, function number, 0]
 const MACRO = 0x60; // [MACRO, macro number, mode 0-3]
 const MACRO_MODES = 4;
-const MAX_MACRO = 0xff; // the macro number is one byte
+const MACRO_TIMES = 0x61; // [MACRO_TIMES, macro number, runs]: mode 4, "run N times"
+const MACRO_TIMES_MODE = 4;
+const MAX_RUNS = 249; // the hub's "execute N times" input (`frequency`) stops there
+export const MAX_MACRO = 0xff; // the macro number is one byte
 
 /** A code and its names: the first one is printed, all are accepted. */
 type Entry<T> = [T, string, ...string[]];
@@ -253,10 +256,16 @@ export function keycode(name: string): Uint8Array {
     return fromHex(n.slice(2));
   }
 
-  const macro = n.match(/^MACRO\((\d+)(?:,(\d+))?\)$/);
+  const macro = n.match(/^MACRO\((\d+)(?:,(\d+))?(?:,(\d+))?\)$/);
   const [index, mode] = [Number(macro?.[1]), Number(macro?.[2] ?? 0)];
-  if (macro && index <= MAX_MACRO && mode < MACRO_MODES) {
+  const runs = macro?.[3] === undefined ? undefined : Number(macro[3]);
+  if (macro && index <= MAX_MACRO && mode < MACRO_MODES && runs === undefined) {
     return Uint8Array.of(MACRO, index, mode);
+  }
+
+  const validRuns = runs !== undefined && runs >= 1 && runs <= MAX_RUNS;
+  if (macro && index <= MAX_MACRO && mode === MACRO_TIMES_MODE && validRuns) {
+    return Uint8Array.of(MACRO_TIMES, index, runs);
   }
 
   // LGUI(TAB): the modifier's bit or-ed into a key code
@@ -284,6 +293,10 @@ export function keycodeName(code: Uint8Array): string {
     return y ? `MACRO(${x},${y})` : `MACRO(${x})`;
   }
 
+  if (type === MACRO_TIMES && y >= 1 && y <= MAX_RUNS) {
+    return `MACRO(${x},${MACRO_TIMES_MODE},${y})`;
+  }
+
   const usage = BY_CODE.get(key(0, y));
   if (type === KEY && x && usage) {
     // innermost first, in mask order; with no usage, the first modifier is the key itself
@@ -299,4 +312,19 @@ export function keycodeName(code: Uint8Array): string {
   }
 
   return `0x${hex(code).replaceAll(" ", "")}`;
+}
+
+/** A plain key (`H`, `LCTL(C)`, `LSFT`): its modifier mask and HID usage; throws on anything else (media, Fn…). */
+export function plainKey(name: string): { mods: number; usage: number } {
+  const [type, mods, usage] = keycode(name);
+  if (type !== KEY) {
+    throw new Error(`${name} is not a plain key`);
+  }
+
+  return { mods, usage };
+}
+
+/** The name `plainKey` parses back to `mods` and `usage`. */
+export function plainKeyName(mods: number, usage: number): string {
+  return keycodeName(Uint8Array.of(KEY, mods, usage));
 }

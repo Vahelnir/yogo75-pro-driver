@@ -30,6 +30,7 @@ test("names map to codes, whatever the case, prefix or alias", () => {
   assert.equal(code("mo(3)"), "50 04 00");
   assert.equal(code("MACRO(2)"), "60 02 00");
   assert.equal(code("MACRO(2,3)"), "60 02 03");
+  assert.equal(code("MACRO(2,4,10)"), "61 02 0a");
   assert.equal(code("LGUI(TAB)"), "10 08 2b");
   assert.equal(code("lctl(lsft(kc_c))"), "10 03 06");
   assert.equal(code("VOLU"), "30 e9 00");
@@ -37,7 +38,16 @@ test("names map to codes, whatever the case, prefix or alias", () => {
 });
 
 test("unknown names are rejected", () => {
-  for (const n of ["NOPE", "MO(4)", "MACRO(2,4)", "LGUI(VOLU)", "0x5000"]) {
+  for (const n of [
+    "NOPE",
+    "MO(4)",
+    "MACRO(2,4)",
+    "MACRO(2,4,0)",
+    "MACRO(2,4,250)",
+    "MACRO(2,3,5)",
+    "LGUI(VOLU)",
+    "0x5000",
+  ]) {
     assert.throws(() => keycode(n), /unknown key/, n);
   }
 });
@@ -49,12 +59,13 @@ test("codes print as their first name", () => {
   assert.equal(name("50 04 00"), "MO(3)");
   assert.equal(name("60 01 00"), "MACRO(1)");
   assert.equal(name("60 01 02"), "MACRO(1,2)");
+  assert.equal(name("61 01 f9"), "MACRO(1,4,249)");
   assert.equal(name("10 08 2b"), "LGUI(TAB)");
   assert.equal(name("10 03 00"), "LSFT(LCTL)");
 });
 
 test("unknown codes round-trip as hex", () => {
-  for (const h of ["50 3e 00", "61 01 03", "00 00 00", "10 00 ff"]) {
+  for (const h of ["50 3e 00", "61 01 00", "00 00 00", "10 00 ff"]) {
     const n = name(h);
     assert.match(n, /^0x[0-9a-f]{6}$/);
     assert.equal(code(n), h);

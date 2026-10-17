@@ -382,6 +382,13 @@ Read `0x2C`, write `0x2D` (`getMacro`, `setMacro`, classes `tW` / `vI`). `get_ke
 
 **The configurator doesn't read the macros back from the keyboard**: it keeps the list on its side (local storage / account) and only writes it. Its `getMacro` only reads one packet at offset 0 and does nothing with it. With no macro, the area reads as 16 `ff` bytes then zeros (verified, 8 packets with `0x2C`).
 
+**What the configurator writes** (code, `Ui.setMacro` and the macro composable):
+
+- Macros come from its recorder: every press and every release is a separate action with a delay in ms (capped at 65535; minimum delay 0 for this keyboard). The recorder stores the time until the next event on the action **before** it, as if the delay came after the action. The keyboard waits it before the action (see below), so a recorded macro plays each gap one action late (verified): a pause recorded between two taps lands on the first key's release, which then stays pressed that long (auto-repeat), and the next key follows with no pause. The first recorded action carries the gap to the second one, and the last action has delay 0. Modifiers are their own actions (type 2, mask as code), one per modifier.
+- Its editor can also build a macro by hand. A macro made that way reads back as presses only, with no release (verified). Such a macro leaves keys stuck: the keyboard doesn't release a press by itself, and the last key pressed auto-repeats until the keyboard is unplugged (verified).
+- Deleting a macro removes it from the list, so the following macros move down one number. For this keyboard, keys bound to those macros are **not** renumbered (its renumbering routine skips this API family): a key bound to macro 2 then runs the former macro 3.
+- An empty list is never written (`setMacro` returns early): deleting the last macro leaves it on the keyboard.
+
 ### Block format (verified)
 
 The configurator writes the whole list at once, in 56-byte packets (offset 0, 56…), with the length byte always 56.
@@ -403,14 +410,53 @@ An action: `delay (LE 16 bits)`, `code`, `type | press << 7`. **Bit 7 = 1 for a 
 | 2       | modifier                                               | mask, as in the keymap (`01` L Ctrl… `80` R Win); verified with L Shift (`02`) |
 | 3, 5, 7 | other types in the interface (4, 5, 6; probably mouse) | unknown                                                                        |
 
-The delay is in **milliseconds** and applies after each action (verified: at 500, each key stays pressed long enough to trigger macOS auto-repeat, "hi" gives `hhhiii`). Reading back with `0x2C` returns exactly the block written (verified).
+Example (verified): two macros, #0 empty (the no-op below), #1 tapping X with 20 ms delays. 36 bytes:
+
+```
+offset  bytes         field
+──────  ────────────  ─────────────────────────────────────────────
+                      header
+  0     aa 55         magic
+  2     24 00         total length = 36
+  4     02 00         2 macros
+  6     00 00
+                      offset table, one entry per macro
+  8     0c 00         macro #0 at 12 ──┐
+ 10     18 00         macro #1 at 24 ──┼──┐
+                                       │  │
+ 12     02 00 00 00   #0: 2 actions ◄──┘  │
+ 16     00 00 00 82     delay 0, mask 00, type 2 | press
+ 20     00 00 00 02     delay 0, mask 00, type 2 (release)
+                                          │
+ 24     02 00 00 00   #1: 2 actions ◄─────┘
+ 28     14 00 1b 81     delay 20, X (1b), type 1 | press
+ 32     14 00 1b 01     delay 20, X (1b), type 1 (release)
+ 36                   end = total length
+```
+
+Macros sit back to back: each one's offset is the previous one's offset + 4 + 4 × its action count. Changing one macro's length moves every macro after it, so the whole block is rebuilt and rewritten.
+
+A macro with 0 actions does not stop there. In the same block with #0 reduced to `00 00 00 00` (offsets 12 and 16, total 28), a key bound to macro #0 types `x`:
+
+```
+ 12     00 00 00 00   #0: 0 actions ◄── key bound to MACRO(0) starts here
+ 16     02 00 00 00   #1: 2 actions      ┆ runs on
+ 20     14 00 1b 81     press X          ┆
+ 24     14 00 1b 01     release X        ▼ types "x"
+```
+
+Only the result (`x` typed) is verified. How the firmware reads past the 0 count (header of #1 taken as an action, or the count treated as 65536) is a hypothesis.
+
+**Empty macro** (verified): a macro made of one modifier press and release with mask `00` (`00 00 00 82`, `00 00 00 02`) does nothing, leaves no modifier held, and the next macro still works: it is the way to empty a slot without renumbering the others.
+
+The delay is in **milliseconds** and the keyboard waits it **before** running the action (verified). A long delay on a key's release keeps that key pressed for that long, so it auto-repeats: the wait comes between the press and the release. The first action's delay is a wait before the macro starts. Reading back with `0x2C` returns exactly the block written (verified).
 
 ### Binding a key to a macro (verified)
 
 In the keymap, with this keyboard's controller (`Ui`):
 
 - `60 <macro number> <mode>` for modes 0 to 3;
-- `61 <macro number> <number of runs>` for mode 4.
+- `61 <macro number> <number of runs>` for mode 4 (verified: `61 01 03` runs macro 1 three times per press).
 
 | Mode | Behaviour (configurator labels)                          |
 | ---- | -------------------------------------------------------- |
@@ -434,12 +480,12 @@ Verified: with W, A, S, D and the four arrows white and all other LEDs off, cros
 
 Everything the protocol can read back fits in four resources (verified over USB and through the dongle):
 
-| Resource           | Read / write                                                    | Size                                    |
-| ------------------ | --------------------------------------------------------------- | --------------------------------------- |
-| config block       | `0x14` / `0x15`                                                 | 64 bytes                                |
-| keymap, layers 0–3 | `0x1A`, `0x1C`, `0x1E`, `0x20` / `0x1B`, `0x1D`, `0x1F`, `0x21` | 336 bytes per layer                     |
-| per-key colours    | `0x22` / `0x23`                                                 | 336 bytes                               |
-| macro area         | `0x2C` / `0x2D`                                                 | 224 bytes are enough for 4 short macros |
+| Resource           | Read / write                                                    | Size                                                                |
+| ------------------ | --------------------------------------------------------------- | ------------------------------------------------------------------- |
+| config block       | `0x14` / `0x15`                                                 | 64 bytes                                                            |
+| keymap, layers 0–3 | `0x1A`, `0x1C`, `0x1E`, `0x20` / `0x1B`, `0x1D`, `0x1F`, `0x21` | 336 bytes per layer                                                 |
+| per-key colours    | `0x22` / `0x23`                                                 | 336 bytes                                                           |
+| macro area         | `0x2C` / `0x2D`                                                 | total length from its header (bytes 2–3); with no header, 224 bytes |
 
 Writing these four resources back as is, then reading them in a new session, gives back exactly the saved state: changing `sleepL`, then writing everything back, restores the original value. The dot screen's still image (`0x3B`) has no read command: it cannot be backed up.
 

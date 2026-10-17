@@ -37,6 +37,8 @@ pnpm yogo75 info                      # device info and current config
 pnpm yogo75 color 00ff00 4            # steady green backlight
 pnpm yogo75 key list --layer 1        # the Fn layer, as key names
 pnpm yogo75 key set CAPS FN           # Fn on Caps Lock (QMK names; `key reset CAPS` undoes it)
+pnpm yogo75 macro set 0 'LCTL(C)' 'DELAY(480)' 'LCTL(V)'  # QMK-style macro steps; `macro list` reads them back
+pnpm yogo75 key set INS 'MACRO(0)'    # run macro 0 on Insert
 pnpm yogo75 save gaming.json          # config, 4 layers, per-key colours, macros -> gaming.json (--force overwrites)
 pnpm yogo75 load gaming.json          # write it all back, then read back and compare
 pnpm yogo75 raw 0x32 0 56             # send one packet and print the reply data (here: the start of the LED matrix)
