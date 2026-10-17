@@ -24,6 +24,8 @@ const CMD_SET_CUSTOM_LEDS = 0x23;
 const CMD_GET_LED_MATRIX = 0x32; // first 96 bytes: key index -> LED number (0xff = no LED)
 const LEDS_BACKUP = "leds-backup.json";
 const CMD_SET_DOT_IMAGE = 0x3b; // set_dotscreen_matrix: 6×6 RGB888 image shown by dot screen mode 6
+const CMD_SYNC_DOT = 0x3c; // start_sync_dot: one live music-visualiser frame
+const CMD_END_SYNC_DOT = 0x3d;
 const KEYMAP_CHUNKS = 6; // matrixMaxSize: 6 × 56 bytes, 3 bytes per key
 const DATA_LEN = 56;
 
@@ -146,6 +148,16 @@ try {
     if (modeArg !== undefined) cfg.set(Buffer.from(modeArg, "hex"), at("LedTFTColorR"));
     k.writeConfig(cfg);
     console.log(`dot screen set to mode ${mode}`);
+  } else if (cmd === "set") {
+    const pos = FIELDS.indexOf(arg);
+    const value = Number(modeArg);
+    if (pos < 0 || !(Number.isInteger(value) && value >= 0 && value <= 255)) {
+      throw new Error(`usage: node yogo.ts set <field> <0-255>; fields: ${FIELDS.join(" ")}`);
+    }
+    const cfg = k.readConfig();
+    console.log(`${arg}: ${cfg[pos]} -> ${value}`);
+    cfg[pos] = value; // raw byte: speeds are inverted (hub writes 6 - speed)
+    k.writeConfig(cfg);
   } else if (cmd === "dotimage") {
     // 6×6 RGB888, row by row; there is no read command, so this overwrites the stored image for good.
     const img = Buffer.from((arg ?? "").replaceAll(" ", ""), "hex");
@@ -153,6 +165,21 @@ try {
     // The hub sends two packets at offsets 0 and 56, both with len 56 (the second one zero-padded).
     for (let off = 0; off < img.length; off += DATA_LEN) k.transfer(CMD_SET_DOT_IMAGE, DATA_LEN, off, [...img.subarray(off, off + DATA_LEN)]);
     console.log("dot screen image written (shown in mode 6: node yogo.ts dot 6)");
+  } else if (cmd === "dotlive") {
+    // Music-visualiser frame (start_sync_dot): same 6×6 layout as dotimage, but RGB565 LE, 72 bytes.
+    const img = Buffer.from((arg ?? "").replaceAll(" ", ""), "hex");
+    if (img.length !== 108) throw new Error("usage: node yogo.ts dotlive <36 RRGGBB pixels, row by row>");
+    const frame: number[] = [];
+    for (let i = 0; i < img.length; i += 3) {
+      const v = ((img[i] >> 3) << 11) | ((img[i + 1] >> 2) << 5) | (img[i + 2] >> 3);
+      frame.push(v & 0xff, v >> 8);
+    }
+    k.transfer(CMD_SYNC_DOT, DATA_LEN, 0, frame.slice(0, DATA_LEN));
+    k.transfer(CMD_SYNC_DOT, 16, DATA_LEN, frame.slice(DATA_LEN));
+    console.log("live frame sent (stop with: node yogo.ts dotlive-end)");
+  } else if (cmd === "dotlive-end") {
+    k.transfer(CMD_END_SYNC_DOT);
+    console.log("live sync ended");
   } else if (cmd === "keymap") {
     const layer = Number(arg ?? 0);
     if (!(layer >= 0 && layer <= 3)) throw new Error("usage: node yogo.ts keymap [0-3] [factory]");
