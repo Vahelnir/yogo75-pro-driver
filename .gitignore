@@ -4,3 +4,5 @@ web-dump/
 .DS_Store
 # Sauvegarde de la config de mon clavier, gardée en local
 config-backup.txt
+# Sauvegarde locale de ma keymap
+keymap-backup.json

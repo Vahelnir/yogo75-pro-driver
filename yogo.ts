@@ -5,6 +5,7 @@
  *   [0]=0xAA magic  [1]=cmd  [2..3]=offset LE  [4]=len  [5..6]=request code LE  [8..]=data
  * Reply echoes the request code at [5..6]; [2]==0xFF means error; data starts at [8].
  */
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import HID from "node-hid";
 
 const VID = 0x373b;
@@ -16,6 +17,8 @@ const CMD_WRITE_KB_FUNCTION = 0x15;
 // get_current_key_matrix for layers 0..3 (layer 1 is the Fn layer in the hub).
 const CMD_GET_KEYMAP = [0x1a, 0x1c, 0x1e, 0x20];
 const CMD_GET_DEFAULT_KEYMAP = [0x16, 0x17, 0x18, 0x19];
+const CMD_SET_KEYMAP = [0x1b, 0x1d, 0x1f, 0x21];
+const KEYMAP_BACKUP = "keymap-backup.json";
 const KEYMAP_CHUNKS = 6; // matrixMaxSize: 6 × 56 bytes, 3 bytes per key
 const DATA_LEN = 56;
 
@@ -86,12 +89,19 @@ class Yogo {
     return map;
   }
 
+  /** Rewrites a whole layer, as the hub does (it never writes a single key). */
+  writeKeymap(layer: number, map: Uint8Array) {
+    for (let i = 0; i < KEYMAP_CHUNKS; i++) {
+      this.transfer(CMD_SET_KEYMAP[layer], DATA_LEN, i * DATA_LEN, [...map.subarray(i * DATA_LEN, (i + 1) * DATA_LEN)]);
+    }
+  }
+
   close() {
     this.dev.close();
   }
 }
 
-const [cmd, arg, modeArg] = process.argv.slice(2);
+const [cmd, arg, modeArg, codeArg] = process.argv.slice(2);
 const k = new Yogo();
 try {
   k.transfer(CMD_START);
@@ -112,6 +122,29 @@ try {
     if (!(layer >= 0 && layer <= 3)) throw new Error("usage: node yogo.ts keymap [0-3] [factory]");
     const map = k.readKeymap(layer, modeArg === "factory");
     for (let i = 0; i < map.length; i += 3) console.log(String(i / 3).padStart(3), hex(map.subarray(i, i + 3)));
+  } else if (cmd === "keymap-backup") {
+    // Only layers 0 (base) and 1 (Fn) are in use on this keyboard.
+    const backup = { 0: hex(k.readKeymap(0)), 1: hex(k.readKeymap(1)) };
+    writeFileSync(KEYMAP_BACKUP, JSON.stringify(backup, null, 2) + "\n");
+    console.log(`layers 0 and 1 saved to ${KEYMAP_BACKUP}`);
+  } else if (cmd === "setkey") {
+    const [layer, index] = [Number(arg), Number(modeArg)];
+    if (!(layer === 0 || layer === 1) || !(index >= 0 && index < 96) || !/^[0-9a-f]{6}$/i.test(codeArg ?? "")) {
+      throw new Error("usage: node yogo.ts setkey <0|1> <index 0-95> <TTXXYY>");
+    }
+    if (!existsSync(KEYMAP_BACKUP)) throw new Error(`run \`node yogo.ts keymap-backup\` first`);
+    const map = k.readKeymap(layer);
+    console.log(`layer ${layer} key ${index}: ${hex(map.subarray(index * 3, index * 3 + 3))} -> ${codeArg}`);
+    map.set(Buffer.from(codeArg, "hex"), index * 3);
+    k.writeKeymap(layer, map);
+  } else if (cmd === "keymap-restore") {
+    const backup: Record<string, string> = JSON.parse(readFileSync(KEYMAP_BACKUP, "utf8"));
+    for (const [layer, data] of Object.entries(backup)) {
+      const map = Buffer.from(data.replaceAll(" ", ""), "hex");
+      if (map.length !== KEYMAP_CHUNKS * DATA_LEN) throw new Error(`bad backup for layer ${layer}`);
+      k.writeKeymap(Number(layer), map);
+    }
+    console.log(`layers ${Object.keys(backup).join(", ")} restored from ${KEYMAP_BACKUP}`);
   } else {
     const info = k.transfer(CMD_KB_INFO, DATA_LEN).subarray(8);
     const h = (n: number) => n.toString(16).padStart(2, "0");

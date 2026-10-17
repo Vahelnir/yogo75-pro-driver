@@ -133,7 +133,7 @@ Table `oo` du configurateur.
 | `0x15` | write_keyboard_function | écrit le bloc de config | vérifié |
 | `0x16`–`0x19` | get_default_key_matrix 1–4 | keymap d'usine, couches 0–3, voir [keymap](#keymap) | vérifié (lecture) |
 | `0x1A`, `0x1C`, `0x1E`, `0x20` | get_current_key_matrix 1–4 | keymap actuelle, couches 0–3 | vérifié (lecture) |
-| `0x1B`, `0x1D`, `0x1F`, `0x21` | set_current_key_matrix 1–4 | écrit la keymap | code |
+| `0x1B`, `0x1D`, `0x1F`, `0x21` | set_current_key_matrix 1–4 | écrit la keymap, couches 0–3, voir [écriture](#écriture) | vérifié (`0x1B`) / partiel (`0x1D`) / code (`0x1F`, `0x21`) |
 | `0x22`…`0x2A` (pairs) | get_custom_led_matrix 1–5 | couleurs par touche (mode 253) | code |
 | `0x23`…`0x2B` (impairs) | write_custom_led_matrix 1–5 | écrit les couleurs par touche | code |
 | `0x2C` / `0x2D` | get_macro / write_macro | macros (4 emplacements selon les infos) | code |
@@ -243,6 +243,16 @@ node yogo.ts keymap 0            # couche 0 actuelle
 node yogo.ts keymap 1 factory    # couche Fn d'usine
 ```
 
+### Écriture
+
+Statut : vérifié pour la couche 0 (`0x1B`). Pour la couche Fn (`0x1D`), seule une réécriture à l'identique a été faite (via `keymap-restore`) : la commande est acceptée et ne corrompt rien, mais un vrai changement de touche reste à tester. Même découpage que la lecture : 6 paquets `len = 56`, offset 0 à 280, données à l'octet 8. Le configurateur réécrit **toujours la couche entière**, même pour changer une seule touche. On fait donc lire → modifier → réécrire. Le clavier répond `0x55` à chaque paquet et la relecture dans une nouvelle session montre la nouvelle valeur.
+
+```sh
+node yogo.ts keymap-backup           # sauvegarde les couches 0 et 1 dans keymap-backup.json (local, non versionné)
+node yogo.ts setkey 0 14 10001b      # couche 0, index 14 (Inser) -> X ; exige une sauvegarde
+node yogo.ts keymap-restore          # réécrit la sauvegarde
+```
+
 ### Couches
 
 | Couche | Rôle | Statut |
@@ -299,10 +309,11 @@ Relevée avec `node yogo.ts keymap 1 factory` (vérifié pour les codes ; les fo
 
 ## Questions ouvertes
 
+- Changer réellement une touche de la couche Fn (`0x1D`).
+
 - Que signifie exactement `ledOnOff` ? Que vaut l'octet 7 de la réponse (`0x55`) ?
 - Pourquoi la relecture dans la même session est-elle en retard ?
 - Les réglages survivent-ils à un débranchement ?
-- Écriture de la keymap (`0x1B`…) : pas encore testée.
 - Rôle des couches 2 et 3, des emplacements 46–47 (`30 cb 01`, `30 cf 00`) et des fonctions `0x50` inconnues.
 
 ## Journal
@@ -310,3 +321,5 @@ Relevée avec `node yogo.ts keymap 1 factory` (vérifié pour les codes ; les fo
 - 2026-10-17 : téléchargement du configurateur ; extraction du protocole. Vérifiés : handshake, `get_keyboard_info`, lecture et écriture du bloc de config, couleur, modes 0 et 4. Config d’origine sauvegardée dans `config-backup.txt` (local, non versionné).
 - 2026-10-17 : lecture de la keymap (4 couches, usine et actuelle). Format `[type, x, y]` décodé ; disposition 6 × 16 identifiée ; table des fonctions `0x50` extraite du configurateur. La couche 0 de ce clavier diffère de l'usine sur 5 touches et la couche Fn est largement modifiée.
 - 2026-10-17 : l'utilisateur confirme avoir fait ces modifications (Verr. maj → Ctrl, Suppr/Début échangés, médias sur Fn + B/N/M) : la correspondance index ↔ touches physiques est vérifiée.
+- 2026-10-17 : écriture de la keymap testée : Inser (couche 0, index 14) remappé en X avec `0x1B` ; la relecture dans une nouvelle session montre `10 00 1b`.
+- 2026-10-17 : test physique validé (Inser tape `x`), puis `keymap-restore` : couches 0 et 1 relues identiques à la sauvegarde. `0x1D` est donc accepté (réécriture à l'identique).
