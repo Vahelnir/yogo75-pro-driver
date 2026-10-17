@@ -9,9 +9,9 @@ Reverse engineering of the ATK Yogo 75 PRO keyboard and its web configurator (`h
 
 ## Code
 
-pnpm monorepo (`npx` is not installed): `apps/cli` (the CLI) and `packages/core` (`@yogo75/core`, the protocol, shared with the future web app). TypeScript run directly by Node 24, no build, in _erasable only_ syntax (no `enum`, `namespace` or parameter properties). Root scripts: `pnpm typecheck`, `pnpm test` (node:test, `*.test.ts` files), `pnpm format` (Prettier).
+pnpm monorepo (`npx` is not installed): `apps/cli` (the CLI) and `packages/core` (`@yogo75/core`, the protocol, shared with the future web app). TypeScript run directly by Node 24, no build. Root scripts: `pnpm typecheck`, `pnpm test`, `pnpm format` (Prettier).
 
-`@yogo75/core` also runs in the browser: it imports nothing from Node (`node:*`, `Buffer`, `node-hid`); its `tsconfig` without Node types enforces this.
+**Style**: read `CODESTYLE.md` before writing code.
 
 Run the CLI from the repo root with `pnpm yogo75 …`: it reads and writes its backup files in the working directory.
 
