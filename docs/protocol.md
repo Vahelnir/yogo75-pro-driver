@@ -200,7 +200,7 @@ Table `fieldMap` : position dans le bloc.
 | 11–19 | logo : onOff, mode, brightness, speed, colorful, colorIndex, R, G, B | ce clavier n'a pas de logo (`hasLogoLight = 0`) | code |
 | 20–28 | bande latérale : mêmes champs | `hasSideLight = 0` | code |
 | 29–37 | écran à points (« LedTFT ») : mêmes champs | voir [écran à points](#écran-à-points-modes-intégrés) | vérifié (mode, luminosité, vitesse) / code (le reste) |
-| 38 | sixN | `sixKeyNoPunch = sixN > 0 ? 0 : 1` (6KRO / NKRO) | code |
+| 38 | sixN | 1 = pas de limite de touches simultanées (NKRO), 0 = 6 touches max (6KRO) | vérifié |
 | 39 | macWin | 1 = mode Mac : Alt et Win échangés, F1–F12 donnent les fonctions Mac (luminosité, son…) sans Fn ; 0 = Windows. L'interrupteur physique Win/Mac écrit ce même octet (0 ↔ 1, seul octet modifié) | vérifié |
 | 40 | winLock | verrouillage de la touche Windows : 1 = verrouillée (Win + Espace n'ouvre plus Spotlight sous macOS) | vérifié |
 | 41 | wasd | 1 = WASD et flèches échangés, dans les deux sens | vérifié |
@@ -456,3 +456,4 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : `macWin` = 1 vérifié (Alt ↔ Win, F1–F12 multimédia sans Fn ; Fn + F11/F12 règle toujours le volume). Remis à 0. Test de la veille : `sleepL` 180 → 60.
 - 2026-10-17 : veille à 60 s en USB : aucune extinction observée ; l'utilisateur pense qu'elle ne joue qu'en Bluetooth / 2.4 GHz. `sleepL` remis à 180. Le clavier a un interrupteur physique Win/Mac.
 - 2026-10-17 : l'interrupteur physique Win/Mac fait passer `macWin` à 1 puis à 0 (relu, seul octet modifié du bloc).
+- 2026-10-17 : `sixN` vérifié : à 0, 8 touches appuyées ensemble ne donnent que 6 lettres ; à 1 (valeur d'origine, rétablie), les 8.
