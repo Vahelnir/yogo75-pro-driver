@@ -12,6 +12,7 @@ export const BACKUP: Record<string, Uint8Array> = Object.fromEntries(
 );
 
 const READS: Record<number, string> = {
+  0x12: "info",
   0x14: "config",
   0x1a: "keymap0",
   0x1c: "keymap1",
@@ -47,6 +48,8 @@ export class FakeKeyboard implements Transport {
       [0, 1, 2, 3].map((l) => [`factory${l}`, BACKUP[`keymap${l}`].slice()]),
     ),
     power: Uint8Array.of(87, 1),
+    // get_keyboard_info as read on the keyboard, up to macroSize (4)
+    info: fromHex("aa bb 3b 37 9b 11 26 01 03 01 00 02 80 04"),
   };
   /** Turns each reply into the reports actually returned, to inject faults. */
   replies = (reply: Uint8Array): Uint8Array[] => [reply];

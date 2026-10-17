@@ -24,7 +24,7 @@ test("invalid arguments are rejected before the keyboard is opened", async () =>
     ["leds", "extra"],
     ["dotimage", "ff"],
     ["setmacro", "e10b0c"],
-    ["macro", "set", "4", "A"],
+    ["macro", "set", "256", "A"],
     ["macro", "set", "0"],
     ["macro", "set", "0", "VOLU"],
     ["macro", "set", "0", "DOWN(A)"],

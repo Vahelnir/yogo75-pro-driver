@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
   encodeMacro,
+  hex,
   joinMacros,
   Keyboard,
   stateFromJson,
@@ -78,6 +79,20 @@ test("a macro area longer than 224 bytes is saved and loaded whole", async () =>
   );
 });
 
+test("an old file's 224 bytes load cut to the area's header length", async () => {
+  const area = joinMacros([encodeMacro(["A"])]);
+  const old = new Uint8Array(224);
+  old.set(area);
+
+  const state = stateFromJson(withFixture((b) => (b.macros = hex(old))));
+
+  assert.deepEqual(state.macros, area);
+  assert.deepEqual(
+    await new Keyboard(new FakeKeyboard(64)).writeState(state),
+    [],
+  );
+});
+
 test("a backup without version loads as version 1", () => {
   const state = stateFromJson(FIXTURE);
   assert.deepEqual(state.config, BACKUP.config);
@@ -97,6 +112,11 @@ test("invalid files are rejected", () => {
     [withFixture((b) => (b.macros = 7)), /macros: missing/],
     [withFixture((b) => (b.macros = "")), /macros: 0 bytes/],
     [withFixture((b) => (b.macros = "aa 55 20 00 01 00")), /macros: malformed/],
+    // announces 300 bytes: an old file cut at 224
+    [
+      withFixture((b) => (b.macros = "aa 55 2c 01" + " 00".repeat(220))),
+      /macros: malformed/,
+    ],
   ] as const) {
     assert.throws(() => stateFromJson(text), error, text.slice(0, 40));
   }

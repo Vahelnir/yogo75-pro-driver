@@ -17,15 +17,16 @@ export interface MacroSpec {
 
 /** Probable size of the area: foreign data starts at offset 1024 (hypothesis, see docs/protocol.md). */
 export const MACRO_AREA_BYTES = 1024;
-/** get_keyboard_info's macroSize. */
-export const MACRO_SLOTS = 4;
 export const DEFAULT_DELAY = 20;
+export const MAX_DELAY = 0xffff;
 
 const MAGIC = [0xaa, 0x55];
 const AREA_HEADER_BYTES = 8;
 const MACRO_HEADER_BYTES = 4;
+const OFFSET_BYTES = 2; // one offset table entry
 const ACTION_BYTES = 4;
-const MAX_DELAY = 0xffff;
+const ACTION_CODE_AT = 2; // in an action, after its LE delay
+const ACTION_TYPE_AT = 3;
 
 const ACTION_KEY = 1; // code: HID usage
 const ACTION_MODIFIER = 2; // code: one modifier's mask bit, as in the keymap
@@ -59,10 +60,10 @@ function macroBytes(actions: Action[]) {
 function macroActions(macro: Uint8Array): Action[] {
   const actions = [];
   for (let at = MACRO_HEADER_BYTES; at < macro.length; at += ACTION_BYTES) {
-    const type = macro[at + 3];
+    const type = macro[at + ACTION_TYPE_AT];
     actions.push({
       delay: readU16le(macro, at),
-      code: macro[at + 2],
+      code: macro[at + ACTION_CODE_AT],
       type: type & ~PRESSED,
       down: (type & PRESSED) !== 0,
     });
@@ -102,16 +103,22 @@ function releases(pressed: Action[]): Action[] {
   return pressed.map((a) => ({ ...a, down: false })).reverse();
 }
 
-function stepActions(step: string): Action[] {
-  const half = step.match(/^(DOWN|UP)\((.+)\)$/i);
-  const { mods, usage } = plainKey(half ? half[2] : step);
+/** Presses then releases, as `X` encodes. */
+function tapActions(mods: number, usage: number): Action[] {
   const pressed = presses(mods, usage);
+  return [...pressed, ...releases(pressed)];
+}
 
-  if (!half) {
-    return [...pressed, ...releases(pressed)];
+function stepActions(step: string): Action[] {
+  const downOrUp = step.match(/^(DOWN|UP)\((.+)\)$/i);
+  const { mods, usage } = plainKey(downOrUp ? downOrUp[2] : step);
+
+  if (!downOrUp) {
+    return tapActions(mods, usage);
   }
 
-  return half[1].toUpperCase() === "DOWN" ? pressed : releases(pressed);
+  const pressed = presses(mods, usage);
+  return downOrUp[1].toUpperCase() === "DOWN" ? pressed : releases(pressed);
 }
 
 function actionId(a: Action) {
@@ -159,11 +166,11 @@ export function encodeMacro(
   }
 
   const actions: Action[] = [];
-  let wait = 0;
+  let wait: number | undefined;
   for (const step of steps) {
     const extra = step.match(/^DELAY\((\d+)\)$/i);
     if (extra) {
-      wait += Number(extra[1]);
+      wait = (wait ?? 0) + Number(extra[1]);
       continue;
     }
 
@@ -173,12 +180,12 @@ export function encodeMacro(
     }
 
     // the keyboard waits an action's delay before running it (verified)
-    added[0].delay += wait;
+    added[0].delay += wait ?? 0;
     if (added[0].delay > MAX_DELAY) {
       throw new Error(`a delay can't exceed ${MAX_DELAY} ms`);
     }
 
-    wait = 0;
+    wait = undefined;
     actions.push(...added);
   }
 
@@ -186,37 +193,39 @@ export function encodeMacro(
     throw new Error("a macro needs at least one key");
   }
 
-  if (wait) {
+  if (wait !== undefined) {
     throw new Error("DELAY() needs a key after it");
   }
 
   checkBalanced(actions);
+
   return macroBytes(actions);
 }
 
 /** The plain-key tap starting at `actions[i]`, all its actions but the first at the base `delay`. */
 function tapAt(actions: Action[], i: number, delay: number) {
-  let k = 0;
+  // modifier presses in mask order, as `presses` writes them
+  let modCount = 0;
   while (
-    actions[i + k]?.type === ACTION_MODIFIER &&
-    actions[i + k].down &&
-    (k === 0 || actions[i + k].code > actions[i + k - 1].code)
+    actions[i + modCount]?.type === ACTION_MODIFIER &&
+    actions[i + modCount].down &&
+    (modCount === 0 ||
+      actions[i + modCount].code > actions[i + modCount - 1].code)
   ) {
-    k++;
+    modCount++;
   }
 
-  for (; k >= 0; k--) {
-    const mods = actions.slice(i, i + k).reduce((m, a) => m | a.code, 0);
-    const key = actions[i + k];
+  for (; modCount >= 0; modCount--) {
+    const mods = actions.slice(i, i + modCount).reduce((m, a) => m | a.code, 0);
+    const key = actions[i + modCount];
     const usages = key?.type === ACTION_KEY && key.down ? [key.code, 0] : [0];
     for (const usage of usages) {
-      const pressed = presses(mods, usage);
-      const tap = [...pressed, ...releases(pressed)];
-      const got = actions.slice(i, i + tap.length);
+      const tap = tapActions(mods, usage);
+      const actual = actions.slice(i, i + tap.length);
       const matches =
         tap.length > 0 &&
-        got.length === tap.length &&
-        got.every(
+        actual.length === tap.length &&
+        actual.every(
           (a, j) =>
             a.type === tap[j].type &&
             a.code === tap[j].code &&
@@ -234,7 +243,8 @@ function tapAt(actions: Action[], i: number, delay: number) {
 
 /**
  * The spec `encodeMacro` turns back into exactly these bytes, or undefined for a macro it can't express
- * (mouse actions, 0 actions, a key left pressed…). The base delay is the shortest one.
+ * (mouse actions, 0 actions, a key left pressed…). The base delay is the shortest one. The bytes round-trip,
+ * not the text: the spec comes back normalised (`LSFT(LALT(T))` as `LALT(LSFT(T))`, modifiers in mask order).
  */
 export function decodeMacro(macro: Uint8Array): MacroSpec | undefined {
   const actions = macroActions(macro);
@@ -295,12 +305,15 @@ export function splitMacros(area: Uint8Array): Uint8Array[] {
   }
 
   const count = readU16le(area, 4);
-  if (length > area.length || AREA_HEADER_BYTES + 2 * count > length) {
+  if (
+    length > area.length ||
+    AREA_HEADER_BYTES + OFFSET_BYTES * count > length
+  ) {
     throw new Error("malformed macro area");
   }
 
   return Array.from({ length: count }, (_, i) => {
-    const start = readU16le(area, AREA_HEADER_BYTES + 2 * i);
+    const start = readU16le(area, AREA_HEADER_BYTES + OFFSET_BYTES * i);
     const end =
       start + MACRO_HEADER_BYTES + readU16le(area, start) * ACTION_BYTES;
     if (start + MACRO_HEADER_BYTES > length || end > length) {
@@ -314,7 +327,7 @@ export function splitMacros(area: Uint8Array): Uint8Array[] {
 /** The area holding `macros` back to back, as the hub's setMacro builds it; throws if it outgrows the area. */
 export function joinMacros(macros: Uint8Array[]): Uint8Array {
   const offsets = [];
-  let length = AREA_HEADER_BYTES + 2 * macros.length;
+  let length = AREA_HEADER_BYTES + OFFSET_BYTES * macros.length;
   for (const macro of macros) {
     offsets.push(length);
     length += macro.length;

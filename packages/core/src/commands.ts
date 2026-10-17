@@ -19,8 +19,10 @@ export const CMD_END_SYNC_DOT = 0x3d;
 
 /** Keymap and custom colours: 3 bytes per key, 6 × 56 bytes over USB (14 × 24 wireless). */
 export const MATRIX_BYTES = 336;
-/** Macro area read when it has no header yet (no macro written): what backups held before the header was read. */
+/** Macro area read when it has no header yet (no macro written). */
 export const MACROS_BYTES = 224;
+/** Index of macroSize, the number of macros, in get_keyboard_info's data. */
+export const INFO_MACRO_SIZE = 13;
 /** LED matrix read by the hub; only the first 96 bytes (one per key) are used. */
 export const LED_MATRIX_BYTES = 384;
 

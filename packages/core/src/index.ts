@@ -20,11 +20,11 @@ export {
   isEmptyMacro,
   joinMacros,
   MACRO_AREA_BYTES,
-  MACRO_SLOTS,
+  MAX_DELAY,
   splitMacros,
   type MacroSpec,
 } from "./macro.ts";
-export { keycode, keycodeName } from "./keycode.ts";
+export { keycode, keycodeName, MAX_MACRO } from "./keycode.ts";
 export { COLS, keyAt, keyIndex, keyNames, KEYS, ROWS } from "./keymap.ts";
 export {
   stateDiff,

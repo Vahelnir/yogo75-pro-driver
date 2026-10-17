@@ -13,8 +13,8 @@ const MACRO = 0x60; // [MACRO, macro number, mode 0-3]
 const MACRO_MODES = 4;
 const MACRO_TIMES = 0x61; // [MACRO_TIMES, macro number, runs]: mode 4, "run N times"
 const MACRO_TIMES_MODE = 4;
-const MAX_RUNS = 249; // the hub's limit
-const MAX_MACRO = 0xff; // the macro number is one byte
+const MAX_RUNS = 249; // the hub's "execute N times" input (`frequency`) stops there
+export const MAX_MACRO = 0xff; // the macro number is one byte
 
 /** A code and its names: the first one is printed, all are accepted. */
 type Entry<T> = [T, string, ...string[]];

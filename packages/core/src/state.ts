@@ -1,7 +1,7 @@
 import { fromHex, hex } from "./bytes.ts";
 import { CMD_GET_KEYMAP, MATRIX_BYTES } from "./commands.ts";
 import { CONFIG_BYTES } from "./config.ts";
-import { MACRO_AREA_BYTES, splitMacros } from "./macro.ts";
+import { MACRO_AREA_BYTES, macroAreaLength, splitMacros } from "./macro.ts";
 
 /** Everything the keyboard can read back (the dot screen image has no read command). */
 export interface KeyboardState {
@@ -16,7 +16,7 @@ export interface KeyboardState {
 const STATE_VERSION = 1;
 const LAYERS = CMD_GET_KEYMAP.map((_, layer) => layer);
 
-/** Resource name in the file → expected size; the macro area's varies, see `macros`. */
+/** Resource name in the file → expected size; the macro area's varies, see `parseMacroArea`. */
 const SIZES: Record<string, number> = {
   config: CONFIG_BYTES,
   ...Object.fromEntries(LAYERS.map((l) => [`keymap${l}`, MATRIX_BYTES])),
@@ -80,12 +80,15 @@ export function stateFromJson(text: string): KeyboardState {
     config: data.config,
     keymaps: LAYERS.map((l) => data[`keymap${l}`]),
     leds: data.leds,
-    macros: macros(file.macros),
+    macros: parseMacroArea(file.macros),
   };
 }
 
-/** The area as `readMacros` returns it: header length, or the 224 bytes of an area without header. */
-function macros(value: unknown) {
+/**
+ * The area as `readMacros` returns it: cut to its header length, or kept whole without header. Old files hold
+ * 224 bytes whatever the header says; one whose header announces more was cut short and is refused.
+ */
+function parseMacroArea(value: unknown) {
   const bytes = resource(value, "macros");
   if (!bytes.length || bytes.length > MACRO_AREA_BYTES) {
     throw new Error(
@@ -95,11 +98,11 @@ function macros(value: unknown) {
 
   try {
     splitMacros(bytes);
+
+    return bytes.slice(0, macroAreaLength(bytes));
   } catch (e) {
     throw new Error(`macros: ${(e as Error).message}`);
   }
-
-  return bytes;
 }
 
 function resource(value: unknown, name: string, size?: number) {

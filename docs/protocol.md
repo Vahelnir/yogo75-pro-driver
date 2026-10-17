@@ -384,8 +384,8 @@ Read `0x2C`, write `0x2D` (`getMacro`, `setMacro`, classes `tW` / `vI`). `get_ke
 
 **What the configurator writes** (code, `Ui.setMacro` and the macro composable):
 
-- Macros come from its recorder: every press and every release is a separate action with a delay in ms (capped at 65535; minimum delay 0 for this keyboard). The recorder stores the time until the next event on the action **before** it, as if the delay came after the action. The keyboard waits it before the action (see below), so a recorded macro plays each gap one action late (verified). Recording "tap A, wait 3 s, tap B" stores 3498 ms on A's release; played back, A stays pressed for 3.5 s (auto-repeat) and B follows at once, with no pause between them. The first recorded action carries the gap to the second one, and the last action has delay 0. Modifiers are their own actions (type 2, mask as code), one per modifier.
-- Its editor can also build a macro by hand. One made that way read back as presses only, with no release (11 actions `type 1 | press`, typing "claude code"). Such a macro leaves keys stuck: the keyboard doesn't release a press by itself (verified: a macro pressing A, B, C with no release typed `abc` then auto-repeated `c` until the keyboard was unplugged).
+- Macros come from its recorder: every press and every release is a separate action with a delay in ms (capped at 65535; minimum delay 0 for this keyboard). The recorder stores the time until the next event on the action **before** it, as if the delay came after the action. The keyboard waits it before the action (see below), so a recorded macro plays each gap one action late (verified): a pause recorded between two taps lands on the first key's release, which then stays pressed that long (auto-repeat), and the next key follows with no pause. The first recorded action carries the gap to the second one, and the last action has delay 0. Modifiers are their own actions (type 2, mask as code), one per modifier.
+- Its editor can also build a macro by hand. A macro made that way reads back as presses only, with no release (verified). Such a macro leaves keys stuck: the keyboard doesn't release a press by itself, and the last key pressed auto-repeats until the keyboard is unplugged (verified).
 - Deleting a macro removes it from the list, so the following macros move down one number. For this keyboard, keys bound to those macros are **not** renumbered (its renumbering routine skips this API family): a key bound to macro 2 then runs the former macro 3.
 - An empty list is never written (`setMacro` returns early): deleting the last macro leaves it on the keyboard.
 
@@ -447,9 +447,9 @@ A macro with 0 actions does not stop there. In the same block with #0 reduced to
 
 Only the result (`x` typed) is verified. How the firmware reads past the 0 count (header of #1 taken as an action, or the count treated as 65536) is a hypothesis.
 
-**Empty macro** (verified): a macro with 0 actions is not empty for the firmware. With macro 0 at 0 actions and macro 1 tapping X, a key bound to macro 0 types `x`: it runs on into the next macro's actions. A macro made of one modifier press and release with mask `00` (`00 00 00 82`, `00 00 00 02`) does nothing, leaves no modifier held, and the next macro still works: it is the way to empty a slot without renumbering the others.
+**Empty macro** (verified): a macro made of one modifier press and release with mask `00` (`00 00 00 82`, `00 00 00 02`) does nothing, leaves no modifier held, and the next macro still works: it is the way to empty a slot without renumbering the others.
 
-The delay is in **milliseconds** and the keyboard waits it **before** running the action (verified). At 500 on every action, each key stays pressed long enough to trigger macOS auto-repeat ("hi" gives `hhhiii`). The direction shows with one long delay: with 20 ms everywhere except 1020 ms on the release of C, C auto-repeats (`cccccccccc`), so the wait comes between C's press and its release. The first action's delay is a wait before the macro starts. Reading back with `0x2C` returns exactly the block written (verified).
+The delay is in **milliseconds** and the keyboard waits it **before** running the action (verified). A long delay on a key's release keeps that key pressed for that long, so it auto-repeats: the wait comes between the press and the release. The first action's delay is a wait before the macro starts. Reading back with `0x2C` returns exactly the block written (verified).
 
 ### Binding a key to a macro (verified)
 

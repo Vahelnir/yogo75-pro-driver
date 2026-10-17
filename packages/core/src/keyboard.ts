@@ -17,6 +17,7 @@ import {
   CMD_START,
   CMD_SYNC_DOT,
   CMD_WRITE_KB_FUNCTION,
+  INFO_MACRO_SIZE,
   isDangerous,
   LED_MATRIX_BYTES,
   MACROS_BYTES,
@@ -27,7 +28,6 @@ import { keyAt } from "./keymap.ts";
 import {
   EMPTY_MACRO,
   joinMacros,
-  MACRO_SLOTS,
   macroAreaLength,
   splitMacros,
 } from "./macro.ts";
@@ -226,10 +226,14 @@ export class Keyboard {
     return this.#writeChunks(CMD_SET_MACRO, area);
   }
 
-  /** Replaces one macro (`encodeMacro` bytes): reads the area, fills any gap with empty macros, rewrites it. */
+  /**
+   * Replaces one macro (`encodeMacro` bytes): reads the area, fills any gap with empty macros, rewrites it.
+   * Throws on a number beyond the macro count the keyboard announces.
+   */
   async setMacro(index: number, macro: Uint8Array) {
-    if (!(Number.isInteger(index) && index >= 0 && index < MACRO_SLOTS)) {
-      throw new Error(`macro number must be 0 to ${MACRO_SLOTS - 1}`);
+    const slots = (await this.readInfo())[INFO_MACRO_SIZE];
+    if (!(Number.isInteger(index) && index >= 0 && index < slots)) {
+      throw new Error(`macro number must be 0 to ${slots - 1}`);
     }
 
     const macros = splitMacros(await this.readMacros());

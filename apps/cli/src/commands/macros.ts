@@ -9,14 +9,15 @@ import {
   encodeMacro,
   hex,
   isEmptyMacro,
-  MACRO_SLOTS,
+  MAX_DELAY,
+  MAX_MACRO,
   splitMacros,
 } from "@yogo75/core";
 import { intArg, SAVE_FIRST } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
 
-const SLOT_DESCRIPTION = `Macro number 0-${MACRO_SLOTS - 1}`;
-const MAX_DELAY = 0xffff;
+const SLOT_DESCRIPTION =
+  "Macro number, from 0 (0-3 on the Yogo 75 PRO: the keyboard announces how many)";
 
 const STEPS_HELP = `
 Steps, QMK style (quote anything with parentheses):
@@ -82,7 +83,7 @@ export function registerMacroCommands(program: Command): void {
     .command("set")
     .description("Write one macro, leaving the others as they are")
     .addHelpText("after", STEPS_HELP + "\n" + SAVE_FIRST)
-    .argument("<n>", SLOT_DESCRIPTION, intArg(0, MACRO_SLOTS - 1))
+    .argument("<n>", SLOT_DESCRIPTION, intArg(0, MAX_MACRO))
     .argument("<steps...>", "Keys, DOWN(), UP() and DELAY() steps")
     .option(
       "--delay <ms>",
@@ -102,7 +103,7 @@ export function registerMacroCommands(program: Command): void {
     .command("clear")
     .description("Empty one macro; the others keep their numbers")
     .addHelpText("after", SAVE_FIRST)
-    .argument("<n>", SLOT_DESCRIPTION, intArg(0, MACRO_SLOTS - 1))
+    .argument("<n>", SLOT_DESCRIPTION, intArg(0, MAX_MACRO))
     .action(async (index) => {
       await withKeyboard((k) => k.setMacro(index, EMPTY_MACRO));
 

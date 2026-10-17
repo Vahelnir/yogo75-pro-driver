@@ -59,6 +59,7 @@ test("malformed macros are rejected", () => {
   for (const [steps, error] of [
     [[], /at least one key/],
     [["A", "DELAY(5)"], /needs a key after/],
+    [["A", "DELAY(0)"], /needs a key after/],
     [["DELAY(65516)", "A"], /can't exceed 65535/],
     [["DOWN(A)"], /A left pressed: add UP\(A\)/],
     [["UP(A)"], /A released while not pressed/],
@@ -108,13 +109,17 @@ test("a macro recorded by the hub decodes: separate presses, uneven delays", () 
   });
 });
 
-test("a macro recorded by the hub on the keyboard decodes and encodes back identically", () => {
-  // "claude code" typed into the hub's recorder (AZERTY: A is HID Q)
-  const recorded = fromHex(
-    "16 00 00 00 88 00 06 81 14 00 06 01 61 00 0f 81 30 00 0f 01 4c 00 14 81 24 00 14 01 53 00 18 81 17 00 18 01 3a 00 07 81 17 00 08 81 30 00 07 01 8e 04 08 01 7a 00 2c 81 13 00 06 81 45 00 2c 01 34 00 06 01 68 00 12 81 15 00 07 81 37 00 12 01 0e 00 08 81 22 00 07 01 00 00 08 01",
+test("the macros the hub wrote to the keyboard decode, or stay raw", () => {
+  // saved from the keyboard: #0 made in the hub's editor (presses only), #1 "claude code" typed into its
+  // recorder (AZERTY: A is HID Q)
+  const [handMade, recorded] = splitMacros(
+    fromHex(
+      "aa 55 98 00 02 00 00 00 0c 00 3c 00 0b 00 00 00 01 00 06 81 0a 00 0f 81 64 00 04 81 e8 03 18 81 10 27 07 81 e8 fd 08 81 64 00 2c 81 64 00 06 81 64 00 12 81 64 00 07 81 64 00 08 81 16 00 00 00 88 00 06 81 14 00 06 01 61 00 0f 81 30 00 0f 01 4c 00 14 81 24 00 14 01 53 00 18 81 17 00 18 01 3a 00 07 81 17 00 08 81 30 00 07 01 8e 04 08 01 7a 00 2c 81 13 00 06 81 45 00 2c 01 34 00 06 01 68 00 12 81 15 00 07 81 37 00 12 01 0e 00 08 81 22 00 07 01 00 00 08 01",
+    ),
   );
   const spec = decodeMacro(recorded);
 
+  assert.equal(decodeMacro(handMade), undefined);
   assert.ok(spec);
   assert.deepEqual(spec.steps.slice(0, 4), [
     "DELAY(136)",
