@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { runCommand } from "citty";
-import { main, UsageError } from "../src/commands.ts";
+import { UsageError } from "../src/args.ts";
+import { main } from "../src/commands.ts";
 
 // Every case must fail validation: a valid one would open the real keyboard, so no dangerous command here
 // (the core tests its refusal of those).

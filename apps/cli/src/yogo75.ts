@@ -4,7 +4,8 @@
  * Errors print as one line, with the command's usage when an argument is wrong.
  */
 import { parseArgs, runCommand, showUsage } from "citty";
-import { commands, main, UsageError } from "./commands.ts";
+import { UsageError } from "./args.ts";
+import { commands, main } from "./commands.ts";
 
 const rawArgs = process.argv.slice(2);
 // citty titles a subcommand's usage with its meta.name, else the script path
