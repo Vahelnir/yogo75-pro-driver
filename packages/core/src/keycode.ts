@@ -17,13 +17,25 @@ const MAX_MACRO = 0xff; // the macro number is one byte
 type Entry<T> = [T, string, ...string[]];
 
 // Codes are kept as hex strings: a Uint8Array can't be a Map key.
-const key = (mask: number, usage: number) =>
-  hex(Uint8Array.of(KEY, mask, usage));
-const consumer = (usage: number) =>
-  hex(Uint8Array.of(CONSUMER, ...u16le(usage)));
-const system = (action: number) => hex(Uint8Array.of(MOUSE_SYSTEM, action, 0));
-const mouse = (button: number) => hex(Uint8Array.of(MOUSE_SYSTEM, 0, button));
-const fn = (n: number) => hex(Uint8Array.of(FUNCTION, n, 0));
+function key(mask: number, usage: number) {
+  return hex(Uint8Array.of(KEY, mask, usage));
+}
+
+function consumer(usage: number) {
+  return hex(Uint8Array.of(CONSUMER, ...u16le(usage)));
+}
+
+function system(action: number) {
+  return hex(Uint8Array.of(MOUSE_SYSTEM, action, 0));
+}
+
+function mouse(button: number) {
+  return hex(Uint8Array.of(MOUSE_SYSTEM, 0, button));
+}
+
+function fn(n: number) {
+  return hex(Uint8Array.of(FUNCTION, n, 0));
+}
 
 /** HID keyboard usages, as QMK's basic keycodes. */
 const HID_KEYS: Entry<number>[] = [
@@ -213,13 +225,16 @@ const ENTRIES: Entry<string>[] = [
 ];
 
 /** Every name of every entry → its code. */
-const byName = <T>(entries: Entry<T>[]) =>
-  new Map(
+function byName<T>(entries: Entry<T>[]) {
+  return new Map(
     entries.flatMap(([code, ...names]) => names.map((n) => [n, code] as const)),
   );
+}
+
 /** Code → its printed name. */
-const byCode = <T>(entries: Entry<T>[]) =>
-  new Map(entries.map(([code, name]) => [code, name] as const));
+function byCode<T>(entries: Entry<T>[]) {
+  return new Map(entries.map(([code, name]) => [code, name] as const));
+}
 
 const BY_NAME = byName(ENTRIES);
 const BY_CODE = byCode(ENTRIES);

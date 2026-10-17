@@ -10,8 +10,13 @@ import {
 } from "../src/index.ts";
 import { BACKUP } from "./fake-transport.ts";
 
-const code = (name: string) => hex(keycode(name));
-const name = (h: string) => keycodeName(fromHex(h));
+function code(name: string) {
+  return hex(keycode(name));
+}
+
+function name(h: string) {
+  return keycodeName(fromHex(h));
+}
 
 test("names map to codes, whatever the case, prefix or alias", () => {
   for (const n of ["ESC", "esc", "kc_esc", "KC_ESCAPE", "Escape"]) {

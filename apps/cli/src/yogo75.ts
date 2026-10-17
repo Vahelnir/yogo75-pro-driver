@@ -10,8 +10,10 @@ import { main } from "./commands.ts";
 const rawArgs = process.argv.slice(2);
 
 // the leading words name the (sub)command: `key set …`
-const subCommands = (d: CommandDef<any>) =>
-  (d.subCommands ?? {}) as Record<string, CommandDef<any>>;
+function subCommands(d: CommandDef<any>) {
+  return (d.subCommands ?? {}) as Record<string, CommandDef<any>>;
+}
+
 let def: CommandDef<any> = main;
 let depth = 0;
 while (Object.hasOwn(subCommands(def), rawArgs[depth] ?? "")) {

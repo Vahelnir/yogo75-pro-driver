@@ -47,7 +47,9 @@ const MAX_REPORTS = 20;
 /** The hub reads only this many info bytes through the dongle. */
 const WIRELESS_INFO_BYTES = 39;
 
-const cmdName = (cmd: number) => `cmd 0x${cmd.toString(16)}`;
+function cmdName(cmd: number) {
+  return `cmd 0x${cmd.toString(16)}`;
+}
 
 /**
  * One method per resource. Every write rewrites the whole resource, as the hub does: read → modify → write

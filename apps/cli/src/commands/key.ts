@@ -22,15 +22,16 @@ const positionArg = {
   description: `Key by its factory layer-0 name (CAPS) or as row,col (3,0); row 0-${ROWS - 1}, col 0-${COLS - 1}`,
 } as const;
 
-const printChange = (
+function printChange(
   layer: number,
   index: number,
   old: Uint8Array,
   code: Uint8Array,
-) =>
+) {
   console.log(
     `layer ${layer} key ${index}: ${keycodeName(old)} -> ${keycodeName(code)}`,
   );
+}
 
 const list = defineCommand({
   meta: { description: "Print a layer as key names, one line per row" },

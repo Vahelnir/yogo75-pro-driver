@@ -3,13 +3,15 @@ import { test } from "node:test";
 import { keyAt, Keyboard } from "../src/index.ts";
 import { BACKUP, FakeKeyboard } from "./fake-transport.ts";
 
-const setup = (reportSize = 64) => {
+function setup(reportSize = 64) {
   const fake = new FakeKeyboard(reportSize);
   return { fake, kb: new Keyboard(fake) };
-};
-// [cmd, offset, len] of each packet sent
-const packets = (fake: FakeKeyboard) =>
-  fake.written.map((p) => [p[1], p[2] | (p[3] << 8), p[4]]);
+}
+
+/** [cmd, offset, len] of each packet sent. */
+function packets(fake: FakeKeyboard) {
+  return fake.written.map((p) => [p[1], p[2] | (p[3] << 8), p[4]]);
+}
 
 test("packets carry magic, cmd and an increasing request code", async () => {
   const { fake, kb } = setup();
@@ -37,8 +39,10 @@ test("reports with another request code are skipped", async () => {
 
 test("gives up after 20 reports", async () => {
   const { fake, kb } = setup();
-  const unrelated = (n: number) =>
-    Array.from({ length: n }, () => Uint8Array.of(1));
+  function unrelated(n: number) {
+    return Array.from({ length: n }, () => Uint8Array.of(1));
+  }
+
   fake.replies = (r) => [...unrelated(19), r];
   await kb.start();
   fake.replies = (r) => [...unrelated(20), r];
@@ -124,7 +128,9 @@ test("macro writes pad the last chunk to the full length", async () => {
 
 test("each writable resource reads back what was written", async () => {
   const { kb } = setup(32);
-  const flip = (b: Uint8Array) => b.map((x) => x ^ 0x5a);
+  function flip(b: Uint8Array) {
+    return b.map((x) => x ^ 0x5a);
+  }
 
   await kb.writeConfig(flip(BACKUP.config));
   assert.deepEqual(await kb.readConfig(), flip(BACKUP.config));
