@@ -1,15 +1,16 @@
 /**
  * Probe for the ATK Yogo 75 PRO (EVISION_V2 protocol, reversed from v3-hub.atk.store).
  *
- * Packet (64 bytes, report id 0, interface usage page 0xFF60 / usage 0x61):
- *   [0]=0xAA magic  [1]=cmd  [2..3]=offset LE  [4]=len  [5..6]=request code LE  [8..]=data
+ * Packet (64 bytes over USB, 32 through the 2.4 GHz dongle; report id 0, interface usage page 0xFF60 / usage 0x61):
+ *   [0]=0xAA magic  [1]=cmd  [2..3]=offset LE  [4]=len  [5..6]=request code LE  [8..]=data (56 bytes max, 24 wireless)
  * Reply echoes the request code at [5..6]; [2]==0xFF means error; data starts at [8].
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import HID from "node-hid";
 
 const VID = 0x373b;
-const PID = 0x119b;
+const PID_USB = 0x119b;
+const PID_DONGLE = 0x11ff; // 4607
 const CMD_START = 0x10;
 const CMD_KB_INFO = 0x12;
 const CMD_KB_FUNCTION = 0x14;
@@ -32,8 +33,14 @@ const MACROS_BYTES = 224; // 4 packets: header + 4 macros fit easily
 const MACRO_DELAY = 20; // per action; unit assumed to be ms
 const CMD_SYNC_DOT = 0x3c; // start_sync_dot: one live music-visualiser frame
 const CMD_END_SYNC_DOT = 0x3d;
-const KEYMAP_CHUNKS = 6; // matrixMaxSize: 6 × 56 bytes, 3 bytes per key
-const DATA_LEN = 56;
+const MATRIX_BYTES = 336; // keymap and custom colours: 6 × 56 bytes over USB (14 × 24 wireless), 3 bytes per key
+
+// USB cable first, else the dongle. The hub only changes the packet size and the timeout for wireless.
+const DEVICE = [PID_USB, PID_DONGLE].map((pid) => HID.devices(VID, pid).find((d) => d.usagePage === 0xff60)).find((d) => d);
+if (!DEVICE?.path) throw new Error("Yogo 75 PRO not found (USB or 2.4 GHz dongle, interface 0xFF60)");
+const WIRELESS = DEVICE.productId === PID_DONGLE;
+const REPORT_LEN = WIRELESS ? 32 : 64;
+const DATA_LEN = REPORT_LEN - 8;
 
 // Byte offsets in the get_keyboard_function blob (fieldMap in the hub's controller).
 const FIELDS = [
@@ -56,21 +63,20 @@ class Yogo {
   req = 0;
 
   constructor() {
-    const path = HID.devices(VID, PID).find((d) => d.usagePage === 0xff60)?.path;
-    if (!path) throw new Error("Yogo 75 PRO not found (USB, interface 0xFF60)");
-    this.dev = new HID.HID(path);
+    this.dev = new HID.HID(DEVICE!.path!);
   }
 
   transfer(cmd: number, length = 0, offset = 0, data: number[] = []): Uint8Array {
     this.req = (this.req % 0xffff) + 1;
-    const pkt = new Uint8Array(64);
+    const pkt = new Uint8Array(REPORT_LEN);
     pkt.set([0xaa, cmd, offset & 0xff, offset >> 8, length, this.req & 0xff, this.req >> 8]);
     pkt.set(data, 8);
     if (process.env.DEBUG) console.error("tx", hex(pkt));
     this.dev.write([0x00, ...pkt]);
     for (let i = 0; i < 20; i++) { // skip unrelated input reports
-      const r = Uint8Array.from(this.dev.readTimeout(500));
+      let r = Uint8Array.from(this.dev.readTimeout(WIRELESS ? 3000 : 500));
       if (!r.length) break;
+      if (r[0] !== 0xaa && r[1] === 0xaa) r = r.subarray(1); // the hub drops a leading byte before the magic (dongle)
       if (process.env.DEBUG) console.error("rx", hex(r));
       if (r.length >= 7 && (r[5] | (r[6] << 8)) === this.req) {
         if (r[2] === 0xff) throw new Error(`cmd 0x${cmd.toString(16)} error: ${hex(r)}`);
@@ -80,17 +86,13 @@ class Yogo {
     throw new Error(`no reply to cmd 0x${cmd.toString(16)}`);
   }
 
-  /** Full 64-byte config blob: the hub reads/writes it as 56 bytes at offset 0 + 8 bytes at offset 56. */
+  /** Full 64-byte config blob: the hub reads/writes it as 56 bytes at offset 0 + 8 bytes at offset 56 (USB). */
   readConfig(): Uint8Array {
-    const cfg = new Uint8Array(64);
-    cfg.set(this.transfer(CMD_KB_FUNCTION, DATA_LEN, 0).subarray(8, 8 + DATA_LEN));
-    cfg.set(this.transfer(CMD_KB_FUNCTION, 8, DATA_LEN).subarray(8, 16), DATA_LEN);
-    return cfg;
+    return this.readChunks(CMD_KB_FUNCTION, 64);
   }
 
   writeConfig(cfg: Uint8Array) {
-    this.transfer(CMD_WRITE_KB_FUNCTION, DATA_LEN, 0, [...cfg.subarray(0, DATA_LEN)]);
-    this.transfer(CMD_WRITE_KB_FUNCTION, 8, DATA_LEN, [...cfg.subarray(DATA_LEN)]);
+    this.writeChunks(CMD_WRITE_KB_FUNCTION, cfg, false);
   }
 
   /** Reads `total` bytes of a resource in 56-byte chunks. */
@@ -103,22 +105,26 @@ class Yogo {
     return out;
   }
 
+  /** Writes `data` in DATA_LEN chunks; `padded` sends len DATA_LEN on the last one too, as the hub does for some resources. */
+  writeChunks(cmd: number, data: Uint8Array | number[], padded = true) {
+    for (let off = 0; off < data.length; off += DATA_LEN) {
+      const chunk = [...data.slice(off, off + DATA_LEN)];
+      this.transfer(cmd, padded ? DATA_LEN : chunk.length, off, chunk);
+    }
+  }
+
   readKeymap(layer: number, factory = false): Uint8Array {
-    return this.readChunks((factory ? CMD_GET_DEFAULT_KEYMAP : CMD_GET_KEYMAP)[layer], KEYMAP_CHUNKS * DATA_LEN);
+    return this.readChunks((factory ? CMD_GET_DEFAULT_KEYMAP : CMD_GET_KEYMAP)[layer], MATRIX_BYTES);
   }
 
   /** Rewrites a whole layer, as the hub does (it never writes a single key). */
   writeKeymap(layer: number, map: Uint8Array) {
-    for (let i = 0; i < KEYMAP_CHUNKS; i++) {
-      this.transfer(CMD_SET_KEYMAP[layer], DATA_LEN, i * DATA_LEN, [...map.subarray(i * DATA_LEN, (i + 1) * DATA_LEN)]);
-    }
+    this.writeChunks(CMD_SET_KEYMAP[layer], map);
   }
 
   /** Rewrites the whole per-key colour matrix (used by ledMode 253), as the hub does. */
   writeCustomLeds(leds: Uint8Array) {
-    for (let i = 0; i < KEYMAP_CHUNKS; i++) {
-      this.transfer(CMD_SET_CUSTOM_LEDS, DATA_LEN, i * DATA_LEN, [...leds.subarray(i * DATA_LEN, (i + 1) * DATA_LEN)]);
-    }
+    this.writeChunks(CMD_SET_CUSTOM_LEDS, leds);
   }
 
   close() {
@@ -156,9 +162,9 @@ if (hex(Uint8Array.from(macroBlob(["0b0c"]))) !== "aa 55 1e 00 01 00 00 00 0a 00
   throw new Error("macroBlob regression");
 }
 
-/** Writes the macro blob as the hub does: 56-byte packets, len byte always 56 (last one zero-padded). */
+/** Writes the macro blob as the hub does: len byte always DATA_LEN (last packet zero-padded). */
 function writeMacros(k: Yogo, blob: number[]) {
-  for (let off = 0; off < blob.length; off += DATA_LEN) k.transfer(CMD_SET_MACRO, DATA_LEN, off, blob.slice(off, off + DATA_LEN));
+  k.writeChunks(CMD_SET_MACRO, blob);
 }
 
 const [cmd, arg, modeArg, codeArg] = process.argv.slice(2);
@@ -203,8 +209,8 @@ try {
     // 6×6 RGB888, row by row; there is no read command, so this overwrites the stored image for good.
     const img = Buffer.from((arg ?? "").replaceAll(" ", ""), "hex");
     if (img.length !== 108) throw new Error("usage: node yogo.ts dotimage <36 RRGGBB pixels, row by row>");
-    // The hub sends two packets at offsets 0 and 56, both with len 56 (the second one zero-padded).
-    for (let off = 0; off < img.length; off += DATA_LEN) k.transfer(CMD_SET_DOT_IMAGE, DATA_LEN, off, [...img.subarray(off, off + DATA_LEN)]);
+    // The hub sends every packet with len DATA_LEN (the last one zero-padded).
+    k.writeChunks(CMD_SET_DOT_IMAGE, img);
     console.log("dot screen image written (shown in mode 6: node yogo.ts dot 6)");
   } else if (cmd === "dotlive") {
     // Music-visualiser frame (start_sync_dot): same 6×6 layout as dotimage, but RGB565 LE, 72 bytes.
@@ -218,8 +224,7 @@ try {
     // A single frame only flashes; the hub streams one per audio frame, so repeat for `seconds`.
     const until = Date.now() + Number(modeArg ?? 0) * 1000;
     do {
-      k.transfer(CMD_SYNC_DOT, DATA_LEN, 0, frame.slice(0, DATA_LEN));
-      k.transfer(CMD_SYNC_DOT, 16, DATA_LEN, frame.slice(DATA_LEN));
+      k.writeChunks(CMD_SYNC_DOT, frame, false);
       Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 50);
     } while (Date.now() < until);
     console.log("live frame sent (stop with: node yogo.ts dotlive-end)");
@@ -233,10 +238,10 @@ try {
     for (let i = 0; i < map.length; i += 3) console.log(String(i / 3).padStart(3), hex(map.subarray(i, i + 3)));
   } else if (cmd === "power") {
     const r = k.transfer(CMD_POWER_INFO);
-    // Hub: power = min(data[0], 100), charging when data[1] == 2.
-    console.log(`raw: ${hex(r.subarray(8, 16))}  battery ${r[8]}%  ${r[9] === 2 ? "charging" : "not charging"}`);
+    // Hub: power = min(data[0], 100), charging when data[1] == 2; on the dongle with the cable plugged in it reads 1.
+    console.log(`raw: ${hex(r.subarray(8, 16))}  battery ${r[8]}%  ${r[9] ? `charging (state ${r[9]})` : "not charging"}`);
   } else if (cmd === "macros") {
-    console.log(hex(k.readChunks(CMD_GET_MACRO, Number(arg ?? 4) * DATA_LEN)));
+    console.log(hex(k.readChunks(CMD_GET_MACRO, Number(arg ?? 4) * 56)));
   } else if (cmd === "setmacro") {
     const specs = (arg ?? "").split(",");
     if (!specs.every((m) => /^([0-9a-f]{2})+(@\d+)?$/i.test(m)) || specs.length > 4) {
@@ -256,7 +261,7 @@ try {
     const map = k.readChunks(CMD_GET_LED_MATRIX, 384);
     console.log(hex(map));
   } else if (cmd === "leds") {
-    const leds = k.readChunks(CMD_GET_CUSTOM_LEDS, KEYMAP_CHUNKS * DATA_LEN);
+    const leds = k.readChunks(CMD_GET_CUSTOM_LEDS, MATRIX_BYTES);
     for (let i = 0; i < leds.length; i += 3) console.log(String(i / 3).padStart(3), hex(leds.subarray(i, i + 3)));
   } else if (cmd === "setled") {
     const index = Number(arg);
@@ -265,7 +270,7 @@ try {
     }
     const led = k.readChunks(CMD_GET_LED_MATRIX, 96)[index];
     if (led === 0xff) throw new Error(`key ${index} has no LED`);
-    const leds = k.readChunks(CMD_GET_CUSTOM_LEDS, KEYMAP_CHUNKS * DATA_LEN);
+    const leds = k.readChunks(CMD_GET_CUSTOM_LEDS, MATRIX_BYTES);
     if (!existsSync(LEDS_BACKUP)) {
       writeFileSync(LEDS_BACKUP, JSON.stringify(hex(leds)) + "\n");
       console.log(`current colours saved to ${LEDS_BACKUP}`);
@@ -275,7 +280,7 @@ try {
     k.writeCustomLeds(leds);
   } else if (cmd === "leds-restore") {
     const leds = Buffer.from(JSON.parse(readFileSync(LEDS_BACKUP, "utf8")).replaceAll(" ", ""), "hex");
-    if (leds.length !== KEYMAP_CHUNKS * DATA_LEN) throw new Error(`bad ${LEDS_BACKUP}`);
+    if (leds.length !== MATRIX_BYTES) throw new Error(`bad ${LEDS_BACKUP}`);
     k.writeCustomLeds(leds);
     console.log(`colours restored from ${LEDS_BACKUP}`);
   } else if (cmd === "keymap-backup") {
@@ -297,12 +302,12 @@ try {
     const backup: Record<string, string> = JSON.parse(readFileSync(KEYMAP_BACKUP, "utf8"));
     for (const [layer, data] of Object.entries(backup)) {
       const map = Buffer.from(data.replaceAll(" ", ""), "hex");
-      if (map.length !== KEYMAP_CHUNKS * DATA_LEN) throw new Error(`bad backup for layer ${layer}`);
+      if (map.length !== MATRIX_BYTES) throw new Error(`bad backup for layer ${layer}`);
       k.writeKeymap(Number(layer), map);
     }
     console.log(`layers ${Object.keys(backup).join(", ")} restored from ${KEYMAP_BACKUP}`);
   } else {
-    const info = k.transfer(CMD_KB_INFO, DATA_LEN).subarray(8);
+    const info = k.readChunks(CMD_KB_INFO, WIRELESS ? 39 : DATA_LEN); // the hub reads 39 bytes wireless
     const h = (n: number) => n.toString(16).padStart(2, "0");
     console.log("info raw:", hex(info));
     console.log(

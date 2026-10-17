@@ -58,9 +58,10 @@ Ce document se met à jour **au fur et à mesure des découvertes**, qu'elles vi
 |---|---|---|
 | Nom USB | `ATK Yogo75 PRO`, fabricant `RDMCTMZT` | vérifié |
 | VID / PID filaire | `0x373B` / `0x119B` (4507) | vérifié |
-| PID 2.4 GHz (dongle) | 4607 | code |
+| PID 2.4 GHz (dongle) | `0x11FF` (4607), nom USB `ATK YOGO 75 PRO Dongle`. PID du modèle, pas de l'exemplaire : écrit en dur dans la table des appareils du configurateur (`YOGO 75 PRO 2.4G`) | vérifié |
 | PID bootloader (IAP) | même PID, usage page `0xFF00`, usage 1 | code |
 | Firmware | `01.26`, protocole v3 | vérifié (`get_keyboard_info`) |
+| Mode de connexion | sélecteur physique sur le clavier : Bluetooth, câble, 2,4 GHz. Le Bluetooth n'est pas configurable : le configurateur ne le propose pas (d'après l'utilisateur, non testé). Sur 2,4 GHz, le câble USB ne fait que charger : macOS ne voit aucun périphérique HID du clavier, seulement le dongle | vérifié |
 | Variante sans PRO | Yogo 75 : PID 4508 filaire, 4608 en 2.4 GHz | code |
 
 Interfaces HID exposées en USB (vérifié avec `hidutil list` / `node-hid`) :
@@ -99,10 +100,16 @@ Statut : vérifié.
 
 - Rapports de sortie de 64 octets, report ID 0, sur l'interface `0xFF60`. Avec `node-hid`, on écrit `[0x00, ...64 octets]`.
 - Chaque requête porte un **code de requête** sur 16 bits que le clavier renvoie dans sa réponse. C'est ce code qui associe une réponse à sa requête. D'autres rapports d'entrée peuvent arriver entre-temps : on les ignore.
-- **Sans-fil 2,4 GHz** (code, rien de testé ; non implémenté dans `yogo.ts`) :
+- **Sans-fil 2,4 GHz** (implémenté dans `yogo.ts`, qui passe par le câble s'il est détecté, sinon par le dongle ; les deux transports sont vérifiés avec ce code) :
+  - **vérifié** : dongle `ATK YOGO 75 PRO Dongle`, PID `0x11FF` (4607). Il expose les mêmes interfaces que le clavier en USB. Descripteur de `0xFF60`/`0x61` : pas de report ID, rapports d'entrée et de sortie de 32 octets. Les réponses commencent directement par `AA` (pas d'octet parasite). `0x10`, `get_keyboard_info` (39 octets en 24 + 15) et le bloc de config (24 + 24 + 16 octets) renvoient les mêmes valeurs qu'en filaire. `get_keyboard_info` donne le PID filaire `0x119B`, pas celui du dongle. L'écriture du bloc en 3 paquets `0x15` (24, 24, 16 octets, sans le bug du configurateur) est acceptée et relue à l'identique, et le rétroéclairage passe bien au bleu ;
+  - **vérifié** : le reste marche aussi par le dongle, en paquets de 24 octets.
+    - **Lectures** : les 4 couches de la keymap, les couleurs par touche et les macros sont identiques aux sauvegardes faites en filaire (336 octets en 14 paquets, macros en 224 octets), et la batterie se lit (84 %).
+    - **Écritures** : remappage d'une touche (Inser → X), couleur par touche (Échap en rouge, mode 253), macro « HI » sur Inser (2 paquets ; Maj ne reste pas tenue), mode de l'écran à points (12), image fixe (`0x3B`, 108 octets en 5 paquets `len 24`) et visualiseur en direct (`0x3C`, 72 octets en 3 paquets `len 24`, damier stable pendant 90 s, puis `0x3D`).
+    - Chaque écriture a été vérifiée à l'œil sur le clavier, puis restaurée et relue.
+  - détails lus dans le code :
   - dongle `VID 0x373B` / **PID 4607**, même interface `0xFF60` / usage `0x61`, `connectType: 0` (2 en filaire) ;
-  - le contrôleur passe à `BUFFER_LEN = 32` (rapports de 32 octets), `DATA_LEN = 24` (24 octets de données par paquet), `matrixMaxSize = 16` (16 × 24 = 384 octets pour la keymap et les couleurs), puis appelle `applyWirelessTransport()` (pas encore lu). Point d'entrée : `isWireless&&(an.DATA_LEN=24` dans `demoMode.store-*.js` ;
-  - timeout de 3 s au lieu de 500 ms ;
+  - le contrôleur passe à `BUFFER_LEN = 32` (rapports de 32 octets), `DATA_LEN = 24` (24 octets de données par paquet), `matrixMaxSize = 16` (16 × 24 = 384 octets pour la keymap et les couleurs), puis appelle `applyWirelessTransport()`. Point d'entrée : `isWireless&&(an.DATA_LEN=24` dans `demoMode.store-*.js` ;
+  - `applyWirelessTransport()` ne fait que passer le timeout à 3 s (500 ms en filaire). Le cadrage est le même qu'en USB : `AA cmd offset len requête`, données à l'octet 8, sur 32 octets. Le report ID et la taille viennent du descripteur HID de l'interface `0xFF60`/`0x61` (rapport de sortie, sinon d'entrée) ; en cas de timeout, le configurateur réessaie jusqu'à 3 fois en alternant 32 et 64 octets. Dans les réponses, si l'octet 0 n'est pas `0xAA` mais l'octet 1 l'est, il retire le premier octet ;
   - bloc de config : lecture en 3 paquets `0x14` (`len 24` @0, `len 24` @24, `len 27` @48) ; écriture en 3 paquets `0x15` (champs 0–23 @0, 24–47 @24, `len 16` @48). **Bug du configurateur** : sa troisième boucle remplit le deuxième tampon, il réécrit donc des zéros en positions 48–63. Ne pas le reproduire ;
   - `get_keyboard_info` : 39 octets en 2 paquets (`len 24` puis `len 15`).
 
@@ -143,7 +150,7 @@ Table `oo` du configurateur.
 | `0x23`…`0x2B` (impairs) | write_custom_led_matrix 1–5 | écrit les couleurs par touche ; le configurateur n'utilise que `0x23` | vérifié (`0x23`) |
 | `0x2C` / `0x2D` | get_macro / write_macro | macros, voir [macros](#macros) | vérifié |
 | `0x2E` / `0x2F` | open/close_sync_led = start/end_sync_music | synchro de l'éclairage avec la musique (mode 254), envoyée par l'application de bureau ATK ; fonctionnement supposé proche de `0x3C` / `0x3D` | non déterminé |
-| `0x30` | power_info | paquet sans longueur ; `[0]` = niveau de batterie en %, `[1] == 2` = en charge (le configurateur borne à 100). Relevé en USB : `5b 01` = 91 %, état 1 | vérifié (lecture) |
+| `0x30` | power_info | paquet sans longueur ; `[0]` = niveau de batterie en %, `[1]` = état de charge : `0` sans câble, `1` câble branché (relevé en USB : `5b 01` = 91 % ; par le dongle : `52 00` sans câble, puis `52 01` avec le câble de charge). Le configurateur ne compte « en charge » que la valeur `2` (et borne le niveau à 100) : il n'affiche donc jamais la charge sur ce clavier. Sens de `2` inconnu | vérifié |
 | `0x31` | **reset_device** | **remet le clavier en config d'usine**. Ne pas envoyer sans accord explicite | code |
 | `0x32` | get_led_matrix | correspondance touche → LED (384 octets) | vérifié |
 | `0x3B` | set_dotscreen_matrix | image de l'écran à points (mode 6), voir [image](#écran-à-points--image) | vérifié |
@@ -213,7 +220,7 @@ Table `fieldMap` : position dans le bloc.
 | 43 | layer | **couche de base** : celle qui redevient active au relâchement de Fn. Le firmware ne l'applique ni à l'écriture ni au démarrage, mais au **prochain relâchement de Fn** ; elle reste ensuite active (Fn + touche utilise toujours la couche Fn). Ex. : `layer` = 1 puis Fn relâché → tout le clavier passe sur la couche 1. Pour revenir : `layer` = 0 puis appui-relâchement de Fn | vérifié |
 | 44 | fkeyChange | aucun effet observé à 1, en mode Windows comme en mode Mac (F1, F12 avec et sans Fn) ; rôle inconnu | vérifié (sans effet visible) |
 | 45 | wheelMode | 0 = la rotation de la molette règle le volume ; 1 ou 2 = la rotation ne fait plus rien de visible (ni volume, ni défilement, ni éclairage, ni écran à points), l'appui reste lecture/pause. Mettre volume ± dans les emplacements 46–47 n'y change rien | vérifié (effet partiel) |
-| 46–48 | sleepL/M/H | délai de mise en veille sur 24 bits, LE, en secondes (choix du configurateur : 60, 180, 300, 600, 1800, « jamais » = 65535 ; valeur relevée : 180). En USB, aucune mise en veille observée avec 60 : probablement réservé au sans-fil (hypothèse de l'utilisateur) | code |
+| 46–48 | sleepL/M/H | délai de mise en veille sur 24 bits, LE, en secondes (choix du configurateur : 60, 180, 300, 600, 1800, « jamais » = 65535 ; valeur relevée : 180). En USB, aucune mise en veille observée avec 60. En 2,4 GHz avec 60, le clavier s'éteint au bout de 60 s sans activité (chronométré). Une touche le réveille presque instantanément. Pendant la veille, le dongle ne répond plus aux commandes (`0x10` sans réponse en 3 s), et une commande ne réveille pas le clavier | vérifié (sans-fil) |
 | 49–51 | dsSleepL/M/H | veille de l'écran à points | code |
 | 52–57 | lcdPower, lcdMode, lcdGif, lcdGifCount, lcdLanguage, lcdUsb | ce clavier n'a pas d'écran LCD | code |
 
@@ -485,3 +492,10 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : table des effets d'éclairage complétée avec les libellés et réglages du configurateur. Synchro musicale (`0x2E` / `0x2F`, mode 254) laissée non déterminée : propre à l'application de bureau, supposée fonctionner comme le flux de l'écran à points.
 - 2026-10-17 : revérification de l'effet 1 avec `colorful` = 0, par une seule écriture depuis le mode 4 : vague verte qui défile de gauche à droite, appliquée immédiatement (une écriture du bloc, en 2 paquets, suffit). Retour au mode 4.
 - 2026-10-17 : lecture du code sans-fil du configurateur (paquets de 32 octets, 24 de données, découpage du bloc de config, bug d'écriture des positions 48–63). Rien de testé : dongle pas encore branché.
+- 2026-10-17 : lecture de `applyWirelessTransport()` et de l'envoi sans-fil (même en-tête, 32 octets, report ID pris dans le descripteur, timeout 3 s). `yogo.ts` choisit le transport d'après le PID ; non testé, dongle pas encore branché.
+- 2026-10-17 : dongle branché. Lecture des infos et de la config, puis écriture de la couleur du rétroéclairage, vérifiées à travers le dongle avec `yogo.ts`.
+- 2026-10-17 : veille vérifiée en 2,4 GHz (`sleepL = 60` → extinction à 60 s, réveil par une touche, clavier injoignable par le dongle pendant la veille).
+- 2026-10-17 : keymap, LED par touche, macros, batterie, écran à points (mode, image, visualiseur en direct) vérifiés à travers le dongle ; tout restauré, config identique à `config-backup.txt`. L'image fixe d'origine de l'écran à points est écrasée (drapeau arc-en-ciel), avec l'accord de l'utilisateur.
+- 2026-10-17 : batterie par le dongle : `52 00` (82 %) sans câble, `52 01` câble de charge branché. L'état 1 signifie donc « en charge » ; `yogo.ts power` le traite comme tel (toute valeur non nulle).
+- 2026-10-17 : le mode de connexion se choisit avec un sélecteur physique (Bluetooth / câble / 2,4 GHz) ; sur 2,4 GHz, le câble ne sert qu'à charger.
+- 2026-10-17 : retour en filaire avec le nouveau code. Lectures identiques aux sauvegardes ; config, keymap, couleurs et macros réécrites telles quelles en paquets de 56 octets, puis relues à l'identique.
