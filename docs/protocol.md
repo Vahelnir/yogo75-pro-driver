@@ -201,14 +201,14 @@ Table `fieldMap` : position dans le bloc.
 | 20–28 | bande latérale : mêmes champs | `hasSideLight = 0` | code |
 | 29–37 | écran à points (« LedTFT ») : mêmes champs | voir [écran à points](#écran-à-points-modes-intégrés) | vérifié (mode, luminosité, vitesse) / code (le reste) |
 | 38 | sixN | `sixKeyNoPunch = sixN > 0 ? 0 : 1` (6KRO / NKRO) | code |
-| 39 | macWin | mode Mac/Windows | code |
-| 40 | winLock | verrouillage de la touche Windows | code |
-| 41 | wasd | échange WASD et flèches | code |
-| 42 | scanDelay | `lowLatencyMode = scanDelay == 0` | code |
+| 39 | macWin | 1 = mode Mac : Alt et Win échangés, F1–F12 donnent les fonctions Mac (luminosité, son…) sans Fn ; 0 = Windows. L'interrupteur physique Win/Mac écrit ce même octet (0 ↔ 1, seul octet modifié) | vérifié |
+| 40 | winLock | verrouillage de la touche Windows : 1 = verrouillée (Win + Espace n'ouvre plus Spotlight sous macOS) | vérifié |
+| 41 | wasd | 1 = WASD et flèches échangés, dans les deux sens | vérifié |
+| 42 | scanDelay | 0 = mode faible latence, 2 = normal (le configurateur n'écrit que ces deux valeurs) | code |
 | 43 | layer | couche active | code |
 | 44 | fkeyChange | | code |
 | 45 | wheelMode | molette / encodeur | code |
-| 46–48 | sleepL/M/H | délai de mise en veille sur 24 bits, LE (valeur relevée : 180) | code |
+| 46–48 | sleepL/M/H | délai de mise en veille sur 24 bits, LE, en secondes (choix du configurateur : 60, 180, 300, 600, 1800, « jamais » = 65535 ; valeur relevée : 180). En USB, aucune mise en veille observée avec 60 : probablement réservé au sans-fil (hypothèse de l'utilisateur) | code |
 | 49–51 | dsSleepL/M/H | veille de l'écran à points | code |
 | 52–57 | lcdPower, lcdMode, lcdGif, lcdGifCount, lcdLanguage, lcdUsb | ce clavier n'a pas d'écran LCD | code |
 
@@ -452,3 +452,7 @@ node yogo.ts leds-restore          # réécrit la sauvegarde
 - 2026-10-17 : macro corrigée (appui = bit 7) : Inser tape exactement `hi`, plus de touche bloquée. Inser et macros restaurés et relus.
 - 2026-10-17 : 3 macros écrites d'un coup (offsets `0e`, `2a`, `3e`). Vérifié : Maj G en type 2 (`HI`), mode 4 avec `61 01 03` (`hihihi`), délai en ms (500 → `hhhiii` par répétition automatique de macOS).
 - 2026-10-17 : modes 1–3 vérifiés avec `60 01 m` : 1 répète tant que la touche est tenue et finit toujours le tour ; 2 répète jusqu'à un nouvel appui ; 3 répète tant que la touche est tenue et s'arrête net (peut finir sur `h`). Keymap et macros restaurées et relues.
+- 2026-10-17 : options : `winLock` = 1 verrouille la touche Win, `wasd` = 1 échange WASD et flèches dans les deux sens (vérifiés). Remis à 0. Unité de la veille lue dans le configurateur (secondes).
+- 2026-10-17 : `macWin` = 1 vérifié (Alt ↔ Win, F1–F12 multimédia sans Fn ; Fn + F11/F12 règle toujours le volume). Remis à 0. Test de la veille : `sleepL` 180 → 60.
+- 2026-10-17 : veille à 60 s en USB : aucune extinction observée ; l'utilisateur pense qu'elle ne joue qu'en Bluetooth / 2.4 GHz. `sleepL` remis à 180. Le clavier a un interrupteur physique Win/Mac.
+- 2026-10-17 : l'interrupteur physique Win/Mac fait passer `macWin` à 1 puis à 0 (relu, seul octet modifié du bloc).
