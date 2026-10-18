@@ -1,6 +1,7 @@
 import { hex, readU16le } from "./bytes.ts";
 import { toRgb565le } from "./color.ts";
 import {
+  checkBounds,
   CMD_END_SYNC_DOT,
   CMD_GET_CUSTOM_LEDS,
   CMD_GET_DEFAULT_KEYMAP,
@@ -34,7 +35,7 @@ import {
   withoutFullBytes,
   type FlashPage,
 } from "./flash.ts";
-import { keyAt } from "./keymap.ts";
+import { CODE_BYTES, keyAt } from "./keymap.ts";
 import {
   EMPTY_MACRO,
   joinMacros,
@@ -87,7 +88,7 @@ function cmdName(cmd: number) {
 
 /**
  * One method per resource. Every write rewrites the whole resource, as the hub does: read → modify → write
- * is the caller's job, except for `setKey` and `resetKey`.
+ * is the caller's job. `setKey` and `resetKey` write a single key.
  */
 export class Keyboard {
   #transport: Transport;
@@ -109,6 +110,7 @@ export class Keyboard {
     offset = 0,
     data: ArrayLike<number> = [],
   ): Promise<Uint8Array> {
+    checkBounds(cmd, offset, length);
     this.#request = (this.#request % 0xffff) + 1; // 1..65535, wraps
     const request = this.#request;
     const pkt = encodePacket(this.#transport.reportSize, {
@@ -203,6 +205,7 @@ export class Keyboard {
         if (after === undefined) {
           throw new Error(`the keyboard does not save its ${page.name}`);
         }
+        continue; // the zeros were saved: write the data again
       }
 
       if (!isFull(page, after)) {
@@ -280,18 +283,43 @@ export class Keyboard {
     );
   }
 
-  /** Changes one key's code: reads the layer, sets the slot, rewrites the layer. Resolves with the old code. */
+  /**
+   * Changes one key's code, writing only its 3 bytes (the hub rewrites the layer). Resolves with the old code.
+   * On a page that may be stuck, rewrites the whole layer: only a whole layer of zeros unsticks it.
+   */
   async setKey(
     layer: number,
     index: number,
     code: Uint8Array,
   ): Promise<Uint8Array> {
-    const map = await this.readKeymap(layer);
-    const slot = keyAt(map, index);
-    const old = slot.slice();
+    if (code.length !== CODE_BYTES) {
+      throw new Error(`a key code is ${CODE_BYTES} bytes`);
+    }
 
-    slot.set(code);
-    await this.writeKeymap(layer, map);
+    const page = KEYMAP_PAGES[layer];
+    if (mayBeStuck(page, await this.#pagePointer(page))) {
+      const map = await this.readKeymap(layer);
+      const old = keyAt(map, index).slice();
+      keyAt(map, index).set(code);
+      await this.writeKeymap(layer, map);
+      return old;
+    }
+
+    const offset = index * CODE_BYTES;
+    const reply = await this.#transfer(
+      CMD_GET_KEYMAP[layer],
+      CODE_BYTES,
+      offset,
+    );
+    const old = reply.slice(HEADER_BYTES, HEADER_BYTES + CODE_BYTES);
+
+    await this.#save(
+      page,
+      async (d) => {
+        await this.#transfer(CMD_SET_KEYMAP[layer], CODE_BYTES, offset, d);
+      },
+      code,
+    );
 
     return old;
   }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Keyboard } from "../src/index.ts";
+import { keyAt, Keyboard } from "../src/index.ts";
 import { BACKUP, FakeKeyboard } from "./fake-transport.ts";
 
 function setup(reportSize = 64) {
@@ -54,6 +54,21 @@ test("a stuck page is saved as zeros first, then the data erases it", async () =
   assert.ok(zeros.length > 0);
   fake.reboot();
   assert.deepEqual([...(await kb.readCustomLeds()).subarray(0, 3)], [1, 2, 3]);
+});
+
+test("setKey on a stuck page saves the key with the whole layer", async () => {
+  const { fake, kb } = setup();
+  fake.fillPage("keymap1", 10);
+  fake.pages.keymap1.records[9] = flip(BACKUP.keymap1); // the newest change, lost at the reboot
+  fake.reboot();
+  const code = Uint8Array.of(0x10, 0x00, 0x1b);
+
+  await kb.setKey(1, 48, code);
+
+  fake.reboot();
+  const expected = BACKUP.keymap1.slice();
+  keyAt(expected, 48).set(code);
+  assert.deepEqual(await kb.readKeymap(1), expected);
 });
 
 test("white keys are written as 0xFE, so the record never reads as empty", async () => {

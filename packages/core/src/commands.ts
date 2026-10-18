@@ -28,6 +28,28 @@ export const INFO_MACRO_SIZE = 13;
 /** LED matrix read by the hub; only the first 96 bytes (one per key) are used. */
 export const LED_MATRIX_BYTES = 384;
 
+/**
+ * Bytes each keymap and colour command may reach: the firmware copies at any offset, so past them it reads or
+ * overwrites the next layer and the macro buffer. Colour writes must reach 384 to be saved.
+ */
+const CMD_BUFFER_BYTES = new Map<number, number>([
+  ...[...CMD_GET_KEYMAP, ...CMD_GET_DEFAULT_KEYMAP, ...CMD_SET_KEYMAP].map(
+    (cmd): [number, number] => [cmd, MATRIX_BYTES],
+  ),
+  [CMD_GET_CUSTOM_LEDS, CUSTOM_LEDS_BUFFER_BYTES],
+  [CMD_SET_CUSTOM_LEDS, CUSTOM_LEDS_BUFFER_BYTES],
+]);
+
+/** Throws if the packet would read or write past its keymap or colour buffer. */
+export function checkBounds(cmd: number, offset: number, length: number): void {
+  const bytes = CMD_BUFFER_BYTES.get(cmd);
+  if (bytes !== undefined && (offset < 0 || offset + length > bytes)) {
+    throw new Error(
+      `cmd 0x${cmd.toString(16)} must stay within bytes 0 to ${bytes}`,
+    );
+  }
+}
+
 const CMD_FACTORY_RESET = 0x31;
 const CMD_FLASH_FIRST = 0xa0;
 const CMD_FLASH_LAST = 0xc0;

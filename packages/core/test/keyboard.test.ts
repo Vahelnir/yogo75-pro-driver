@@ -227,7 +227,7 @@ const CAPS = 48; // row 3, col 0
 const FN = Uint8Array.of(0x50, 0x02, 0x00);
 
 for (const layer of [0, 1]) {
-  test(`setKey rewrites layer ${layer} with only one slot changed`, async () => {
+  test(`setKey writes only the key's 3 bytes on layer ${layer}`, async () => {
     const { fake, kb } = setup();
     const before = BACKUP[`keymap${layer}`];
 
@@ -237,8 +237,29 @@ for (const layer of [0, 1]) {
     const expected = before.slice();
     keyAt(expected, CAPS).set(FN);
     assert.deepEqual(fake.data[`keymap${layer}`], expected);
+    const writes = packets(fake).filter(([cmd]) => cmd === 0x1b + 2 * layer);
+    assert.deepEqual(writes, [[0x1b + 2 * layer, CAPS * 3, 3]]);
   });
 }
+
+test("keymap and colour packets must stay inside their buffer", async () => {
+  const { fake, kb } = setup();
+  for (const [cmd, offset, len] of [
+    [0x1a, 334, 3],
+    [0x21, 336, 1],
+    [0x16, 300, 56],
+    [0x22, 380, 5],
+    [0x23, 384, 1],
+  ]) {
+    await assert.rejects(kb.raw(cmd, offset, len), /within bytes/);
+  }
+  assert.equal(fake.written.length, 0);
+
+  await kb.raw(0x1b, 333, 3, [1, 2, 3]);
+  await kb.raw(0x23, 328, 56);
+  await assert.rejects(kb.setKey(0, 112, FN), /within bytes 0 to 336/);
+  await assert.rejects(kb.setKey(0, -1, FN), /within bytes 0 to 336/);
+});
 
 test("resetKey puts back the factory code", async () => {
   const { fake, kb } = setup();

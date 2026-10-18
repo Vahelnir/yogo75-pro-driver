@@ -6,7 +6,7 @@ export const ROWS = 6;
 export const COLS = 16;
 /** Matrix slots used; a layer read holds 16 more, always zero. */
 export const KEYS = ROWS * COLS;
-const CODE_BYTES = 3;
+export const CODE_BYTES = 3;
 
 // Read from the keyboard with get_default_key_matrix 1 (0x16), one row per line.
 const FACTORY_LAYER0 = fromHex(
