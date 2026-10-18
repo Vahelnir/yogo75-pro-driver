@@ -500,7 +500,15 @@ In the keymap, with this keyboard's controller (`Ui`):
 
 Used when `ledMode = 253` ("custom").
 
-**Key → LED table** (`0x32`, 384 bytes, read in 56-byte packets; verified). The first 96 bytes give, for each key index, its LED number; `ff` = no LED. 84 LEDs, numbered 0 to 83. Keys without an LED: 46–47 (codes hidden by the configurator; not the knob rotation, verified), 60 and 65 (absent ISO keys) and the empty slots. The rest of the 384 bytes contains other tables (a sequence `54`…`77`, then what looks like colours): role unknown.
+**Key → LED table** (`0x32`, 384 bytes, read in 56-byte packets; verified). The first 96 bytes give, for each key index, its LED number; `ff` = no LED. 84 LEDs, numbered 0 to 83. Keys without an LED: 46–47 (codes hidden by the configurator; not the knob rotation, verified), 60 and 65 (absent ISO keys) and the empty slots. `0x32` returns a constant area of the firmware (address `0x0204b816`), which holds several tables back to back (code, firmware 1.26):
+
+| Bytes   | Content                                                                                                                             |
+| ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 0–95    | key → LED, above                                                                                                                    |
+| 96–127  | `ff`                                                                                                                                |
+| 128–163 | the 36 dot screen pixels → LED 84–119 (`54`…`77`). Live frames (`0x3C`) go through it: the dot screen pixels are LEDs 84–119        |
+| 164–175 | hardware pin numbers, used at startup                                                                                               |
+| 176…    | the backlight colour palette: RGB triplets, 6 per colour, from which the firmware takes `colorR/G/B` when the colour changes by key |
 
 **Colour matrix** (`0x22` read / `0x23` write; 6 packets of 56 bytes, offset 0 to 280). One RGB triplet per LED number: the colour of key `i` is at byte `3 × led[i]`. As for the keymap, the configurator always writes the whole matrix.
 
