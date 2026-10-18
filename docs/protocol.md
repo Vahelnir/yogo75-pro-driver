@@ -325,7 +325,7 @@ Partial writes (verified, cable and dongle): the handler copies `len` bytes at a
 
 ### Persistence
 
-Status: code (firmware 1.26), verified for the keymap and the per-key colours. A power cycle (switch to cable mode with no cable plugged, then back) loses RAM: only what was saved survives. Every write is live in RAM at once; there is no save or discard command, so an undo can only rewrite older data. Each accepted write arms a save and restarts its countdown: about 100 ticks later (probably 10 ms each, so about 1 s; hypothesis), the firmware writes to flash, postponed while it reports busy. A whole layer written in 6 packets thus ends up as one save.
+Status: code (firmware 1.26), verified for the keymap and the per-key colours. A power cycle (switch to cable mode with no cable plugged, then back) loses RAM: only what was saved survives. Every write is live in RAM at once; there is no save or discard command, so an undo can only rewrite older data. Each accepted write arms a save and restarts its countdown: about 100 ticks later, the firmware writes to flash, postponed while it reports busy. The tick is about 10 ms (hypothesis: a 10 000 µs period in the main loop), but the firmware also advances the countdown when it handles other work: while the host keeps polling, a save lands about 60 ms after the last write (verified, config and keymap layer, read with the save state below). A whole layer written in 6 packets thus ends up as one save.
 
 - Keymap (`0x0206c000`, layers 0–3), per-key colours (`0x02070000`) and the config block (`0x0206b000`, 64-byte records) are append-only logs in 4 KB pages: each save appends a record, and the page is erased only when full (one erase every 10 keymap saves).
 - Macros erase and rewrite their page (`0x02075000`) on every save.
@@ -335,6 +335,23 @@ Status: code (firmware 1.26), verified for the keymap and the per-key colours. A
 - **Full page** (code; verified on the colours and the config): when all records of a page are used (10 of 384 bytes, the last 256 bytes of the page are never used; 64 for the config), the boot scan stops on the last record: it loads the one before it (the newest change is lost) and the next save tries to write over the last record. That fails unless the new data fits bit-wise over it, so every later save of that resource fails silently: changes apply in RAM and are lost at each power cycle. Seen on the keyboard: a colour change lost at the first reboot, then every later one; a `ledMode` change lost at each reboot once the config page filled up (a day of tests is enough to fill its 64 records). Without a reboot in between, the save after the last record erases the page and starts again at its first record.
 - **Unsticking a full page** (verified on the colours and the config): write the whole resource as zeros, which always passes the write check (`flash & 0 == 0`), wait for that save (3 s), then write the real data: the write position has reached the end of the page, so this save erases it and starts again at its first record. Both survive the following power cycles. During the 3 s, the zeros are live (for the config: lighting off, `sleepL` 0, `scanDelay` 0), so do it over the cable.
 - The hub has no workaround for any of these: no clamp of `0xFF`, no save command, no read-back after writing (code).
+
+#### Reading the save state
+
+Status: verified for the write pointers and a layer's armed flag; code for the rest. The config read (`0x14`) copies from the config block at RAM `0x2000777a` with no bound on `offset`, and the save variables sit just above it, so plain `0x14` reads at these offsets return them. The read is a byte copy with no side effect (code). No other read command reaches them: their buffers start higher in RAM.
+
+Per resource (`ptr`: write position in its flash page, u16 LE, = records used × record size; `armed`: 1 while a save is pending; `count`: its countdown, u16):
+
+| Resource                          | Record | Records per page | `ptr`                                 | `armed`                               | `count`                               |
+| --------------------------------- | ------ | ---------------- | ------------------------------------- | ------------------------------------- | ------------------------------------- |
+| config                            | 64 B   | 64               | `0x62e`                               | `0x64a`                               | `0x64c`                               |
+| keymap layer 0 / 1 / 2 / 3        | 384 B  | 10               | `0x630` / `0x632` / `0x634` / `0x636` | `0x64e` / `0x652` / `0x656` / `0x65a` | `0x650` / `0x654` / `0x658` / `0x65c` |
+| per-key colours (`0x23`)          | 384 B  | 10               | `0x638`                               | `0x65e`                               | `0x660`                               |
+| other colour sets (`0x25`–`0x2B`) | 384 B  | 10               | `0x63a` / `0x63c` / `0x63e` / `0x640` | `0x662` / `0x666` / `0x66a` / `0x66e` | `0x664` / `0x668` / `0x66c` / `0x670` |
+
+Boot done: byte `0x62b` (1 once the boot loading has finished; saves wait for it).
+
+What it tells (verified): a page is full when `ptr` = records per page × record size (`0x0F00` for 384-byte records, `0x1000` for the config); a save has landed when `ptr` moves (or wraps to one record after an erase). After a boot, `ptr` = 9 records (`0x0D80`) means either 9 records used or a full page stuck on its last record: the next save tells them apart, since a stuck page's `ptr` does not move.
 
 ### Layers
 
