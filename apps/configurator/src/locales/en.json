@@ -15,7 +15,13 @@
   },
   "keymap": {
     "firmware": "Firmware",
-    "connection": "Connection"
+    "connection": "Connection",
+    "knob": "Knob",
+    "layers": {
+      "base": "Base",
+      "fn": "Fn",
+      "layer": "Layer {n}"
+    }
   },
   "connection_type": {
     "cable": "Cable",
