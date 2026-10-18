@@ -214,7 +214,7 @@ A 64-byte block, exchanged in **two packets** (verified):
 | 39    | macWin                                                              | 1 = Mac mode: Alt and Win swapped, F1–F12 give the Mac functions (brightness, sound…) without Fn; 0 = Windows. The physical Win/Mac switch writes this same byte (0 ↔ 1, only byte changed)                                                                                                                                                                                                                                                                                            | verified                                             |
 | 40    | winLock                                                             | Windows key lock: 1 = locked (Win + Space no longer opens Spotlight on macOS)                                                                                                                                                                                                                                                                                                                                                                                                          | verified                                             |
 | 41    | wasd                                                                | 1 = WASD and arrows swapped, both ways                                                                                                                                                                                                                                                                                                                                                                                                                                                 | verified                                             |
-| 42    | scanDelay                                                           | 0 = low latency mode, 2 = normal (the configurator only writes these two values)                                                                                                                                                                                                                                                                                                                                                                                                       | code                                                 |
+| 42    | scanDelay                                                           | 0 = low latency mode, 2 = normal (the configurator only writes these two values). Holding Fn + H (`50 3e 00`) for 3 s toggles it between 0 and 2: H blinks red for 0, green for 2                                                                                                                                                                                                                                                                                                      | code                                                 |
 | 43    | layer                                                               | **base layer**: the one that becomes active again when Fn is released. The firmware applies it neither on write nor at startup, but on the **next Fn release**; it then stays active (Fn + key still uses the Fn layer). E.g.: `layer` = 1 then Fn released → the whole keyboard switches to layer 1. To go back: `layer` = 0 then press-release Fn                                                                                                                                    | verified                                             |
 | 44    | fkeyChange                                                          | no effect observed at 1, in Windows mode as in Mac mode (F1, F12 with and without Fn); role unknown                                                                                                                                                                                                                                                                                                                                                                                    | verified (no visible effect)                         |
 | 45    | wheelMode                                                           | 0 = rotating the knob sets the volume; 1 or 2 = rotating no longer does anything visible (no volume, no scrolling, no lighting, no dot screen), pressing stays play/pause. Putting volume ± in slots 46–47 changes nothing                                                                                                                                                                                                                                                             | verified (partial effect)                            |
@@ -355,15 +355,29 @@ Configurator special keys ("Touche supplémentaire" / extra key tab, arrays `Xi`
 
 So the configurator draws F4 of layer 0 with the "desktop" icon: it really is F4 that is sent (verified by reading). It shows "NO" for any `0x50` function it doesn't know (Fn + Esc, 1…4, `-`, `=`, Backspace, H, Win), and only shows the key, without the modifier (Win+Tab is shown as "TAB", Win+H as "H").
 
-`34`, `35`, `36` (Fn + 1, 2, 3 of the factory Fn layer): Bluetooth devices 1, 2, 3 (verified in Bluetooth mode). A short press switches to the device already paired on that channel; a press of a few seconds starts pairing. `37` (Fn + 4): no effect observed, absent from the paper guide. Wired, it is not the Win/Mac toggle (verified: `macWin` unchanged and F1 without Fn doesn't set the brightness). On 2.4 GHz, a short press does nothing visible and doesn't put the keyboard to sleep (it still answers through the dongle). A long press remains to be tested: maybe dongle pairing (hypothesis).
+`34`, `35`, `36` (Fn + 1, 2, 3 of the factory Fn layer): Bluetooth devices 1, 2, 3 (verified in Bluetooth mode). A short press switches to the device already paired on that channel; a press of a few seconds starts pairing. `37` (Fn + 4): no effect observed, absent from the paper guide. Wired, it is not the Win/Mac toggle (verified: `macWin` unchanged and F1 without Fn doesn't set the brightness). On 2.4 GHz, a short press does nothing visible and doesn't put the keyboard to sleep (it still answers through the dongle). Holding it for 3 s on 2.4 GHz calls a radio routine (code), probably dongle pairing (hypothesis).
 
-`33` and `41` (Fn + Backspace, Fn + Esc): probably the two halves of the factory reset. The paper guide says "Fn + Esc + Backspace, hold 5 s: back to factory settings" (hypothesis; **do not test** without the user's approval, it would erase the config).
+`33` and `41` (Fn + Backspace, Fn + Esc): the two halves of the factory reset. Holding both for 3 s resets the keyboard (code). The paper guide says "Fn + Esc + Backspace, hold 5 s: back to factory settings". **Do not test** without the user's approval: it would erase the config.
+
+**Long-press functions** (code, firmware 1.26): some functions act only once held for 3 s (300 ticks of 10 ms; each press restarts the count). Each one toggles a config field and flashes its keys as an indicator:
+
+| Function         | Held 3 s                                                       |
+| ---------------- | -------------------------------------------------------------- |
+| `33` + `41`      | factory reset                                                  |
+| `34`, `35`, `36` | Bluetooth pairing on channel 1, 2, 3 (Bluetooth mode)          |
+| `37`             | radio routine on 2.4 GHz, probably dongle pairing (hypothesis) |
+| `3a`, `3b`       | toggles `macWin`                                               |
+| `3d`             | toggles `wasd`                                                 |
+| `3e`             | toggles `scanDelay` 0 ↔ 2 (verified)                           |
+| `40`             | toggles `wheelMode` 0 ↔ 1                                      |
+
+`3a`, `3b`, `3d`, `3f` and `40` are in no factory layer: you only get them by binding them to a key. `3f` acts on a short press: on release, it toggles `fkeyChange` (code).
 
 Tested on the keyboard by putting the factory codes back in the Fn layer (verified):
 
 - `3c` (Fn + Win): Win key lock, toggle. The Win LED lights up red and the `winLock` byte of the config block goes to 1, then back to 0.
 - `31` (Fn + `=`) / `32` (Fn + `-`): dot screen speed + / −. `LedTFTSpeed` (raw value, 0 = fastest) goes down to 0 with `31` and up one step per press with `32` (0 → 3 read back). Caps Lock and Win blink on each press, maybe to signal the limit (hypothesis).
-- `3e` (Fn + H): no visible effect and no byte of the config block changed, in Windows mode as in Mac mode. On 2.4 GHz, nothing visible and no sleep (the keyboard still answers through the dongle). Doesn't change the dot screen either, even briefly, with a short press or held 3 s (verified). Role unknown.
+- `3e` (Fn + H): low latency toggle. A short press does nothing. Held for 3 s or more, it switches `scanDelay` between 2 and 0, and H blinks red (0, low latency) or green (2, normal) (verified, held 5 s).
 
 ### Factory Fn layer
 
@@ -507,5 +521,4 @@ Writing these four resources back as is, then reading them in a new session, giv
 
 ## Open questions
 
-- What is byte 7 of the reply (`0x55`)?
-- Role of slots 46–47 (`30 cb 01`, `30 cf 00`) and of the unknown `0x50` functions.
+- Role of slots 46–47 (`30 cb 01`, `30 cf 00`).
