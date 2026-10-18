@@ -340,6 +340,7 @@ Known `0x50` functions (labels from `keyboard-info.util-*.js` and `keymap-*.js`)
 | `0c` / `0d`            | next / previous colour in the palette (verified)                                                                                             | `39`        | show battery level                                                     |
 | `0e` / `0f`            | brightness + / − (verified: 15 per press, 90 ↔ 75)                                                                                           | `47` / `48` | rotate left / right (knob)                                             |
 | `10` / `11`            | effect speed + / − (verified: raw `ledSpeed` −1 / +1 per press, 0 = fastest)                                                                 |             |                                                                        |
+| `12`                   | colour picker (verified), see [per-key colours](#per-key-colours)                                                                            |             |                                                                        |
 | `19`, `1b`, `1d`, `1e` | side strip: effect, colour, brightness + / −                                                                                                 |             |                                                                        |
 
 Configurator special keys ("Touche supplémentaire" / extra key tab, arrays `Xi`, `Io`, `Et`, `Go`/`Vo`, `ji`, `Hi` of `keyboard-info.util-*.js`; code, icons confirmed by screenshot):
@@ -513,13 +514,15 @@ Used when `ledMode = 253` ("custom").
 
 **Key → LED table** (`0x32`, 384 bytes, read in 56-byte packets; verified). The first 96 bytes give, for each key index, its LED number; `ff` = no LED. 84 LEDs, numbered 0 to 83. Keys without an LED: 46–47 (codes hidden by the configurator; not the knob rotation, verified), 60 and 65 (absent ISO keys) and the empty slots. `0x32` returns a constant area of the firmware (address `0x0204b816`), which holds several tables back to back (code, firmware 1.26):
 
-| Bytes   | Content                                                                                                                             |
-| ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| 0–95    | key → LED, above                                                                                                                    |
-| 96–127  | `ff`                                                                                                                                |
-| 128–163 | the 36 dot screen pixels → LED 84–119 (`54`…`77`). Live frames (`0x3C`) go through it: the dot screen pixels are LEDs 84–119        |
-| 164–175 | hardware pin numbers, used at startup                                                                                               |
-| 176…    | the backlight colour palette: RGB triplets, 6 per colour, from which the firmware takes `colorR/G/B` when the colour changes by key |
+| Bytes   | Content                                                                                                                      |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 0–95    | key → LED, above                                                                                                             |
+| 96–127  | `ff`                                                                                                                         |
+| 128–163 | the 36 dot screen pixels → LED 84–119 (`54`…`77`). Live frames (`0x3C`) go through it: the dot screen pixels are LEDs 84–119 |
+| 164–175 | hardware pin numbers, used at startup                                                                                        |
+| 176–383 | the colour picker's palette (function `50 12 00`), cut off: one RGB triplet per physical position, see below                 |
+
+**Colour picker** (function `50 12 00`; verified unless marked code, firmware 1.26). While it is open, every key lights in its palette colour; the next key pressed becomes the backlight colour (`colorful` = 0, `colorR/G/B` = its triplet, read back as is from the config block) and the picker closes. Space (LED 77) cycles through a hue wheel and picks the rainbow (`colorful` = 1) (code). The function is ignored in modes 0, 2, 12, 253 and 254 (code), and no key carries it in the keymap read from this keyboard (4 layers). The palette holds one RGB triplet (values 0–90) per physical position, at `3 × (column × 6 + row)`, on the 16 × 6 grid of the position → LED table at `0x0204babe`: 96 triplets, 288 bytes, so `0x32` stops in the middle of the 70th.
 
 **Colour matrix** (`0x22` read / `0x23` write; 6 packets of 56 bytes, offset 0 to 280). One RGB triplet per LED number: the colour of key `i` is at byte `3 × led[i]`. As for the keymap, the configurator always writes the whole matrix.
 
@@ -537,7 +540,3 @@ Everything the protocol can read back fits in four resources (verified over USB 
 | macro area         | `0x2C` / `0x2D`                                                 | total length from its header (bytes 2–3); with no header, 224 bytes |
 
 Writing these four resources back as is, then reading them in a new session, gives back exactly the saved state: changing `sleepL`, then writing everything back, restores the original value. The dot screen's still image (`0x3B`) has no read command: it cannot be backed up.
-
-## Open questions
-
-- Do matrix positions 46–47 have a physical switch? The firmware scans the full 6 × 16 matrix and translates their codes, but they have no LED and no visible key.
