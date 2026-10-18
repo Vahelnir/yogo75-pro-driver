@@ -412,11 +412,17 @@ The configurator writes the whole list at once, in 56-byte packets (offset 0, 56
 
 An action: `delay (LE 16 bits)`, `code`, `type | press << 7`. **Bit 7 = 1 for a press, 0 for a release** (verified the hard way: the configurator computes `keyStatus ? 0 : 1` with `KeyDown = 0`, `KeyUp = 1`). With the bit inverted, the macro "hi" typed `h` then left `i` pressed, and the physical I key no longer responded until the keyboard was unplugged and replugged (stuck state in RAM). Settings survive unplugging: config, keymap and dot screen intact (verified).
 
-| Type    | Action                                                 | Code                                                                           |
-| ------- | ------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| 1       | keyboard key                                           | HID code                                                                       |
-| 2       | modifier                                               | mask, as in the keymap (`01` L Ctrl… `80` R Win); verified with L Shift (`02`) |
-| 3, 5, 7 | other types in the interface (4, 5, 6; probably mouse) | unknown                                                                        |
+| Type | Action                              | Code                                                                           |
+| ---- | ----------------------------------- | ------------------------------------------------------------------------------ |
+| 1    | keyboard key                        | HID code                                                                       |
+| 2    | modifier                            | mask, as in the keymap (`01` L Ctrl… `80` R Win); verified with L Shift (`02`) |
+| 3    | mouse buttons (code, firmware 1.26) | button mask; bit 7 = press / release                                           |
+| 4    | mouse X (code)                      | distance; bit 7 set = −code (left), clear = +code (right)                      |
+| 5    | mouse Y (code)                      | distance; bit 7 set = −code (up), clear = +code (down)                         |
+| 6    | horizontal wheel (code)             | distance; bit 7 set = −code, clear = +code                                     |
+| 7    | wheel (code)                        | distance; bit 7 set = +code, clear = −code                                     |
+
+Types 3–7 all clear the whole mouse report (buttons included) before applying the action, so a move releases a held button (code). The configurator's interface offers three other types (4, 5, 6) and writes them as 3, 5, 7. The direction labels follow the HID convention and are untested.
 
 Example (verified): two macros, #0 empty (the no-op below), #1 tapping X with 20 ms delays. 36 bytes:
 
