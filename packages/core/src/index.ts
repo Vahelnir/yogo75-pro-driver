@@ -5,13 +5,19 @@
 export { fromHex, hex } from "./bytes.ts";
 export { rgb565, toRgb565le } from "./color.ts";
 export {
+  firmwareVersion,
   isDangerous,
   LED_MATRIX_BYTES,
   MACROS_BYTES,
   MATRIX_BYTES,
 } from "./commands.ts";
 export { CONFIG_BYTES, FIELDS } from "./config.ts";
-export { Keyboard, type PacketLogger, type Transport } from "./keyboard.ts";
+export {
+  Keyboard,
+  NoReplyError,
+  type PacketLogger,
+  type Transport,
+} from "./keyboard.ts";
 export {
   decodeMacro,
   DEFAULT_DELAY,

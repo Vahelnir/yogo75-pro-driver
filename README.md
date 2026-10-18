@@ -34,6 +34,8 @@ DEBUG=1 pnpm yogo75 info              # print every packet sent and received
 
 `pnpm yogo75 --help` is the command reference. Commands that write follow read → modify → write, but back nothing up: run `save` first to keep the current state.
 
+`pnpm configurator` starts the web configurator ([`apps/configurator`](apps/configurator), in progress) on a local dev server. It needs a Chromium browser (WebHID) and connects over the cable or the dongle.
+
 **Do not send** `0x31` (factory reset) or `0xA0`–`0xC0` (firmware flashing): they are documented but never used. `yogo75 raw` refuses them without `--force`.
 
 ## To do

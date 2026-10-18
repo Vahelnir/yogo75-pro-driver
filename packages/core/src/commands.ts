@@ -25,6 +25,15 @@ export const CUSTOM_LEDS_BUFFER_BYTES = 384;
 export const MACROS_BYTES = 224;
 /** Index of macroSize, the number of macros, in get_keyboard_info's data. */
 export const INFO_MACRO_SIZE = 13;
+/** Index of the firmware version in get_keyboard_info's data: 2 bytes LE, read in hex (`26 01` = 1.26). */
+const INFO_VERSION = 6;
+
+/** The firmware version, from `readInfo`: `1.26`. */
+export function firmwareVersion(info: Uint8Array): string {
+  const [minor, major] = info.subarray(INFO_VERSION, INFO_VERSION + 2);
+  return `${major.toString(16)}.${minor.toString(16).padStart(2, "0")}`;
+}
+
 /** LED matrix read by the hub; only the first 96 bytes (one per key) are used. */
 export const LED_MATRIX_BYTES = 384;
 

@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "jsx": "preserve",
+    "lib": ["esnext", "dom", "dom.iterable"],
+    "types": [
+      "w3c-web-hid",
+      "vite/client",
+      "unplugin-icons/types/vue",
+      "@intlify/unplugin-vue-i18n/messages"
+    ]
+  },
+  "include": ["src"]
+}

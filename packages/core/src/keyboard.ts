@@ -59,6 +59,9 @@ export interface Transport {
   transfer(report?: Uint8Array): Promise<Uint8Array | undefined>;
 }
 
+/** The keyboard sent no answer in time: a sleeping keyboard behind the dongle, until a key press wakes it. */
+export class NoReplyError extends Error {}
+
 export type PacketLogger = (direction: "tx" | "rx", packet: Uint8Array) => void;
 
 /** Input reports read for one request before giving up: others (key presses…) can come first. */
@@ -139,7 +142,7 @@ export class Keyboard {
       return reply;
     }
 
-    throw new Error(`no reply to ${cmdName(cmd)}`);
+    throw new NoReplyError(`no reply to ${cmdName(cmd)}`);
   }
 
   async #readChunks(cmd: number, total: number): Promise<Uint8Array> {
