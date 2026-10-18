@@ -1,4 +1,4 @@
-import { hex } from "./bytes.ts";
+import { hex, readU16le } from "./bytes.ts";
 import { toRgb565le } from "./color.ts";
 import {
   CMD_END_SYNC_DOT,
@@ -25,6 +25,15 @@ import {
   MATRIX_BYTES,
 } from "./commands.ts";
 import { CONFIG_BYTES } from "./config.ts";
+import {
+  CONFIG_PAGE,
+  isFull,
+  KEYMAP_PAGES,
+  LEDS_PAGE,
+  mayBeStuck,
+  withoutFullBytes,
+  type FlashPage,
+} from "./flash.ts";
 import { keyAt } from "./keymap.ts";
 import {
   EMPTY_MACRO,
@@ -55,8 +64,22 @@ export type PacketLogger = (direction: "tx" | "rx", packet: Uint8Array) => void;
 const MAX_REPORTS = 20;
 /** The keyboard acks a write before applying it: reads within ~5 ms return the old values. */
 const APPLY_DELAY_MS = 50;
+/** A save lands about 60 ms after the last write while we poll; past this, its page is stuck. */
+const SAVE_TIMEOUT_MS = 1000;
+const SAVE_POLL_MS = 10;
 /** The hub reads only this many info bytes through the dongle. */
 const WIRELESS_INFO_BYTES = 39;
+
+/** A resource saved in a flash page, with how to read it and write it back. */
+type SavedResource = [
+  FlashPage,
+  () => Promise<Uint8Array>,
+  (data: Uint8Array) => Promise<void>,
+];
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function cmdName(cmd: number) {
   return `cmd 0x${cmd.toString(16)}`;
@@ -136,6 +159,84 @@ export class Keyboard {
     }
   }
 
+  /** A page's write pointer, read past the config block (the save variables sit right after it in RAM). */
+  async #pagePointer(page: FlashPage): Promise<number> {
+    const reply = await this.#transfer(CMD_KB_FUNCTION, 2, page.pointerOffset);
+    return readU16le(reply, HEADER_BYTES);
+  }
+
+  /**
+   * The page's pointer once no save is pending, or undefined if one stays pending (stuck page) or none landed.
+   * A slow link (the dongle) lets several saves land during one write, so the pointer is read only at the end.
+   */
+  async #savedPointer(page: FlashPage, before: number) {
+    const deadline = Date.now() + SAVE_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const reply = await this.#transfer(CMD_KB_FUNCTION, 1, page.armedOffset);
+      if (!reply[HEADER_BYTES]) {
+        const pointer = await this.#pagePointer(page);
+        return pointer === before ? undefined : pointer;
+      }
+
+      await sleep(SAVE_POLL_MS);
+    }
+    return undefined;
+  }
+
+  /**
+   * Writes `data` and waits for it to reach flash, never leaving its page full: a full page is written again, which
+   * erases it. A stuck page's save fails; zeros always fit over its last record, after which the data erases it.
+   */
+  async #save(
+    page: FlashPage,
+    write: (data: Uint8Array) => Promise<void>,
+    data: Uint8Array,
+  ) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const before = await this.#pagePointer(page);
+      await write(data);
+
+      let after = await this.#savedPointer(page, before);
+      if (after === undefined) {
+        await write(new Uint8Array(data.length));
+        after = await this.#savedPointer(page, before);
+        if (after === undefined) {
+          throw new Error(`the keyboard does not save its ${page.name}`);
+        }
+      }
+
+      if (!isFull(page, after)) {
+        return;
+      }
+    }
+    throw new Error(`the keyboard's ${page.name} flash page stays full`);
+  }
+
+  /**
+   * Rewrites, unchanged, each resource whose flash page someone else (the hub, Fn keys) left full or maybe stuck,
+   * so its next saves survive a reboot. Resolves with their names.
+   */
+  async repairFlashPages(): Promise<string[]> {
+    const resources: SavedResource[] = [
+      [CONFIG_PAGE, () => this.readConfig(), (d) => this.writeConfig(d)],
+      ...KEYMAP_PAGES.map((page, layer): SavedResource => [
+        page,
+        () => this.readKeymap(layer),
+        (d) => this.writeKeymap(layer, d),
+      ]),
+      [LEDS_PAGE, () => this.readCustomLeds(), (d) => this.writeCustomLeds(d)],
+    ];
+
+    const repaired = [];
+    for (const [page, read, write] of resources) {
+      if (mayBeStuck(page, await this.#pagePointer(page))) {
+        await write(await read());
+        repaired.push(page.name);
+      }
+    }
+    return repaired;
+  }
+
   /** The hub sends this before anything else. */
   async start() {
     await this.#transfer(CMD_START);
@@ -155,8 +256,13 @@ export class Keyboard {
     return this.#readChunks(CMD_KB_FUNCTION, CONFIG_BYTES);
   }
 
+  /** Writes the config and waits for it to reach flash (as do the keymap and colour writes). */
   writeConfig(cfg: Uint8Array) {
-    return this.#writeChunks(CMD_WRITE_KB_FUNCTION, cfg, false);
+    return this.#save(
+      CONFIG_PAGE,
+      (d) => this.#writeChunks(CMD_WRITE_KB_FUNCTION, d, false),
+      cfg,
+    );
   }
 
   /** Layer 0..3, 3 bytes per key; `factory` reads the default keymap. */
@@ -167,7 +273,11 @@ export class Keyboard {
 
   /** Rewrites a whole layer, as the hub does (it never writes a single key). */
   writeKeymap(layer: number, map: Uint8Array) {
-    return this.#writeChunks(CMD_SET_KEYMAP[layer], map);
+    return this.#save(
+      KEYMAP_PAGES[layer],
+      (d) => this.#writeChunks(CMD_SET_KEYMAP[layer], d),
+      map,
+    );
   }
 
   /** Changes one key's code: reads the layer, sets the slot, rewrites the layer. Resolves with the old code. */
@@ -206,15 +316,20 @@ export class Keyboard {
   /**
    * Writes the colours, then the rest of the buffer back unchanged: the keyboard only saves them to flash when a
    * packet reaches the buffer's end (byte 384). The last chunk is not padded, which would write past the buffer.
+   * 0xFF is written as 0xFE, which looks the same: see `withoutFullBytes`.
    */
   async writeCustomLeds(leds: Uint8Array) {
     const buffer = await this.#readChunks(
       CMD_GET_CUSTOM_LEDS,
       CUSTOM_LEDS_BUFFER_BYTES,
     );
-    buffer.set(leds);
+    buffer.set(withoutFullBytes(leds));
 
-    await this.#writeChunks(CMD_SET_CUSTOM_LEDS, buffer, false);
+    await this.#save(
+      LEDS_PAGE,
+      (d) => this.#writeChunks(CMD_SET_CUSTOM_LEDS, d, false),
+      buffer,
+    );
   }
 
   /** Key index -> LED number in the first 96 bytes (0xff = no LED). */
@@ -272,7 +387,10 @@ export class Keyboard {
     };
   }
 
-  /** Rewrites every resource, in `readState`'s order, then reads them back: resolves with those that differ. */
+  /**
+   * Rewrites every resource, in `readState`'s order, then reads them back: resolves with those that differ.
+   * Colours read back 0xFE where the state has 0xFF (see `writeCustomLeds`).
+   */
   async writeState(state: KeyboardState): Promise<string[]> {
     await this.writeConfig(state.config);
     for (const [layer, map] of state.keymaps.entries()) {
@@ -283,7 +401,10 @@ export class Keyboard {
     await this.writeMacros(state.macros);
 
     await new Promise((resolve) => setTimeout(resolve, APPLY_DELAY_MS));
-    return stateDiff(await this.readState(), state);
+    return stateDiff(await this.readState(), {
+      ...state,
+      leds: withoutFullBytes(state.leds),
+    });
   }
 
   /** 6×6 RGB888 image, row by row, shown by dot screen mode 6. There is no read command. */
@@ -326,7 +447,7 @@ export class Keyboard {
     return reply.subarray(HEADER_BYTES);
   }
 
-  /** `state` is 1 while the cable is plugged in, even at 100% (the hub's "charging" 2 never comes). */
+  /** `state` is 1 while the cable is plugged in, even at 100%; 2 once the charger reports the charge complete. */
   async readBattery() {
     const reply = await this.#transfer(CMD_POWER_INFO);
     const raw = reply.subarray(HEADER_BYTES, HEADER_BYTES + 8);
