@@ -2,3 +2,5 @@ node_modules/
 # Copy of ATK's configurator: proprietary code, download it again (see docs/protocol.md)
 web-dump/
 .DS_Store
+# ATK firmware images: proprietary, download them again (see docs/protocol.md)
+firmware/
