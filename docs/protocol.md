@@ -353,6 +353,17 @@ Configurator special keys ("Touche supplémentaire" / extra key tab, arrays `Xi`
 | Extension | desktop = Win+D (`10 08 07`, alias `30 cb 01`); Mac desktop = F4 (`10 00 3d`); lock = Win+L (`10 08 0f`, alias `30 cf 00`)                                                                                                                                                                                                        |
 | Mouse     | see type `0x40`                                                                                                                                                                                                                                                                                                                   |
 
+**Translation by position** (code, firmware 1.26): before sending a key, the firmware replaces some codes, but only at their factory position (key index). Bound elsewhere, the same code is sent as is.
+
+| Index          | Code on the key       | Windows (`macWin` = 0) | Mac (`macWin` = 1)                                                                                                                                                                           |
+| -------------- | --------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 46             | `30 cb 01`            | Win+D (`10 08 07`)     | F11 (`10 00 44`)                                                                                                                                                                             |
+| 47             | `30 cf 00`            | Win+L (`10 08 0f`)     | Ctrl+Cmd+Q (`10 09 14`)                                                                                                                                                                      |
+| 1–12 (F1–F12)  | `10 00 3a`…`10 00 45` | unchanged              | F1 / F2 screen brightness − / + (`30 70 00` / `30 6f 00`), F3 `30 9f 02`, F4 Cmd+F (`10 08 09`), F5 `30 cf 00`, F6 system code `9b` (Do Not Disturb), F7–F12 media like the factory Fn layer |
+| 1–12, Fn layer | the factory Fn codes  | unchanged              | back to F1–F12 (Win+Tab on F3 → F3, Win+H on F5 → F5, …)                                                                                                                                     |
+
+So slots 46–47 are the desktop and lock keys of the configurator's "Extension" category, and the firmware adapts them to the OS. F6 is skipped while an internal flag is set.
+
 So the configurator draws F4 of layer 0 with the "desktop" icon: it really is F4 that is sent (verified by reading). It shows "NO" for any `0x50` function it doesn't know (Fn + Esc, 1…4, `-`, `=`, Backspace, H, Win), and only shows the key, without the modifier (Win+Tab is shown as "TAB", Win+H as "H").
 
 `34`, `35`, `36` (Fn + 1, 2, 3 of the factory Fn layer): Bluetooth devices 1, 2, 3 (verified in Bluetooth mode). A short press switches to the device already paired on that channel; a press of a few seconds starts pairing. `37` (Fn + 4): no effect observed, absent from the paper guide. Wired, it is not the Win/Mac toggle (verified: `macWin` unchanged and F1 without Fn doesn't set the brightness). On 2.4 GHz, a short press does nothing visible and doesn't put the keyboard to sleep (it still answers through the dongle). Holding it for 3 s on 2.4 GHz calls a radio routine (code), probably dongle pairing (hypothesis).
@@ -529,4 +540,4 @@ Writing these four resources back as is, then reading them in a new session, giv
 
 ## Open questions
 
-- Role of slots 46–47 (`30 cb 01`, `30 cf 00`).
+- Do matrix positions 46–47 have a physical switch? The firmware scans the full 6 × 16 matrix and translates their codes, but they have no LED and no visible key.
