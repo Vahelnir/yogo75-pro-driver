@@ -19,6 +19,8 @@ export const CMD_END_SYNC_DOT = 0x3d;
 
 /** Keymap and custom colours: 3 bytes per key, 6 × 56 bytes over USB (14 × 24 wireless). */
 export const MATRIX_BYTES = 336;
+/** The per-key colour buffer: the keyboard saves it to flash only when a write reaches its end. */
+export const CUSTOM_LEDS_BUFFER_BYTES = 384;
 /** Macro area read when it has no header yet (no macro written). */
 export const MACROS_BYTES = 224;
 /** Index of macroSize, the number of macros, in get_keyboard_info's data. */
