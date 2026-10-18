@@ -14,6 +14,11 @@ export interface Session {
   /** What the keyboard holds now, as last read back. */
   state: KeyboardState;
   run<T>(task: (k: Keyboard) => Promise<T>): Promise<T>;
+  /**
+   * Writes one key (or knob action) through the queue, then reads its layer back into `state`, even when the
+   * write fails, so that `state` shows what the keyboard really holds.
+   */
+  setKey(layer: number, index: number, code: Uint8Array): Promise<void>;
 }
 
 /**
@@ -49,10 +54,23 @@ export async function connect(
   const info = await keyboard.readInfo();
   const snapshot = await keyboard.readState();
 
+  const state = structuredClone(snapshot);
+
+  function setKey(layer: number, index: number, code: Uint8Array) {
+    return run(async (k) => {
+      try {
+        await k.setKey(layer, index, code);
+      } finally {
+        state.keymaps[layer] = await k.readKeymap(layer);
+      }
+    });
+  }
+
   return {
     firmware: firmwareVersion(info),
     snapshot,
-    state: structuredClone(snapshot),
+    state,
     run,
+    setKey,
   };
 }
