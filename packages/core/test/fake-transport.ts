@@ -187,8 +187,8 @@ export class FakeKeyboard implements Transport {
       const read = this.data[READS[cmd]];
       if (name === "config") {
         this.#configStaging.set(report.subarray(8, 8 + len), off);
-        // the firmware applies the buffer only once a packet ends past byte 62
-        if (off + len - 1 > 62) {
+        // the firmware applies the buffer only when offset + length > 62 (FUN_0203ed3c case 5)
+        if (off + len > 62) {
           this.#configTick = CONFIG_TICK_PACKETS;
         }
       } else if (written) {
