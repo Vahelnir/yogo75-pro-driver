@@ -17,6 +17,14 @@ Prettier handles formatting (`pnpm format`); this file covers the rest.
 - `@yogo75/core` also runs in the browser: it imports nothing from Node (`node:*`, `Buffer`, `node-hid`) and works on `Uint8Array`; its `tsconfig`, without Node types, enforces this. All protocol knowledge (bytes, commands, formats) lives there; the CLI only parses arguments, reads and writes files, and prints.
 - One request at a time per `Keyboard`: chain the `await`s (a `for` loop). `Promise.all` would interleave packets on the same HID link.
 
+## Translations
+
+The configurator's messages live in `apps/configurator/src/locales/` (`en.json`, the default, and `fr.json`, with the same keys).
+
+- Keys are nested and in snake_case: one group per page or topic (`home.add_keyboard`), and one for a set of values shown in several places (`connection_type.cable`, `connection_type.dongle`).
+- Every key is written in full where it is used, so that a search finds it: never a computed key (``t(`connection_type.${type}`)``). To pick between values, pick between whole keys: `dongle ? t("connection_type.dongle") : t("connection_type.cable")`.
+- QMK key names and the labels drawn on the keys are not translated.
+
 ## Comments
 
 Comment only where the code is complex, may not do what a reader expects, or handles a special case (a keyboard or hub quirk, a protocol fact the code cannot show). Code that reads clearly gets no comment.

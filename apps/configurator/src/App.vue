@@ -28,13 +28,13 @@ async function leave() {
     <header
       class="flex items-center justify-between border-b border-zinc-200 px-4 py-3"
     >
-      <h1 class="font-semibold">{{ t("title") }}</h1>
+      <h1 class="font-semibold">{{ t("app.title") }}</h1>
       <UiButton v-if="session" class="ml-auto mr-4" @click="leave">
         <IconUnplug />
-        {{ t("disconnect") }}
+        {{ t("app.disconnect") }}
       </UiButton>
       <label class="flex items-center gap-2 text-sm">
-        <IconLanguages :aria-label="t('language')" />
+        <IconLanguages :aria-label="t('app.language')" />
         <UiSelect
           v-model="locale"
           :options="[

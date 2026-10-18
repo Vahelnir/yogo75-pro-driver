@@ -46,10 +46,10 @@ onMounted(() => {
 
 <template>
   <div class="mx-auto flex max-w-md flex-col gap-4 pt-16">
-    <p v-if="!supported" class="text-center">{{ t("unsupported") }}</p>
+    <p v-if="!supported" class="text-center">{{ t("home.unsupported") }}</p>
     <template v-else>
       <section v-if="keyboards.length" class="flex flex-col gap-2">
-        <h2 class="text-sm text-zinc-500">{{ t("authorised") }}</h2>
+        <h2 class="text-sm text-zinc-500">{{ t("home.authorised") }}</h2>
         <button
           v-for="hid in keyboards"
           :key="hid.productId"
@@ -61,11 +61,15 @@ onMounted(() => {
           <span class="flex-1">
             {{ hid.productName }}
             <span class="block text-sm text-zinc-500">
-              {{ t(isDongle(hid) ? "dongle" : "cable") }}
+              {{
+                isDongle(hid)
+                  ? t("connection_type.dongle")
+                  : t("connection_type.cable")
+              }}
             </span>
           </span>
           <span v-if="hid === device && session" class="text-sm text-green-700">
-            {{ t("connected") }}
+            {{ t("home.connected") }}
           </span>
         </button>
       </section>
@@ -75,11 +79,13 @@ onMounted(() => {
         @click="connectWith(requestKeyboard)"
       >
         <IconUsb />
-        {{ connecting ? t("connecting") : t("addKeyboard") }}
+        {{ connecting ? t("home.connecting") : t("home.add_keyboard") }}
       </UiButton>
-      <p v-if="asleep" class="text-center text-amber-700">{{ t("asleep") }}</p>
+      <p v-if="asleep" class="text-center text-amber-700">
+        {{ t("home.no_answer") }}
+      </p>
       <p v-if="error" class="text-center text-red-700">
-        {{ t("connectFailed", { error }) }}
+        {{ t("home.connect_failed", { error }) }}
       </p>
     </template>
   </div>

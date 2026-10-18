@@ -1,16 +1,24 @@
 {
-  "title": "Configurateur Yogo 75",
-  "language": "Langue",
-  "unsupported": "Ton navigateur ne peut pas parler aux périphériques USB (WebHID). Ouvre cette page dans Chrome, Edge ou un autre navigateur Chromium.",
-  "connecting": "Connexion…",
-  "asleep": "Pas de réponse du clavier : appuie sur une touche, et vérifie que son interrupteur est sur 2,4 GHz.",
-  "connectFailed": "Connexion impossible : {error}",
-  "firmware": "Firmware",
-  "connection": "Connexion",
-  "cable": "Câble",
-  "dongle": "Dongle 2,4 GHz",
-  "authorised": "Claviers autorisés",
-  "addKeyboard": "Autoriser un clavier",
-  "connected": "Connecté",
-  "disconnect": "Déconnecter"
+  "app": {
+    "title": "Configurateur Yogo 75",
+    "language": "Langue",
+    "disconnect": "Déconnecter"
+  },
+  "home": {
+    "unsupported": "Ton navigateur ne peut pas parler aux périphériques USB (WebHID). Ouvre cette page dans Chrome, Edge ou un autre navigateur Chromium.",
+    "connecting": "Connexion…",
+    "no_answer": "Pas de réponse du clavier : appuie sur une touche, et vérifie que son interrupteur est sur 2,4 GHz.",
+    "connect_failed": "Connexion impossible : {error}",
+    "authorised": "Claviers autorisés",
+    "add_keyboard": "Autoriser un clavier",
+    "connected": "Connecté"
+  },
+  "keymap": {
+    "firmware": "Firmware",
+    "connection": "Connexion"
+  },
+  "connection_type": {
+    "cable": "Câble",
+    "dongle": "Dongle 2,4 GHz"
+  }
 }

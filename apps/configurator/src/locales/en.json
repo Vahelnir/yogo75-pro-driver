@@ -1,16 +1,24 @@
 {
-  "title": "Yogo 75 configurator",
-  "language": "Language",
-  "unsupported": "Your browser can't talk to USB devices (WebHID). Open this page in Chrome, Edge or another Chromium browser.",
-  "connecting": "Connecting…",
-  "asleep": "No answer from the keyboard: press a key on it, and check its switch is on 2.4 GHz.",
-  "connectFailed": "Could not connect: {error}",
-  "firmware": "Firmware",
-  "connection": "Connection",
-  "cable": "Cable",
-  "dongle": "2.4 GHz dongle",
-  "authorised": "Allowed keyboards",
-  "addKeyboard": "Allow a keyboard",
-  "connected": "Connected",
-  "disconnect": "Disconnect"
+  "app": {
+    "title": "Yogo 75 configurator",
+    "language": "Language",
+    "disconnect": "Disconnect"
+  },
+  "home": {
+    "unsupported": "Your browser can't talk to USB devices (WebHID). Open this page in Chrome, Edge or another Chromium browser.",
+    "connecting": "Connecting…",
+    "no_answer": "No answer from the keyboard: press a key on it, and check its switch is on 2.4 GHz.",
+    "connect_failed": "Could not connect: {error}",
+    "authorised": "Allowed keyboards",
+    "add_keyboard": "Allow a keyboard",
+    "connected": "Connected"
+  },
+  "keymap": {
+    "firmware": "Firmware",
+    "connection": "Connection"
+  },
+  "connection_type": {
+    "cable": "Cable",
+    "dongle": "2.4 GHz dongle"
+  }
 }

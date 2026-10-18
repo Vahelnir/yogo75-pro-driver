@@ -1,5 +1,5 @@
 import { connect, type Session } from "./session.ts";
-import { hidTransport, isDongle } from "./webhid.ts";
+import { hidTransport } from "./webhid.ts";
 
 /** The connected keyboard, shared by every page; undefined on the home page. */
 export const session = shallowRef<Session>();
@@ -45,8 +45,4 @@ export async function disconnect(): Promise<void> {
   const hid = device.value;
   forget();
   await hid?.close();
-}
-
-export function connectionType(): "dongle" | "cable" {
-  return device.value && isDongle(device.value) ? "dongle" : "cable";
 }
