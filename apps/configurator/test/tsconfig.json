@@ -1,0 +1,6 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "types": ["node", "w3c-web-hid"] },
+  // Vite and Vitest configs run in Node
+  "include": [".", "../vite.config.ts", "../vitest.config.ts"]
+}

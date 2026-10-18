@@ -1,0 +1,13 @@
+{
+  "title": "Configurateur Yogo 75",
+  "language": "Langue",
+  "unsupported": "Ton navigateur ne peut pas parler aux périphériques USB (WebHID). Ouvre cette page dans Chrome, Edge ou un autre navigateur Chromium.",
+  "connect": "Connecter",
+  "connecting": "Connexion…",
+  "asleep": "Le clavier est en veille : appuie sur une de ses touches.",
+  "connectFailed": "Connexion impossible : {error}",
+  "firmware": "Firmware",
+  "connection": "Connexion",
+  "cable": "Câble",
+  "dongle": "Dongle 2,4 GHz"
+}

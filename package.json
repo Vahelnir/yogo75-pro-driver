@@ -4,8 +4,9 @@
   "type": "module",
   "scripts": {
     "yogo75": "node apps/cli/src/yogo75.ts",
-    "test": "node --test",
-    "typecheck": "tsc -p apps/cli && tsc -p packages/core && tsc -p packages/core/test",
+    "configurator": "pnpm -F @yogo75/configurator dev",
+    "test": "node --test 'packages/**/*.test.ts' 'apps/cli/**/*.test.ts' && pnpm -F @yogo75/configurator test",
+    "typecheck": "tsc -p apps/cli && tsc -p packages/core && tsc -p packages/core/test && pnpm -F @yogo75/configurator typecheck",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

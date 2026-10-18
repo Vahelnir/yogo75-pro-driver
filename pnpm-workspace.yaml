@@ -5,3 +5,5 @@ packages:
 allowBuilds:
   # node-hid ships prebuilt binaries; its install script is not needed
   node-hid: false
+  # esbuild (pulled by the i18n plugin) ships its binary as an optional dependency
+  esbuild: false

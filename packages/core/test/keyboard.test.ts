@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { withoutFullBytes } from "../src/flash.ts";
-import { keyAt, Keyboard } from "../src/index.ts";
+import { firmwareVersion, keyAt, Keyboard } from "../src/index.ts";
 import { BACKUP, FakeKeyboard } from "./fake-transport.ts";
 
 function setup(reportSize = 64) {
@@ -101,6 +101,11 @@ test("chunks are report size - 8 bytes", async () => {
     [0x12, 0, 24],
     [0x12, 24, 15], // the hub reads 39 info bytes wireless
   ]);
+});
+
+test("the firmware version is read from the info", async () => {
+  const { kb } = setup();
+  assert.equal(firmwareVersion(await kb.readInfo()), "1.26");
 });
 
 test("config writes send the exact length of the last chunk", async () => {
