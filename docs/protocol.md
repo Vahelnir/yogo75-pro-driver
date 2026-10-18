@@ -321,6 +321,15 @@ Status: verified. For each layer, 6 packets of 56 bytes (`len = 56`, offset 0, 5
 
 Status: verified for layer 0 (`0x1B`) and the Fn layer (`0x1D`). Same split as reading: 6 packets `len = 56`, offset 0 to 280, data at byte 8. The configurator **always writes the whole layer**, even to change a single key. So we do read → modify → write back. The keyboard answers `0x55` to each packet and reading back in a new session shows the new value.
 
+Partial writes (code, firmware 1.26): the handler copies `len` bytes at any `offset`, with no alignment rule and no reset of the layer, so 3 bytes at `index × 3` should change a single key (not verified on the keyboard). **There is no bound check** (only `len ≤ 56`): an offset past the layer writes into the next layer's buffer (384 bytes apart), and past layer 3 into other RAM, the macro buffer among them. Reads are unbounded too. A tool must enforce `offset + len ≤ 336` itself.
+
+### Persistence
+
+Status: code (firmware 1.26). Every write is live in RAM at once; there is no save or discard command, so an undo can only rewrite older data. Each accepted write arms a save and restarts its countdown: about 100 ticks later (probably 10 ms each, so about 1 s; hypothesis), the firmware writes to flash, postponed while it reports busy. A whole layer written in 6 packets thus ends up as one save.
+
+- Keymap (`0x0206c000`, layers 0–3), per-key colours (`0x02070000`) and the config block (`0x0206b000`, 64-byte records) are append-only logs in 4 KB pages: each save appends a record, and the page is erased only when full (one erase every 10 keymap saves).
+- Macros erase and rewrite their page (`0x02075000`) on every save.
+
 ### Layers
 
 | Layer | Role                                                                                                                                                                                         | Status   |
@@ -328,6 +337,14 @@ Status: verified for layer 0 (`0x1B`) and the Fn layer (`0x1D`). Same split as r
 | 0     | default base layer (`layer` = 0 in the config block)                                                                                                                                         | verified |
 | 1     | Fn layer (the configurator reads it with `0x1C`)                                                                                                                                             | verified |
 | 2, 3  | identical to factory layer 0; the configurator doesn't use them. Reachable with a key `50 03 00` / `50 04 00` (while it is held) or as the base layer via `layer`. Mac mode doesn't use them | verified |
+
+The four layers are generic (code, firmware 1.26): four RAM buffers of 384 bytes handled by the same lookup, with no dedicated purpose (no profile, no second Fn; Mac mode only rewrites a few F-row codes on the fly). Why the hub shows only two is unknown (hypothesis: a product profile on the hub side).
+
+Layer resolution (code, firmware 1.26):
+
+- `50 01`–`50 04` are momentary layers 0–3. Each press counts as held; on release, the highest layer still held wins (3 > 2 > 1 > 0), else the base layer (`layer`, config byte 43).
+- The layer is latched per key on press: the release is read from the same layer, even if the active layer changed in between.
+- `50 05`–`50 08` set the base layer to 0–3 permanently (saved like a config change) and clear the held layers.
 
 ### Key position
 
@@ -361,6 +378,7 @@ Known `0x50` functions (labels from `keyboard-info.util-*.js` and `keymap-*.js`)
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------- |
 | `02`                   | Fn (layer 1, while the key is held); several keys can carry this code (verified: Caps Lock → `50 02 00` acts as Fn, the original Fn key too) | `2b`        | dot screen: next effect                                                |
 | `03`                   | layer 2 while the key is held (verified; absent from the configurator)                                                                       | `04`        | layer 3 while the key is held (verified; absent from the configurator) |
+| `01`                   | layer 0 while the key is held (code)                                                                                                         | `05`–`08`   | set the base layer to 0–3, saved (code), see [layers](#layers)         |
 | `09`                   | lighting on/off                                                                                                                              | `2d`        | dot screen: next colour                                                |
 | `0a` / `0b`            | lighting mode + / − (verified for `0b`: 0 → 20, it wraps)                                                                                    | `2f` / `30` | dot screen: brightness + / −                                           |
 | `0c` / `0d`            | next / previous colour in the palette (verified)                                                                                             | `39`        | show battery level                                                     |
@@ -550,7 +568,7 @@ Used when `ledMode = 253` ("custom").
 
 **Colour picker** (function `50 12 00`; firmware 1.26). While it is open, every key lights in its palette colour; the next key pressed becomes the backlight colour (`colorful` = 0, `colorR/G/B` = its triplet, read back as is from the config block) and the picker closes. Space (LED 77) cycles through the hue wheel and picks the rainbow (`colorful` = 1, `colorR/G/B` unchanged). The function is ignored in modes 0, 2, 12, 253 and 254 (verified: no palette, the next key types normally, the config block and the per-key colours are unchanged), and no key carries it in the keymap read from this keyboard (4 layers). The palette holds one RGB triplet (values 0–90) per physical position, at `3 × (column × 6 + row)`, on the 16 × 6 grid of the position → LED table at `0x0204babe`: 96 triplets, 288 bytes, so `0x32` stops in the middle of the 70th.
 
-**Colour matrix** (`0x22` read / `0x23` write; 6 packets of 56 bytes, offset 0 to 280). One RGB triplet per LED number: the colour of key `i` is at byte `3 × led[i]`. As for the keymap, the configurator always writes the whole matrix.
+**Colour matrix** (`0x22` read / `0x23` write; 6 packets of 56 bytes, offset 0 to 280). One RGB triplet per LED number: the colour of key `i` is at byte `3 × led[i]`. As for the keymap, the configurator always writes the whole matrix. Like the keymap, the write handler accepts any offset with no bound check (code). It arms the save to flash only when a packet ends at or past byte 384 (code, firmware 1.26): wireless writes (16 × 24 bytes) reach it, the wired 6 × 56 = 336 bytes do not. Hypothesis, not tested: colours written over the cable stay in RAM until something else saves them.
 
 Verified: with W, A, S, D and the four arrows white and all other LEDs off, cross-referencing keymap ↔ LED table lands exactly on these keys.
 
