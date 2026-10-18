@@ -12,13 +12,16 @@ export default defineConfig({
   // `/` when self-hosted; GitHub Pages builds with BASE=/<repo>/
   base: process.env.BASE ?? "/",
   plugins: [
-    VueRouter({ dts: "src/typed-router.d.ts" }),
+    VueRouter({ dts: "src/generated/typed-router.d.ts" }),
     vue(),
     AutoImport({
       imports: ["vue", VueRouterAutoImports, "vue-i18n", "@vueuse/core"],
-      dts: "src/auto-imports.d.ts",
+      dts: "src/generated/auto-imports.d.ts",
     }),
-    Components({ dirs: ["src/components/ui"], dts: "src/components.d.ts" }),
+    Components({
+      dirs: ["src/components/ui"],
+      dts: "src/generated/components.d.ts",
+    }),
     Icons({ compiler: "vue3" }),
     VueI18n({ include: new URL("src/locales/**", import.meta.url).pathname }),
     tailwindcss(),
