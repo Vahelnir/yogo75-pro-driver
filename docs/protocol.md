@@ -250,6 +250,32 @@ List `Ns` in `keyboard-info.util-*.js`. Names: the configurator's English labels
 | 253   | custom: per-key colour, see [per-key colours](#per-key-colours)                                                                                                                                                         | B, C                                                                                      | verified     |
 | 254   | Music Rhythm: lighting synced to music, foreground and background colours. `0x2E` / `0x2F` stream sent by the ATK desktop application, not by the site; we assume it works like the dot screen stream. **Undetermined** | C                                                                                         | undetermined |
 
+### Effect tables (code, firmware 1.26)
+
+The effects read constant tables of the firmware. They sit right after the colour picker palette, past the end of what `0x32` returns, so they can only be read from the firmware image.
+
+**Hue wheel** (`0x0204bb1e`, 256 RGB triplets, 768 bytes). Fully saturated: one channel is always 255. Red (0) → yellow (81) → green (112) → cyan (143) → blue (174) → magenta (224) → back to red; the steps are uneven (red → yellow takes 81 entries, the others 31 to 50). An 8-bit counter indexes it, so it wraps on its own. Modes 1, 2, 3, 4, 7, 8, 9, 10, 12, 16, 17 and 19 read it directly (in multicolour, or always for 2 and 12), then scale the colour by `brightness`/256.
+
+**Level wave** (`0x0204ca7e`, 128 bytes). A triangle: 0, 4, 8 … 252, 255, 255, 252 … 4, 0. Used in single-colour mode (`colorful` = 0) by modes 1, 3, 7, 8, 9, 10 and 19: the chosen colour `colorR/G/B` is multiplied by the level/256, then by `brightness`/256. That is the breathing and the moving waves of the single-colour effects.
+
+**Rings around R and P** (`0x0204b9e6`, 6 rows × 28 bytes, LED numbers, `ff` = none). Mode 19 (Rainbow Flow 3) is the only user. Each row is a ring of LEDs at the same distance from two centres, the R and P keys; 28 is room for the largest ring (25 LEDs). The 6 rings, keys named as on QWERTY:
+
+| Ring | Keys                                                                                                                                    |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | R, P                                                                                                                                    |
+| 1    | 4, 5, E, T, D, F, 0, `-`, O, `[`, L, `;`                                                                                                |
+| 2    | F4, F5, 3, 6, W, Y, S, G, X, C, V, F10, F11, 9, `=`, I, `]`, K, `'`, `,`, `.`, `/`                                                      |
+| 3    | F3, F6, 2, 7, Q, U, A, H, Z, B, Left Alt, F9, F12, Print Screen, 8, Backspace, `\`, J, Enter, M, Right Shift, Right Alt, Fn, Right Ctrl |
+| 4    | F2, F7, F8, 1, 7, 8, Tab, I, Caps Lock, H, J, Left Shift, N, Win, Space, Insert, Home, End, Page Up, Up, ←                              |
+| 5    | Esc, F1, F7, `²`, Left Ctrl, B, Delete, Page Down, ↓, →                                                                                 |
+
+The 84 LEDs are all covered; 8 keys between the two centres (F7, 7, 8, U, I, H, J, B) are listed in two rings (U twice in ring 3), and the later ring wins. Every 4 ticks of the speed timer (`ledSpeed` + 1 timer periods per tick), the effect advances a step counter and paints each ring in one colour:
+
+- `colorful` = 1: hue wheel entry `counter + 26 × ring` (8-bit, wraps), scaled by `brightness`;
+- `colorful` = 0: `colorR/G/B` × level wave entry `counter + 6 × ring` (counter 0–127; a ring index past 126 restarts at 0 rather than wrapping).
+
+The colour at ring `r` reaches ring `r − 1` 26 steps later (6 in single colour), so the rings should move **inwards**, towards R and P. Open: the direction has not been checked on the keyboard.
+
 ## Dot screen: built-in modes
 
 Set through the config block, positions 29–37 (the configurator's `setDotLight` / `getDotLight`). The configurator forces `LedTFTOnOff = 0` and `LedTFTColorful = 0`, and inverts the speed as for the backlight: `LedTFTSpeed = abs(6 - speed)` (code). Verified: `LedTFTBrightness` 5 / 30 / 90 clearly changes the brightness; raw `LedTFTSpeed` 6 clearly slows the animation compared with 2 (so low raw value = fast). Colour verified: in mode 0 ("star"), `00ff00` makes the stars green instead of the original red (`ff0000`). Original values read: mode 8, brightness 30, raw speed 2, colour `ff0000`.
