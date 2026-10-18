@@ -171,8 +171,9 @@ export class Keyboard {
   }
 
   /**
-   * The page's pointer once no save is pending, or undefined if one stays pending (stuck page) or none landed.
+   * The page's pointer once a save has landed and none is pending, or undefined if none lands in time (stuck page).
    * A slow link (the dongle) lets several saves land during one write, so the pointer is read only at the end.
+   * Nothing pending and the pointer unchanged means "not yet": the config arms its save only at the next tick.
    */
   async #savedPointer(page: FlashPage, before: number) {
     const deadline = Date.now() + SAVE_TIMEOUT_MS;
@@ -180,7 +181,9 @@ export class Keyboard {
       const reply = await this.#transfer(CMD_KB_FUNCTION, 1, page.armedOffset);
       if (!reply[HEADER_BYTES]) {
         const pointer = await this.#pagePointer(page);
-        return pointer === before ? undefined : pointer;
+        if (pointer !== before) {
+          return pointer;
+        }
       }
 
       await sleep(SAVE_POLL_MS);
@@ -191,6 +194,7 @@ export class Keyboard {
   /**
    * Writes `data` and waits for it to reach flash, never leaving its page full: a full page is written again, which
    * erases it. A stuck page's save fails; zeros always fit over its last record, after which the data erases it.
+   * The zeros go live, so they are only tried on a page that may be stuck, and replaced by the data if they fail.
    */
   async #save(
     page: FlashPage,
@@ -203,9 +207,14 @@ export class Keyboard {
 
       let after = await this.#savedPointer(page, before);
       if (after === undefined) {
+        if (!mayBeStuck(page, before)) {
+          throw new Error(`the keyboard does not save its ${page.name}`);
+        }
+
         await write(new Uint8Array(data.length));
         after = await this.#savedPointer(page, before);
         if (after === undefined) {
+          await write(data);
           throw new Error(`the keyboard does not save its ${page.name}`);
         }
         continue; // the zeros were saved: write the data again
