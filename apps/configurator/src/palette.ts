@@ -143,13 +143,25 @@ export const PALETTE: { label: string; entries: PaletteEntry[] }[] = [
   },
 ];
 
-/**
- * The QMK name of every key the capture knows, but those another group holds (media…): the way back to a plain key
- * when no key of the keyboard types any more.
- */
-export const TYPED_KEYS = Object.values(KEY_NAMES).filter(
-  (name) => !PALETTE.some((g) => g.entries.some((e) => e.name === name)),
-);
+/** The `KeyboardEvent.code`s of the numeric keypad, which has a tab of its own. */
+function isNumpad(code: string): boolean {
+  return code.startsWith("Numpad") || code === "NumLock";
+}
+
+/** The QMK names of the captured keys that `keep` accepts, but those another group holds (media…). */
+function capturedKeys(keep: (code: string) => boolean): string[] {
+  return Object.entries(KEY_NAMES)
+    .filter(([code]) => keep(code))
+    .map(([, name]) => name)
+    .filter(
+      (name) => !PALETTE.some((g) => g.entries.some((e) => e.name === name)),
+    );
+}
+
+/** Every plain key the capture knows, but the keypad: the way back to a plain key when no key types any more. */
+export const TYPED_KEYS = capturedKeys((code) => !isNumpad(code));
+
+export const NUMPAD_KEYS = capturedKeys(isNumpad);
 
 /** The number of each macro of the area that holds actions; none for a malformed area. */
 export function macroNumbers(area: Uint8Array): number[] {

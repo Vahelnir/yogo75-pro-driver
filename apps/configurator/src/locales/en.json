@@ -41,7 +41,8 @@
       "mouse": "Mouse",
       "lighting": "Lighting",
       "dot_screen": "Dot screen",
-      "keyboard": "Keyboard"
+      "keyboard": "Keyboard",
+      "numpad": "Numpad"
     },
     "keys": {
       "fn": "Fn (layer 1 while held)",

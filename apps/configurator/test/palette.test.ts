@@ -8,7 +8,12 @@ import {
 import { expect, test } from "vitest";
 import en from "../src/locales/en.json";
 import fr from "../src/locales/fr.json";
-import { macroNumbers, PALETTE, TYPED_KEYS } from "../src/palette.ts";
+import {
+  macroNumbers,
+  NUMPAD_KEYS,
+  PALETTE,
+  TYPED_KEYS,
+} from "../src/palette.ts";
 
 const entries = PALETTE.flatMap((group) => group.entries);
 
@@ -49,7 +54,10 @@ test("plain keys are all there, and no name is in two tabs", () => {
     expect(TYPED_KEYS).toContain(name);
   }
 
-  const names = [...TYPED_KEYS, ...entries.map((e) => e.name)];
+  expect(NUMPAD_KEYS).toEqual(expect.arrayContaining(["NUM", "P0", "PENT"]));
+  expect(TYPED_KEYS).not.toContain("P0");
+
+  const names = [...TYPED_KEYS, ...NUMPAD_KEYS, ...entries.map((e) => e.name)];
   expect(new Set(names).size).toBe(names.length);
 });
 

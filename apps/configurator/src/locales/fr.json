@@ -41,7 +41,8 @@
       "mouse": "Souris",
       "lighting": "Éclairage",
       "dot_screen": "Écran à points",
-      "keyboard": "Clavier"
+      "keyboard": "Clavier",
+      "numpad": "Pavé numérique"
     },
     "keys": {
       "fn": "Fn (couche 1 tant qu'appuyée)",

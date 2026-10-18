@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { PALETTE, PALETTE_DRAG_TYPE, TYPED_KEYS } from "../palette.ts";
+import {
+  NUMPAD_KEYS,
+  PALETTE,
+  PALETTE_DRAG_TYPE,
+  TYPED_KEYS,
+} from "../palette.ts";
 
 /** Every binding, plain keys first and the keyboard's macros last: picked for the selected key, or dragged onto one. */
 const props = defineProps<{ macros: number[] }>();
@@ -13,6 +18,10 @@ const groups = computed(() =>
     {
       label: t("palette.groups.keys"),
       entries: TYPED_KEYS.map((name) => ({ name, label: name })),
+    },
+    {
+      label: t("palette.groups.numpad"),
+      entries: NUMPAD_KEYS.map((name) => ({ name, label: name })),
     },
     ...PALETTE.map((group) => ({
       label: t(group.label),
