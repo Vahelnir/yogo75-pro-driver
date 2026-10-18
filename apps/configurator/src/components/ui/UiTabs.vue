@@ -7,7 +7,7 @@ const model = defineModel<number>();
 
 <template>
   <TabsRoot v-model="model">
-    <TabsList class="mb-4 flex gap-1 border-b border-zinc-200">
+    <TabsList class="mb-4 flex flex-wrap gap-1 border-b border-zinc-200">
       <TabsTrigger
         v-for="option in options"
         :key="option.value"
