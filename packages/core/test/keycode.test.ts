@@ -35,6 +35,11 @@ test("names map to codes, whatever the case, prefix or alias", () => {
   assert.equal(code("lctl(lsft(kc_c))"), "10 03 06");
   assert.equal(code("VOLU"), "30 e9 00");
   assert.equal(code("BTN2"), "40 00 02");
+  assert.equal(code("MO(0)"), "50 01 00");
+  assert.equal(code("PDF(3)"), "50 08 00");
+  assert.equal(code("COLOR_PICKER"), "50 12 00");
+  assert.equal(code("MAC_TOGG2"), "50 3b 00");
+  assert.equal(code("KNOB_LOCK"), "50 40 00");
 });
 
 test("unknown names are rejected", () => {
@@ -65,7 +70,7 @@ test("codes print as their first name", () => {
 });
 
 test("unknown codes round-trip as hex", () => {
-  for (const h of ["50 3e 00", "61 01 00", "00 00 00", "10 00 ff"]) {
+  for (const h of ["50 37 00", "61 01 00", "00 00 00", "10 00 ff"]) {
     const n = name(h);
     assert.match(n, /^0x[0-9a-f]{6}$/);
     assert.equal(code(n), h);

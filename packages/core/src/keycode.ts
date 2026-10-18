@@ -181,9 +181,15 @@ const MOUSE_SYSTEM_KEYS: Entry<string>[] = [
 
 /** Keyboard functions: QMK names where QMK has the same action, project names otherwise. */
 const FUNCTIONS: Entry<string>[] = [
+  [fn(0x01), "MO(0)"],
   [fn(0x02), "FN", "MO(1)"],
   [fn(0x03), "MO(2)"],
   [fn(0x04), "MO(3)"],
+  // the base layer, saved like a config change: QMK's persistent PDF, not DF
+  [fn(0x05), "PDF(0)"],
+  [fn(0x06), "PDF(1)"],
+  [fn(0x07), "PDF(2)"],
+  [fn(0x08), "PDF(3)"],
   [fn(0x09), "RM_TOGG", "RGB_TOG"],
   [fn(0x0a), "RM_NEXT", "RGB_MOD"],
   [fn(0x0b), "RM_PREV", "RGB_RMOD"],
@@ -194,6 +200,7 @@ const FUNCTIONS: Entry<string>[] = [
   [fn(0x0f), "RM_VALD", "RGB_VAD"],
   [fn(0x10), "RM_SPDU", "RGB_SPI"],
   [fn(0x11), "RM_SPDD", "RGB_SPD"],
+  [fn(0x12), "COLOR_PICKER"],
   [fn(0x19), "SIDE_NEXT"],
   [fn(0x1b), "SIDE_HUE"],
   [fn(0x1d), "SIDE_VALU"],
@@ -208,7 +215,16 @@ const FUNCTIONS: Entry<string>[] = [
   [fn(0x35), "BT_2"],
   [fn(0x36), "BT_3"],
   [fn(0x39), "BAT_LVL"],
+  // the toggles from 3a to 40, except 3c and 3f, act once held for 3 s
+  [fn(0x3a), "MAC_TOGG"],
+  [fn(0x3b), "MAC_TOGG2"],
   [fn(0x3c), "GU_TOGG"],
+  [fn(0x3d), "WASD_TOGG"],
+  // scanDelay 0 ↔ 2
+  [fn(0x3e), "LOWLAT_TOGG"],
+  [fn(0x3f), "FKEY_TOGG"],
+  // wheelMode 0 ↔ 1
+  [fn(0x40), "KNOB_LOCK"],
   // the knob's volume and mute, off while config wheelMode is not 0
   [fn(0x47), "KNOB_VOLD", "KNOB_LEFT"],
   [fn(0x48), "KNOB_VOLU", "KNOB_RIGHT"],

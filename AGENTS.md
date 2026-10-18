@@ -27,6 +27,10 @@ Run the CLI from the repo root with `pnpm yogo75 …`; `save`/`load` paths are r
 - **Visual check**: the user is the test's eyes. Tell them what to look at; for a subtle effect, have them compare two extreme values.
 - **Stuck key** (malformed macro, interrupted stream): unplug and replug the keyboard; settings survive.
 
+## Specs
+
+When a task questions, changes or adds a rule of its spec or issue (a criterion dropped, a behaviour decided with the user, a new constraint found), propose to update that spec or issue, with the new wording.
+
 ## Git
 
 Work on a branch, delivered through a PR. Commit, push and open PRs only with the user's approval.
