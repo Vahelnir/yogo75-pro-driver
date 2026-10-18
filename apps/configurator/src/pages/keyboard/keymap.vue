@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { keycode } from "@yogo75/core";
 import KeymapDrawing from "../../components/KeymapDrawing.vue";
+import KeyPalette from "../../components/KeyPalette.vue";
 import { device, session } from "../../keyboard.ts";
 import { KEY_NAMES } from "../../keycodes.ts";
+import { macroNumbers } from "../../palette.ts";
 import { isDongle } from "../../webhid.ts";
 
 const { t } = useI18n();
@@ -11,6 +13,16 @@ const layer = ref(0);
 const selected = ref<number>();
 const error = ref<string>();
 const drawing = useTemplateRef("drawing");
+/** The selected key's element, which the palette opens next to. */
+const anchor = computed(() =>
+  selected.value === undefined
+    ? undefined
+    : (drawing.value?.querySelector(`[data-index="${selected.value}"]`) ??
+      undefined),
+);
+const macros = computed(() =>
+  session.value ? macroNumbers(session.value.state.macros) : [],
+);
 /** The key press just captured: its keyup is swallowed too, so that Space doesn't click the focused key. */
 let captured: string | undefined;
 
@@ -24,9 +36,25 @@ function swallow(e: KeyboardEvent) {
   e.stopPropagation();
 }
 
-async function bind(e: KeyboardEvent) {
+/** Binds the selected key to `name`, whether captured or picked in the palette. */
+async function assign(name: string) {
   const index = selected.value;
   if (index === undefined || !session.value) {
+    return;
+  }
+
+  selected.value = undefined;
+  try {
+    await session.value.setKey(layer.value, index, keycode(name));
+  } catch (err) {
+    error.value = (err as Error).message;
+  } finally {
+    triggerRef(session);
+  }
+}
+
+async function bind(e: KeyboardEvent) {
+  if (selected.value === undefined || !session.value) {
     return;
   }
 
@@ -36,19 +64,13 @@ async function bind(e: KeyboardEvent) {
     return;
   }
 
-  selected.value = undefined;
   captured = e.code;
   if (e.code === "Escape") {
+    selected.value = undefined;
     return;
   }
 
-  try {
-    await session.value.setKey(layer.value, index, keycode(name));
-  } catch (err) {
-    error.value = (err as Error).message;
-  } finally {
-    triggerRef(session);
-  }
+  await assign(name);
 }
 
 useEventListener(globalThis, "keydown", bind, { capture: true });
@@ -65,9 +87,13 @@ useEventListener(
   },
   { capture: true },
 );
-onClickOutside(drawing, () => {
-  selected.value = undefined;
-});
+onClickOutside(
+  drawing,
+  () => {
+    selected.value = undefined;
+  },
+  { ignore: ["[data-palette]"] },
+);
 </script>
 
 <template>
@@ -104,6 +130,7 @@ onClickOutside(drawing, () => {
       </div>
     </template>
   </UiTabs>
+  <KeyPalette :anchor :macros @pick="assign" />
   <p v-if="selected !== undefined" class="mt-4">
     {{ t("keymap.listening") }}
   </p>

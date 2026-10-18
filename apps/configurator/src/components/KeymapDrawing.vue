@@ -55,6 +55,7 @@ function knobPart(index: number) {
   return {
     role: "button",
     tabindex: 0,
+    "data-index": index,
     "aria-pressed": props.selected === index,
     class: [
       "cursor-pointer hover:stroke-zinc-500",
@@ -96,6 +97,7 @@ function place(rect: KeyRect) {
         class="flex h-full w-full items-center justify-center overflow-hidden rounded border border-zinc-300 bg-white px-0.5 text-[clamp(7px,1.1cqw,13px)] shadow-sm hover:border-zinc-500"
         :class="{ 'border-amber-500 bg-amber-100': selected === index }"
         :aria-pressed="selected === index"
+        :data-index="index"
         :title="`${index}: ${name}`"
         @click="emit('select', index)"
       >
