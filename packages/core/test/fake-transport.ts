@@ -1,6 +1,12 @@
 import { readFileSync } from "node:fs";
-import { readU16le } from "../src/bytes.ts";
+import { readU16le, u16le } from "../src/bytes.ts";
 import { CUSTOM_LEDS_BUFFER_BYTES } from "../src/commands.ts";
+import {
+  CONFIG_PAGE,
+  KEYMAP_PAGES,
+  LEDS_PAGE,
+  type FlashPage,
+} from "../src/flash.ts";
 import { fromHex, MACRO_AREA_BYTES, type Transport } from "../src/index.ts";
 
 // Captured with `pnpm yogo75 backup` (now `save`) on a real Yogo 75 PRO.
@@ -37,7 +43,38 @@ const WRITES: Record<number, string> = {
   0x2d: "macros",
 };
 
-/** Keyboard stand-in: answers reads from the backup, applies writes to it and records every packet sent. */
+/** RAM the config read reaches past the 64-byte config block, up to the save variables. */
+const CONFIG_READ_REACH = 0x700;
+
+/** A flash page as the firmware keeps it: appended records (undefined = erased) and the next one's index. */
+export interface FakePage {
+  page: FlashPage;
+  records: (Uint8Array | undefined)[];
+  next: number;
+}
+
+/** The boot scan's test: a run of 32 0xFF before a run of 32 other bytes. */
+function readsAsFree(record: Uint8Array | undefined) {
+  let ff = 0;
+  let other = 0;
+  for (const b of record ?? []) {
+    ff = b === 0xff ? ff + 1 : 0;
+    other = b === 0xff ? 0 : other + 1;
+    if (ff >= 32) {
+      return true;
+    }
+    if (other >= 32) {
+      return false;
+    }
+  }
+  return record === undefined;
+}
+
+/**
+ * Keyboard stand-in: answers reads from the backup, applies writes to it and records every packet sent.
+ * Writes to the config, a layer or the colours arm a save, which lands at the next packet, as on the keyboard
+ * while the host polls; `reboot` reloads them from their flash pages, with the firmware's flaws.
+ */
 export class FakeKeyboard implements Transport {
   reportSize: number;
   written: Uint8Array[] = [];
@@ -52,6 +89,16 @@ export class FakeKeyboard implements Transport {
     // get_keyboard_info as read on the keyboard, up to macroSize (4)
     info: fromHex("aa bb 3b 37 9b 11 26 01 03 01 00 02 80 04"),
   };
+  /** One record each to start with: what the backup holds. */
+  pages: Record<string, FakePage> = Object.fromEntries(
+    [CONFIG_PAGE, ...KEYMAP_PAGES, LEDS_PAGE].map((page) => [
+      page.name,
+      { page, records: [BACKUP[page.name].slice()], next: 1 },
+    ]),
+  );
+  #armed = new Set<string>();
+  /** Saves also land between the packets of one write, as through the dongle. */
+  savesDuringWrites = false;
   /** Turns each reply into the reports actually returned, to inject faults. */
   replies = (reply: Uint8Array): Uint8Array[] => [reply];
   #pending: Uint8Array[] = [];
@@ -68,6 +115,49 @@ export class FakeKeyboard implements Transport {
     this.data.leds = leds;
   }
 
+  /** Fills a page with copies of the current data, up to `used` records (10 or 64 = full). */
+  fillPage(name: string, used: number) {
+    const fake = this.pages[name];
+    fake.records = Array.from({ length: used }, () => this.data[name].slice());
+    fake.next = used;
+  }
+
+  /** Power cycle: RAM is lost, each page's scan sets its write position and loads the record before it. */
+  reboot() {
+    this.#armed.clear();
+    for (const fake of Object.values(this.pages)) {
+      const { records } = fake.page;
+      const free = [...Array(records).keys()].find((i) =>
+        readsAsFree(fake.records[i]),
+      );
+      // the firmware's off-by-one: on a full page it stops on the last record and loads the one before
+      fake.next = free ?? records - 1;
+      const loaded = fake.records[fake.next - 1];
+      if (loaded) {
+        this.data[fake.page.name].set(loaded);
+      }
+    }
+  }
+
+  /** The firmware's save: append, erase a full page first, and refuse a record that doesn't fit bit-wise. */
+  #save(name: string) {
+    const fake = this.pages[name];
+    if (fake.next === fake.page.records) {
+      fake.records = [];
+      fake.next = 0;
+    }
+
+    const record = this.data[name].slice();
+    const old = fake.records[fake.next];
+    if (old && !record.every((b, i) => (old[i] & b) === b)) {
+      return; // stays armed: retried at the next tick
+    }
+
+    fake.records[fake.next] = record;
+    fake.next++;
+    this.#armed.delete(name);
+  }
+
   async transfer(report?: Uint8Array) {
     if (report) {
       this.written.push(report);
@@ -76,11 +166,27 @@ export class FakeKeyboard implements Transport {
       const reply = new Uint8Array(this.reportSize);
       reply.set(report.subarray(0, 8));
 
-      const written = this.data[WRITES[cmd]];
+      const name = WRITES[cmd];
+      for (const armed of [...this.#armed]) {
+        if (armed !== name || this.savesDuringWrites) {
+          this.#save(armed);
+        }
+      }
+
+      const written = this.data[name];
       const read = this.data[READS[cmd]];
       if (written) {
         const end = Math.min(len, written.length - off); // padded last chunk
         written.set(report.subarray(8, 8 + end), off);
+        // the colours arm a save only when a packet reaches their buffer's end
+        if (
+          this.pages[name] &&
+          (name !== "leds" || off + len >= CUSTOM_LEDS_BUFFER_BYTES)
+        ) {
+          this.#armed.add(name);
+        }
+      } else if (cmd === 0x14) {
+        reply.set(this.#configReach().subarray(off, off + len), 8);
       } else if (read) {
         // len 0 (power info) still answers with the data, as the keyboard does
         reply.set(read.subarray(off, off + (len || read.length)), 8);
@@ -90,5 +196,15 @@ export class FakeKeyboard implements Transport {
     }
 
     return this.#pending.shift();
+  }
+
+  #configReach() {
+    const ram = new Uint8Array(CONFIG_READ_REACH);
+    ram.set(this.data.config);
+    for (const { page, next } of Object.values(this.pages)) {
+      ram.set(u16le(next * page.recordBytes), page.pointerOffset);
+      ram[page.armedOffset] = this.#armed.has(page.name) ? 1 : 0;
+    }
+    return ram;
   }
 }

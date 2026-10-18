@@ -40,7 +40,7 @@ export async function openKeyboard(): Promise<{
   return { transport, close: () => dev.close() };
 }
 
-/** Opens the keyboard, sends the start packet, runs `use` and closes; DEBUG=1 traces every packet. */
+/** Opens the keyboard, sends the start packet, repairs its flash pages, runs `use` and closes; DEBUG=1 traces every packet. */
 export async function withKeyboard<T>(
   use: (k: Keyboard) => Promise<T>,
 ): Promise<T> {
@@ -52,6 +52,12 @@ export async function withKeyboard<T>(
 
   try {
     await k.start();
+    for (const name of await k.repairFlashPages()) {
+      console.error(
+        `repaired the ${name} flash page, left full by another tool or the keyboard`,
+      );
+    }
+
     return await use(k);
   } finally {
     await close();

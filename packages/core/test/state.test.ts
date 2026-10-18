@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { withoutFullBytes } from "../src/flash.ts";
 import {
   encodeMacro,
   hex,
@@ -36,7 +37,9 @@ test("read → serialise → parse → write gives back exactly the bytes read",
 
   for (const name of Object.keys(BACKUP)) {
     const written = target.data[name].subarray(0, BACKUP[name].length);
-    assert.deepEqual(written, BACKUP[name], name);
+    const expected =
+      name === "leds" ? withoutFullBytes(BACKUP.leds) : BACKUP[name];
+    assert.deepEqual(written, expected, name);
   }
   assert.equal(JSON.parse(text).version, 1);
 });
@@ -56,13 +59,13 @@ test("writes config, layers 0-3, colours, then macros", async () => {
 test("resources the keyboard did not apply are reported", async () => {
   const fake = new FakeKeyboard(64);
   const transfer = fake.transfer.bind(fake);
-  // the colour writes turn into start packets: acked, never applied
-  fake.transfer = (r) => transfer(r?.[1] === 0x23 ? r.with(1, 0x10) : r);
+  // the macro writes turn into start packets: acked, never applied
+  fake.transfer = (r) => transfer(r?.[1] === 0x2d ? r.with(1, 0x10) : r);
   const state = stateFromJson(FIXTURE);
-  state.leds = state.leds.map((b) => b ^ 0xff);
+  state.macros = state.macros.map((b) => b ^ 0xff);
   state.config = state.config.map((b) => b ^ 0xff);
 
-  assert.deepEqual(await new Keyboard(fake).writeState(state), ["leds"]);
+  assert.deepEqual(await new Keyboard(fake).writeState(state), ["macros"]);
 });
 
 test("a macro area longer than 224 bytes is saved and loaded whole", async () => {

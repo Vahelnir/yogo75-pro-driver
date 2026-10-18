@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { withoutFullBytes } from "../src/flash.ts";
 import { keyAt, Keyboard } from "../src/index.ts";
 import { BACKUP, FakeKeyboard } from "./fake-transport.ts";
 
@@ -105,13 +106,18 @@ test("chunks are report size - 8 bytes", async () => {
 test("config writes send the exact length of the last chunk", async () => {
   const { fake, kb } = setup(32);
   await kb.writeConfig(BACKUP.config);
-  assert.deepEqual(packets(fake), [
-    [0x15, 0, 24],
-    [0x15, 24, 24],
-    [0x15, 48, 16],
-  ]);
   assert.deepEqual(
-    fake.written.flatMap((p) => [...p.subarray(8, 8 + p[4])]),
+    packets(fake).filter(([cmd]) => cmd === 0x15),
+    [
+      [0x15, 0, 24],
+      [0x15, 24, 24],
+      [0x15, 48, 16],
+    ],
+  );
+  assert.deepEqual(
+    fake.written
+      .filter((p) => p[1] === 0x15)
+      .flatMap((p) => [...p.subarray(8, 8 + p[4])]),
     [...BACKUP.config],
   );
 });
@@ -137,7 +143,10 @@ test("colour writes reach the end of the buffer, so the keyboard saves them", as
       .filter(([cmd]) => cmd === 0x23)
       .at(-1)!;
     assert.equal(offset + len, 384);
-    assert.deepEqual(fake.data.leds.subarray(0, 336), BACKUP.leds);
+    assert.deepEqual(
+      fake.data.leds.subarray(0, 336),
+      withoutFullBytes(BACKUP.leds),
+    );
     assert.deepEqual(fake.data.leds.subarray(336), new Uint8Array(48).fill(7));
   }
 });
