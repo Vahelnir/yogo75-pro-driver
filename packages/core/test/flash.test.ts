@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { readU16le } from "../src/bytes.ts";
+import { CONFIG_PAGE } from "../src/flash.ts";
 import { keyAt, Keyboard } from "../src/index.ts";
 import { BACKUP, FakeKeyboard } from "./fake-transport.ts";
 
@@ -30,6 +32,54 @@ for (const size of [64, 32]) {
   });
 }
 
+/** Writes of zeros, by their first chunk (the backup's config ends in zeros). */
+function zeroBlocks(fake: FakeKeyboard, cmd: number) {
+  return fake.written.filter(
+    (p) =>
+      p[1] === cmd &&
+      readU16le(p, 2) === 0 &&
+      p.subarray(8, 8 + p[4]).every((b) => b === 0),
+  );
+}
+
+for (const size of [64, 32]) {
+  test(`a config write is saved, though its save arms only at the next tick (${size}-byte reports)`, async () => {
+    const { fake, kb } = setup(size);
+
+    await kb.writeConfig(flip(BACKUP.config));
+
+    assert.deepEqual(zeroBlocks(fake, 0x15), []);
+    fake.reboot();
+    assert.deepEqual(await kb.readConfig(), flip(BACKUP.config));
+  });
+}
+
+test("when the zeros don't save either, the data is written back before the error", async () => {
+  const { fake, kb } = setup();
+  fake.fillPage("config", 63); // may be stuck
+  const transfer = fake.transfer.bind(fake);
+  // the config's save stays pending forever
+  fake.transfer = async (r) => {
+    const reply = await transfer(r);
+    if (r?.[1] === 0x14 && readU16le(r, 2) === CONFIG_PAGE.armedOffset) {
+      reply![8] = 1;
+    }
+    return reply;
+  };
+
+  await assert.rejects(
+    kb.writeConfig(flip(BACKUP.config)),
+    /the keyboard does not save its config/,
+  );
+
+  assert.ok(zeroBlocks(fake, 0x15).length > 0);
+  const last = fake.written.filter((p) => p[1] === 0x15).slice(-2); // 56 + 8 bytes
+  assert.deepEqual(
+    last.flatMap((p) => [...p.subarray(8, 8 + p[4])]),
+    [...flip(BACKUP.config)],
+  );
+});
+
 test("a write that fills its page is written again, which erases the page", async () => {
   const { fake, kb } = setup();
   fake.fillPage("keymap0", 9);
@@ -48,10 +98,7 @@ test("a stuck page is saved as zeros first, then the data erases it", async () =
 
   await kb.writeCustomLeds(Uint8Array.of(1, 2, 3));
 
-  const zeros = fake.written.filter(
-    (p) => p[1] === 0x23 && p.subarray(8, 8 + p[4]).every((b) => b === 0),
-  );
-  assert.ok(zeros.length > 0);
+  assert.ok(zeroBlocks(fake, 0x23).length > 0);
   fake.reboot();
   assert.deepEqual([...(await kb.readCustomLeds()).subarray(0, 3)], [1, 2, 3]);
 });
@@ -93,6 +140,8 @@ test("repairFlashPages rewrites only the pages left full or maybe stuck", async 
   fake.reboot(); // keymap2 is now stuck
 
   assert.deepEqual(await kb.repairFlashPages(), ["config", "keymap2"]);
+
+  assert.deepEqual(zeroBlocks(fake, 0x15), []);
 
   const writes = new Set(
     fake.written.map((p) => p[1]).filter((c) => c % 2 === 1 && c !== 0x15),

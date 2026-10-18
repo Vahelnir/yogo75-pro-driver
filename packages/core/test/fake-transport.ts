@@ -55,6 +55,9 @@ const WRITES: Record<number, string> = {
   0x2d: "macros",
 };
 
+/** Packets the host gets answered between a config write and the tick that applies it. */
+const CONFIG_TICK_PACKETS = 2;
+
 /** RAM the config read reaches past the 64-byte config block, up to the save variables. */
 const CONFIG_READ_REACH = 0x700;
 
@@ -86,6 +89,8 @@ function readsAsFree(record: Uint8Array | undefined) {
  * Keyboard stand-in: answers reads from the backup, applies writes to it and records every packet sent.
  * Writes to the config, a layer or the colours arm a save, which lands at the next packet, as on the keyboard
  * while the host polls; `reboot` reloads them from their flash pages, with the firmware's flaws.
+ * Config writes go to a staging buffer, applied (and their save armed) at the tick, after two more packets' replies:
+ * the host's first poll, both its reads, comes before it.
  */
 export class FakeKeyboard implements Transport {
   reportSize: number;
@@ -109,6 +114,9 @@ export class FakeKeyboard implements Transport {
     ]),
   );
   #armed = new Set<string>();
+  #configStaging = this.data.config.slice();
+  /** Packets left before the tick applies the staged config; 0 = nothing staged to apply. */
+  #configTick = 0;
   /** Saves also land between the packets of one write, as through the dongle. */
   savesDuringWrites = false;
   /** Turns each reply into the reports actually returned, to inject faults. */
@@ -144,6 +152,7 @@ export class FakeKeyboard implements Transport {
   /** Power cycle: RAM is lost, each page's scan sets its write position and loads the record before it. */
   reboot() {
     this.#armed.clear();
+    this.#configTick = 0;
     for (const fake of Object.values(this.pages)) {
       const { records } = fake.page;
       const free = [...Array(records).keys()].find((i) =>
@@ -186,6 +195,7 @@ export class FakeKeyboard implements Transport {
       reply.set(report.subarray(0, 8));
 
       const name = WRITES[cmd];
+      const tick = this.#configTick > 0 && --this.#configTick === 0;
       for (const armed of [...this.#armed]) {
         if (armed !== name || this.savesDuringWrites) {
           this.#save(armed);
@@ -194,7 +204,13 @@ export class FakeKeyboard implements Transport {
 
       const written = this.data[name];
       const read = this.data[READS[cmd]];
-      if (written) {
+      if (name === "config") {
+        this.#configStaging.set(report.subarray(8, 8 + len), off);
+        // the firmware applies the buffer only when offset + length > 62 (FUN_0203ed3c case 5)
+        if (off + len > 62) {
+          this.#configTick = CONFIG_TICK_PACKETS;
+        }
+      } else if (written) {
         const end = Math.min(len, written.length - off); // padded last chunk
         written.set(report.subarray(8, 8 + end), off);
         // the colours arm a save only when a packet reaches their buffer's end
@@ -209,6 +225,11 @@ export class FakeKeyboard implements Transport {
       } else if (read) {
         // len 0 (power info) still answers with the data, as the keyboard does
         reply.set(read.subarray(off, off + (len || read.length)), 8);
+      }
+
+      if (tick) {
+        this.data.config.set(this.#configStaging);
+        this.#armed.add("config");
       }
 
       this.#pending.push(...this.replies(reply));
