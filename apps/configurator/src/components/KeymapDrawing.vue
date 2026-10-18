@@ -116,8 +116,12 @@ function place(rect: KeyRect) {
     >
       <button
         type="button"
-        class="flex h-full w-full items-center justify-center overflow-hidden rounded border border-zinc-300 bg-white px-0.5 text-[clamp(7px,1.1cqw,13px)] shadow-sm hover:border-zinc-500"
-        :class="{ 'border-amber-500 bg-amber-100': selected === index }"
+        class="flex h-full w-full items-center justify-center overflow-hidden rounded border px-0.5 text-[clamp(7px,1.1cqw,13px)] shadow-sm"
+        :class="
+          selected === index
+            ? 'border-amber-500 bg-amber-100 ring-2 ring-amber-500'
+            : 'border-zinc-300 bg-white hover:border-zinc-500'
+        "
         :aria-pressed="selected === index"
         :title="`${index}: ${name}`"
         v-bind="dropTarget(index)"
