@@ -17,6 +17,7 @@ import {
   CMD_START,
   CMD_SYNC_DOT,
   CMD_WRITE_KB_FUNCTION,
+  CUSTOM_LEDS_BUFFER_BYTES,
   INFO_MACRO_SIZE,
   isDangerous,
   LED_MATRIX_BYTES,
@@ -202,8 +203,18 @@ export class Keyboard {
     return this.#readChunks(CMD_GET_CUSTOM_LEDS, MATRIX_BYTES);
   }
 
-  writeCustomLeds(leds: Uint8Array) {
-    return this.#writeChunks(CMD_SET_CUSTOM_LEDS, leds);
+  /**
+   * Writes the colours, then the rest of the buffer back unchanged: the keyboard only saves them to flash when a
+   * packet reaches the buffer's end (byte 384). The last chunk is not padded, which would write past the buffer.
+   */
+  async writeCustomLeds(leds: Uint8Array) {
+    const buffer = await this.#readChunks(
+      CMD_GET_CUSTOM_LEDS,
+      CUSTOM_LEDS_BUFFER_BYTES,
+    );
+    buffer.set(leds);
+
+    await this.#writeChunks(CMD_SET_CUSTOM_LEDS, buffer, false);
   }
 
   /** Key index -> LED number in the first 96 bytes (0xff = no LED). */

@@ -126,6 +126,22 @@ test("macro writes pad the last chunk to the full length", async () => {
   assert.deepEqual([...fake.written[9].subarray(8 + 8)], Array(16).fill(0));
 });
 
+test("colour writes reach the end of the buffer, so the keyboard saves them", async () => {
+  for (const reportSize of [64, 32]) {
+    const { fake, kb } = setup(reportSize);
+    fake.data.leds.fill(7, 336);
+
+    await kb.writeCustomLeds(BACKUP.leds);
+
+    const [, offset, len] = packets(fake)
+      .filter(([cmd]) => cmd === 0x23)
+      .at(-1)!;
+    assert.equal(offset + len, 384);
+    assert.deepEqual(fake.data.leds.subarray(0, 336), BACKUP.leds);
+    assert.deepEqual(fake.data.leds.subarray(336), new Uint8Array(48).fill(7));
+  }
+});
+
 test("each writable resource reads back what was written", async () => {
   const { kb } = setup(32);
   function flip(b: Uint8Array) {

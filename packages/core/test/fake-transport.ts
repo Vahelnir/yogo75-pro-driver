@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { readU16le } from "../src/bytes.ts";
+import { CUSTOM_LEDS_BUFFER_BYTES } from "../src/commands.ts";
 import { fromHex, MACRO_AREA_BYTES, type Transport } from "../src/index.ts";
 
 // Captured with `pnpm yogo75 backup` (now `save`) on a real Yogo 75 PRO.
@@ -61,6 +62,10 @@ export class FakeKeyboard implements Transport {
     const macros = new Uint8Array(MACRO_AREA_BYTES);
     macros.set(this.data.macros);
     this.data.macros = macros;
+    // the colour buffer is 384 bytes, of which the backup holds the 336 in use
+    const leds = new Uint8Array(CUSTOM_LEDS_BUFFER_BYTES);
+    leds.set(this.data.leds);
+    this.data.leds = leds;
   }
 
   async transfer(report?: Uint8Array) {
