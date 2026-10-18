@@ -1,33 +1,18 @@
 <script setup lang="ts">
 import { PALETTE, PALETTE_DRAG_TYPE, TYPED_KEYS } from "../palette.ts";
 
-/** Chromium's Keyboard API, missing from TypeScript's DOM types: `KeyboardEvent.code` → what the OS layout types. */
-interface KeyboardLayout {
-  getLayoutMap(): Promise<Map<string, string>>;
-}
-
 /** Every binding, plain keys first and the keyboard's macros last: picked for the selected key, or dragged onto one. */
 const props = defineProps<{ macros: number[] }>();
 const emit = defineEmits<{ pick: [name: string] }>();
 
 const { t } = useI18n();
 const tab = ref(0);
-const layout = ref<Map<string, string>>();
-
-onMounted(async () => {
-  const keyboard = (navigator as { keyboard?: KeyboardLayout }).keyboard;
-  layout.value = await keyboard?.getLayoutMap().catch(() => undefined);
-});
 
 const groups = computed(() =>
   [
     {
       label: t("palette.groups.keys"),
-      // the character the OS layout types there (é on AZERTY's 2), else the QMK name
-      entries: TYPED_KEYS.map((k) => ({
-        name: k.name,
-        label: layout.value?.get(k.code)?.toUpperCase() ?? k.name,
-      })),
+      entries: TYPED_KEYS.map((name) => ({ name, label: name })),
     },
     ...PALETTE.map((group) => ({
       label: t(group.label),
@@ -56,13 +41,13 @@ function drag(e: DragEvent, name: string) {
       :options="groups.map((group, i) => ({ value: i, label: group.label }))"
     >
       <template #default="{ value }">
-        <div class="grid grid-cols-[repeat(auto-fill,minmax(10rem,1fr))] gap-1">
+        <div class="flex flex-wrap gap-1">
           <button
             v-for="entry in groups[value].entries"
             :key="entry.name"
             type="button"
             draggable="true"
-            class="flex cursor-grab flex-col items-start rounded border border-zinc-300 bg-white px-2 py-1 text-left shadow-sm hover:border-zinc-500"
+            class="flex min-w-10 cursor-grab flex-col items-center rounded border border-zinc-300 bg-white px-2 py-0.5 shadow-sm hover:border-zinc-500"
             @click="emit('pick', entry.name)"
             @dragstart="drag($event, entry.name)"
           >

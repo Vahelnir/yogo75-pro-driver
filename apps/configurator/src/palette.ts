@@ -144,14 +144,12 @@ export const PALETTE: { label: string; entries: PaletteEntry[] }[] = [
 ];
 
 /**
- * Every key the capture knows, as its `KeyboardEvent.code` and QMK name, but those another group holds (media…):
- * the way back to a plain key when no key of the keyboard types any more.
+ * The QMK name of every key the capture knows, but those another group holds (media…): the way back to a plain key
+ * when no key of the keyboard types any more.
  */
-export const TYPED_KEYS = Object.entries(KEY_NAMES)
-  .filter(
-    ([, name]) => !PALETTE.some((g) => g.entries.some((e) => e.name === name)),
-  )
-  .map(([code, name]) => ({ code, name }));
+export const TYPED_KEYS = Object.values(KEY_NAMES).filter(
+  (name) => !PALETTE.some((g) => g.entries.some((e) => e.name === name)),
+);
 
 /** The number of each macro of the area that holds actions; none for a malformed area. */
 export function macroNumbers(area: Uint8Array): number[] {

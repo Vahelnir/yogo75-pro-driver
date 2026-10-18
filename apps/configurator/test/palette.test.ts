@@ -45,12 +45,11 @@ test("the issue's must-haves are in the palette", () => {
 });
 
 test("plain keys are all there, and no name is in two tabs", () => {
-  const keys = TYPED_KEYS.map((k) => k.name);
   for (const name of ["A", "1", "MINS", "ESC", "SPC", "LSFT", "F1"]) {
-    expect(keys).toContain(name);
+    expect(TYPED_KEYS).toContain(name);
   }
 
-  const names = [...keys, ...entries.map((e) => e.name)];
+  const names = [...TYPED_KEYS, ...entries.map((e) => e.name)];
   expect(new Set(names).size).toBe(names.length);
 });
 
