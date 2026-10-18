@@ -63,6 +63,9 @@ const WRITES: Record<number, string> = {
   0x2d: "macros",
 };
 
+/** Silence after which the session closes, between the 5 s seen still open and the 7 s seen closed (dongle). */
+const SESSION_CLOSE_MS = 6000;
+
 /** Packets the host gets answered between a config write and the tick that applies it. */
 const CONFIG_TICK_PACKETS = 2;
 
@@ -95,6 +98,7 @@ function readsAsFree(record: Uint8Array | undefined) {
 
 /**
  * Keyboard stand-in: answers reads from the backup, applies writes to it and records every packet sent.
+ * After SESSION_CLOSE_MS without a packet, the session closes as through the dongle.
  * Writes to the config, a layer or the colours arm a save, which lands at the next packet, as on the keyboard
  * while the host polls; `reboot` reloads them from their flash pages, with the firmware's flaws.
  * Config writes go to a staging buffer, applied (and their save armed) at the tick, after two more packets' replies:
@@ -121,6 +125,8 @@ export class FakeKeyboard implements Transport {
   /** Turns each reply into the reports actually returned, to inject faults. */
   replies = (reply: Uint8Array): Uint8Array[] => [reply];
   #pending: Uint8Array[] = [];
+  #open = true;
+  #lastPacket = Date.now();
 
   constructor(reportSize: number) {
     this.reportSize = reportSize;
@@ -201,6 +207,19 @@ export class FakeKeyboard implements Transport {
 
       const reply = new Uint8Array(this.reportSize);
       reply.set(report.subarray(0, 8));
+
+      // a closed session acks every packet, applies no write and reads zeros, until the next 0x10
+      const now = Date.now();
+      if (cmd === 0x10) {
+        this.#open = true;
+      } else if (now - this.#lastPacket >= SESSION_CLOSE_MS) {
+        this.#open = false;
+      }
+      this.#lastPacket = now;
+      if (!this.#open) {
+        this.#pending.push(...this.replies(reply));
+        return this.#pending.shift();
+      }
 
       const name = WRITES[cmd];
       const tick = this.#configTick > 0 && --this.#configTick === 0;
