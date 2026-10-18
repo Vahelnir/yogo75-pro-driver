@@ -32,6 +32,7 @@ export {
 } from "./macro.ts";
 export { keycode, keycodeName, MAX_MACRO } from "./keycode.ts";
 export { COLS, keyAt, keyIndex, keyNames, KEYS, ROWS } from "./keymap.ts";
+export { KNOB, LAYOUT, type KeyRect } from "./layout.ts";
 export {
   stateDiff,
   stateFromJson,

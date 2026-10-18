@@ -209,8 +209,10 @@ const FUNCTIONS: Entry<string>[] = [
   [fn(0x36), "BT_3"],
   [fn(0x39), "BAT_LVL"],
   [fn(0x3c), "GU_TOGG"],
-  [fn(0x47), "KNOB_LEFT"],
-  [fn(0x48), "KNOB_RIGHT"],
+  // the knob's volume and mute, off while config wheelMode is not 0
+  [fn(0x47), "KNOB_VOLD", "KNOB_LEFT"],
+  [fn(0x48), "KNOB_VOLU", "KNOB_RIGHT"],
+  [fn(0x49), "KNOB_MUTE"],
 ];
 
 const ENTRIES: Entry<string>[] = [

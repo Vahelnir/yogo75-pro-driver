@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { readU16le, u16le } from "../src/bytes.ts";
-import { CUSTOM_LEDS_BUFFER_BYTES } from "../src/commands.ts";
+import {
+  CUSTOM_LEDS_BUFFER_BYTES,
+  KEYMAP_BUFFER_BYTES,
+  MATRIX_BYTES,
+} from "../src/commands.ts";
 import {
   CONFIG_PAGE,
   KEYMAP_PAGES,
@@ -17,6 +21,14 @@ export const BACKUP: Record<string, Uint8Array> = Object.fromEntries(
     ) as Record<string, string>,
   ).map(([name, data]) => [name, fromHex(data)]),
 );
+
+/** Each layer's knob (rotate left, rotate right, press), read at byte 336 of the same keyboard's layers. */
+export const KNOB_FIXTURE = [
+  "504700 504800 30e200",
+  "504700 504800 30e200",
+  "30ea00 30e900 30e200",
+  "30ea00 30e900 30e200",
+].map(fromHex);
 
 const READS: Record<number, string> = {
   0x12: "info",
@@ -113,6 +125,13 @@ export class FakeKeyboard implements Transport {
     const leds = new Uint8Array(CUSTOM_LEDS_BUFFER_BYTES);
     leds.set(this.data.leds);
     this.data.leds = leds;
+    // so is a layer's, with the knob past the backup's 336 bytes
+    KNOB_FIXTURE.forEach((knob, l) => {
+      const layer = new Uint8Array(KEYMAP_BUFFER_BYTES);
+      layer.set(this.data[`keymap${l}`]);
+      layer.set(knob, MATRIX_BYTES);
+      this.data[`keymap${l}`] = layer;
+    });
   }
 
   /** Fills a page with copies of the current data, up to `used` records (10 or 64 = full). */

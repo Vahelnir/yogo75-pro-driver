@@ -15,5 +15,6 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     UiButton: typeof import('./../components/ui/UiButton.vue')['default']
     UiSelect: typeof import('./../components/ui/UiSelect.vue')['default']
+    UiTabs: typeof import('./../components/ui/UiTabs.vue')['default']
   }
 }

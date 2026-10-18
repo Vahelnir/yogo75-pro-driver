@@ -19,6 +19,8 @@ export const CMD_END_SYNC_DOT = 0x3d;
 
 /** Keymap and custom colours: 3 bytes per key, 6 × 56 bytes over USB (14 × 24 wireless). */
 export const MATRIX_BYTES = 336;
+/** A layer's buffer: the matrix, then the knob from byte 336; the rest reads as zero. */
+export const KEYMAP_BUFFER_BYTES = 384;
 /** The per-key colour buffer: the keyboard saves it to flash only when a write reaches its end. */
 export const CUSTOM_LEDS_BUFFER_BYTES = 384;
 /** Macro area read when it has no header yet (no macro written). */
@@ -39,10 +41,12 @@ export const LED_MATRIX_BYTES = 384;
 
 /**
  * Bytes each keymap and colour command may reach: the firmware copies at any offset, so past them it reads or
- * overwrites the next layer and the macro buffer. Colour writes must reach 384 to be saved.
+ * overwrites the next layer and the macro buffer. Colour writes must reach 384 to be saved. Layer reads reach the
+ * knob; writing it is untested, so layer writes stop at the matrix.
  */
 const CMD_BUFFER_BYTES = new Map<number, number>([
-  ...[...CMD_GET_KEYMAP, ...CMD_GET_DEFAULT_KEYMAP, ...CMD_SET_KEYMAP].map(
+  ...CMD_GET_KEYMAP.map((cmd): [number, number] => [cmd, KEYMAP_BUFFER_BYTES]),
+  ...[...CMD_GET_DEFAULT_KEYMAP, ...CMD_SET_KEYMAP].map(
     (cmd): [number, number] => [cmd, MATRIX_BYTES],
   ),
   [CMD_GET_CUSTOM_LEDS, CUSTOM_LEDS_BUFFER_BYTES],

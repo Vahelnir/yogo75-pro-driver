@@ -7,9 +7,11 @@ export const COLS = 16;
 /** Matrix slots used; a layer read holds 16 more, always zero. */
 export const KEYS = ROWS * COLS;
 export const CODE_BYTES = 3;
+/** The knob, past the matrix in each layer: rotate left, rotate right, press. */
+export const KNOB_BYTES = 3 * CODE_BYTES;
 
 // Read from the keyboard with get_default_key_matrix 1 (0x16), one row per line.
-const FACTORY_LAYER0 = fromHex(
+export const FACTORY_LAYER0 = fromHex(
   [
     "100029 10003a 10003b 10003c 10003d 10003e 10003f 100040 100041 100042 100043 100044 100045 100046 100049 10004c",
     "100035 10001e 10001f 100020 100021 100022 100023 100024 100025 100026 100027 10002d 10002e 10002a 10004a 10004d",

@@ -13,6 +13,8 @@ export interface Session {
   snapshot: KeyboardState;
   /** What the keyboard holds now, as last read back. */
   state: KeyboardState;
+  /** Each layer's knob, read at connection: not part of the state, so restore and export leave it out. */
+  knobs: Uint8Array[];
   run<T>(task: (k: Keyboard) => Promise<T>): Promise<T>;
 }
 
@@ -48,11 +50,16 @@ export async function connect(
   await keyboard.repairFlashPages();
   const info = await keyboard.readInfo();
   const snapshot = await keyboard.readState();
+  const knobs = [];
+  for (let layer = 0; layer < snapshot.keymaps.length; layer++) {
+    knobs.push(await keyboard.readKnob(layer));
+  }
 
   return {
     firmware: firmwareVersion(info),
     snapshot,
     state: structuredClone(snapshot),
+    knobs,
     run,
   };
 }
