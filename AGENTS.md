@@ -2,6 +2,8 @@
 
 Reverse engineering of the ATK Yogo 75 PRO keyboard and its web configurator (`https://v3-hub.atk.store/`), to drive it with our own tools: the `yogo75` CLI, then a web app.
 
+**Goal**: allow everything the firmware accepts, more safely than the hub. Where the hub has a bug or the firmware a pitfall (see `docs/protocol.md`), our tools fix it or guard against it.
+
 ## Documentation
 
 - **Protocol** (commands, config fields, transports, configurator): read `docs/protocol.md` before sending anything to the keyboard or searching `web-dump/`. Every discovery goes in as soon as it is made (configurator reading, keyboard test, disproved hypothesis), with its status (verified / code / hypothesis). It describes the protocol alone, not our tools: what each command and value does and what the keyboard can do, not a log of tests (no journal, no dated test log).

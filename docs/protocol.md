@@ -319,7 +319,39 @@ Status: verified. For each layer, 6 packets of 56 bytes (`len = 56`, offset 0, 5
 
 ### Writing
 
-Status: verified for layer 0 (`0x1B`) and the Fn layer (`0x1D`). Same split as reading: 6 packets `len = 56`, offset 0 to 280, data at byte 8. The configurator **always writes the whole layer**, even to change a single key. So we do read → modify → write back. The keyboard answers `0x55` to each packet and reading back in a new session shows the new value.
+Status: verified for layer 0 (`0x1B`) and the Fn layer (`0x1D`). Same split as reading: 6 packets `len = 56`, offset 0 to 280, data at byte 8. The configurator **always writes the whole layer**, even to change a single key, from the copy it read: `matrixMaxSize` packets of `DATA_LEN`, i.e. 7 × 56 = 392 bytes over USB, 8 bytes past the layer's 384-byte buffer (the reads overrun the same way, so these 8 bytes are written back as read), and 16 × 24 = 384 bytes through the dongle (code). It never writes layers 2 and 3. The keyboard answers `0x55` to each packet and reading back in a new session shows the new value.
+
+Partial writes (verified, cable and dongle): the handler copies `len` bytes at any `offset`, with no alignment rule and no reset of the layer (code, firmware 1.26). Writing 3 bytes at `index × 3` changes that key only: the other 111 slots, the other layers, the config, the colours and the macros read back unchanged, the key types its new code, and the change survives a power cycle. **There is no bound check** (only `len ≤ 56`): an offset past the layer writes into the next layer's buffer (384 bytes apart), and past layer 3 into other RAM, the macro buffer among them. Reads are unbounded too. A tool must enforce `offset + len ≤ 336` itself.
+
+### Persistence
+
+Status: code (firmware 1.26), verified for the keymap and the per-key colours. A power cycle (switch to cable mode with no cable plugged, then back) loses RAM: only what was saved survives. Every write is live in RAM at once; there is no save or discard command, so an undo can only rewrite older data. Each accepted write arms a save and restarts its countdown: about 100 ticks later, the firmware writes to flash, postponed while it reports busy. The tick is about 10 ms (hypothesis: a 10 000 µs period in the main loop), but the firmware also advances the countdown when it handles other work: while the host keeps polling, a save lands about 60 ms after the last write (verified, config and keymap layer, read with the save state below). A whole layer written in 6 packets thus ends up as one save.
+
+- Keymap (`0x0206c000`, layers 0–3), per-key colours (`0x02070000`) and the config block (`0x0206b000`, 64-byte records) are append-only logs in 4 KB pages: each save appends a record, and the page is erased only when full (one erase every 10 keymap saves).
+- Macros erase and rewrite their page (`0x02075000`) on every save.
+- **Boot scan** (code): the firmware scans each page record by record, sets its write position to the first free record and loads the one before it. A record counts as free when, within the record, a run of 32 `0xFF` bytes comes before a run of 32 other bytes; an erased record is free. If the first record reads as free, the page is erased and the resource's factory defaults are written and loaded.
+- **`0xFF` runs** (verified on the colours): a record whose data holds 32 `0xFF` in a row before any 32-byte run of other bytes reads as free, so the previous record loads at the next boot and the change is lost. Esc and F1–F10 (LEDs 0–10, 33 bytes) set to white in one saved write were back to their previous colour after a power cycle. Codes in a keymap layer are very unlikely to form such a run; white keys on consecutive LEDs do.
+- **Write check** (code): a save programs the record without erasing it, only if every byte fits over what the flash holds (`(flash & new) == new`), and compares after programming. A record is never stored corrupted: the save fails instead, stays armed and is retried every 100 ticks, with the write position unchanged.
+- **Full page** (code; verified on the colours and the config): when all records of a page are used (10 of 384 bytes, the last 256 bytes of the page are never used; 64 for the config), the boot scan stops on the last record: it loads the one before it (the newest change is lost) and the next save tries to write over the last record. That fails unless the new data fits bit-wise over it, so every later save of that resource fails silently: changes apply in RAM and are lost at each power cycle. Seen on the keyboard: a colour change lost at the first reboot, then every later one; a `ledMode` change lost at each reboot once the config page filled up (a day of tests is enough to fill its 64 records). Without a reboot in between, the save after the last record erases the page and starts again at its first record.
+- **Unsticking a full page** (verified on the colours and the config): write the whole resource as zeros, which always passes the write check (`flash & 0 == 0`), wait for that save (3 s), then write the real data: the write position has reached the end of the page, so this save erases it and starts again at its first record. Both survive the following power cycles. During the 3 s, the zeros are live (for the config: lighting off, `sleepL` 0, `scanDelay` 0), so do it over the cable.
+- The hub has no workaround for any of these: no clamp of `0xFF`, no save command, no read-back after writing (code).
+
+#### Reading the save state
+
+Status: verified for the write pointers and a layer's armed flag; code for the rest. The config read (`0x14`) copies from the config block at RAM `0x2000777a` with no bound on `offset`, and the save variables sit just above it, so plain `0x14` reads at these offsets return them. The read is a byte copy with no side effect (code). No other read command reaches them: their buffers start higher in RAM.
+
+Per resource (`ptr`: write position in its flash page, u16 LE, = records used × record size; `armed`: 1 while a save is pending; `count`: its countdown, u16):
+
+| Resource                          | Record | Records per page | `ptr`                                 | `armed`                               | `count`                               |
+| --------------------------------- | ------ | ---------------- | ------------------------------------- | ------------------------------------- | ------------------------------------- |
+| config                            | 64 B   | 64               | `0x62e`                               | `0x64a`                               | `0x64c`                               |
+| keymap layer 0 / 1 / 2 / 3        | 384 B  | 10               | `0x630` / `0x632` / `0x634` / `0x636` | `0x64e` / `0x652` / `0x656` / `0x65a` | `0x650` / `0x654` / `0x658` / `0x65c` |
+| per-key colours (`0x23`)          | 384 B  | 10               | `0x638`                               | `0x65e`                               | `0x660`                               |
+| other colour sets (`0x25`–`0x2B`) | 384 B  | 10               | `0x63a` / `0x63c` / `0x63e` / `0x640` | `0x662` / `0x666` / `0x66a` / `0x66e` | `0x664` / `0x668` / `0x66c` / `0x670` |
+
+Boot done: byte `0x62b` (1 once the boot loading has finished; saves wait for it).
+
+What it tells (verified): a page is full when `ptr` = records per page × record size (`0x0F00` for 384-byte records, `0x1000` for the config); a save has landed when `ptr` moves (or wraps to one record after an erase). After a boot, `ptr` = 9 records (`0x0D80`) means either 9 records used or a full page stuck on its last record: the next save tells them apart, since a stuck page's `ptr` does not move.
 
 ### Layers
 
@@ -328,6 +360,14 @@ Status: verified for layer 0 (`0x1B`) and the Fn layer (`0x1D`). Same split as r
 | 0     | default base layer (`layer` = 0 in the config block)                                                                                                                                         | verified |
 | 1     | Fn layer (the configurator reads it with `0x1C`)                                                                                                                                             | verified |
 | 2, 3  | identical to factory layer 0; the configurator doesn't use them. Reachable with a key `50 03 00` / `50 04 00` (while it is held) or as the base layer via `layer`. Mac mode doesn't use them | verified |
+
+The four layers are generic (code, firmware 1.26): four RAM buffers of 384 bytes handled by the same lookup, with no dedicated purpose (no profile, no second Fn; Mac mode only rewrites a few F-row codes on the fly). Why the hub shows only two is unknown (hypothesis: a product profile on the hub side).
+
+Layer resolution (code, firmware 1.26):
+
+- `50 01`–`50 04` are momentary layers 0–3. Each press counts as held; on release, the highest layer still held wins (3 > 2 > 1 > 0), else the base layer (`layer`, config byte 43).
+- The layer is latched per key on press: the release is read from the same layer, even if the active layer changed in between.
+- `50 05`–`50 08` set the base layer to 0–3 permanently (saved like a config change) and clear the held layers.
 
 ### Key position
 
@@ -361,6 +401,7 @@ Known `0x50` functions (labels from `keyboard-info.util-*.js` and `keymap-*.js`)
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ---------------------------------------------------------------------- |
 | `02`                   | Fn (layer 1, while the key is held); several keys can carry this code (verified: Caps Lock → `50 02 00` acts as Fn, the original Fn key too) | `2b`        | dot screen: next effect                                                |
 | `03`                   | layer 2 while the key is held (verified; absent from the configurator)                                                                       | `04`        | layer 3 while the key is held (verified; absent from the configurator) |
+| `01`                   | layer 0 while the key is held (code)                                                                                                         | `05`–`08`   | set the base layer to 0–3, saved (code), see [layers](#layers)         |
 | `09`                   | lighting on/off                                                                                                                              | `2d`        | dot screen: next colour                                                |
 | `0a` / `0b`            | lighting mode + / − (verified for `0b`: 0 → 20, it wraps)                                                                                    | `2f` / `30` | dot screen: brightness + / −                                           |
 | `0c` / `0d`            | next / previous colour in the palette (verified)                                                                                             | `39`        | show battery level                                                     |
@@ -550,7 +591,7 @@ Used when `ledMode = 253` ("custom").
 
 **Colour picker** (function `50 12 00`; firmware 1.26). While it is open, every key lights in its palette colour; the next key pressed becomes the backlight colour (`colorful` = 0, `colorR/G/B` = its triplet, read back as is from the config block) and the picker closes. Space (LED 77) cycles through the hue wheel and picks the rainbow (`colorful` = 1, `colorR/G/B` unchanged). The function is ignored in modes 0, 2, 12, 253 and 254 (verified: no palette, the next key types normally, the config block and the per-key colours are unchanged), and no key carries it in the keymap read from this keyboard (4 layers). The palette holds one RGB triplet (values 0–90) per physical position, at `3 × (column × 6 + row)`, on the 16 × 6 grid of the position → LED table at `0x0204babe`: 96 triplets, 288 bytes, so `0x32` stops in the middle of the 70th.
 
-**Colour matrix** (`0x22` read / `0x23` write; 6 packets of 56 bytes, offset 0 to 280). One RGB triplet per LED number: the colour of key `i` is at byte `3 × led[i]`. As for the keymap, the configurator always writes the whole matrix.
+**Colour matrix** (`0x22` read / `0x23` write; 6 packets of 56 bytes, offset 0 to 280). One RGB triplet per LED number: the colour of key `i` is at byte `3 × led[i]`. As for the keymap, the configurator always writes the whole matrix from the copy it read, in `matrixMaxSize` packets: 7 × 56 = 392 bytes over USB (8 bytes past the buffer), 16 × 24 = 384 through the dongle (code). Its read loop stores the copy before the last byte arrives, so it always writes the last byte back as 0: byte 391 over USB (RAM after the buffer), byte 383 through the dongle (code, not observed). Like the keymap, the write handler accepts any offset with no bound check (code). It arms the save to flash only when a packet ends at or past byte 384 (code, firmware 1.26; verified). A write of the 336 bytes, over the cable (6 × 56) or the dongle (14 × 24), is applied but **never saved**: it is lost at the next power cycle, while a config change made in the same session survives. The hub's writes reach byte 384 over both transports, so its colours are saved. Fix (verified over the cable and the dongle): end the write with a packet that reaches byte 384, e.g. read the 384-byte buffer, set the colours and write it all back with an unpadded last chunk (cable: 336 + 48, dongle: 360 + 24); the colours then survive a power cycle. The RAM buffer and each flash record are 384 bytes; the only other save of the colours is leaving the on-keyboard colour editing in mode 253 (code; probably the colour picker key, not checked). The config save does not include them.
 
 Verified: with W, A, S, D and the four arrows white and all other LEDs off, cross-referencing keymap ↔ LED table lands exactly on these keys.
 
