@@ -3,7 +3,7 @@
   "language": "Langue",
   "unsupported": "Ton navigateur ne peut pas parler aux périphériques USB (WebHID). Ouvre cette page dans Chrome, Edge ou un autre navigateur Chromium.",
   "connecting": "Connexion…",
-  "asleep": "Le clavier est en veille : appuie sur une de ses touches.",
+  "asleep": "Pas de réponse du clavier : appuie sur une touche, et vérifie que son interrupteur est sur 2,4 GHz.",
   "connectFailed": "Connexion impossible : {error}",
   "firmware": "Firmware",
   "connection": "Connexion",

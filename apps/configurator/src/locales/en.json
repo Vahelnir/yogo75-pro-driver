@@ -3,7 +3,7 @@
   "language": "Language",
   "unsupported": "Your browser can't talk to USB devices (WebHID). Open this page in Chrome, Edge or another Chromium browser.",
   "connecting": "Connecting…",
-  "asleep": "The keyboard is asleep: press a key on it.",
+  "asleep": "No answer from the keyboard: press a key on it, and check its switch is on 2.4 GHz.",
   "connectFailed": "Could not connect: {error}",
   "firmware": "Firmware",
   "connection": "Connection",
