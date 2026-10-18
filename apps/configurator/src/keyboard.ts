@@ -5,6 +5,8 @@ import { hidTransport, isDongle } from "./webhid.ts";
 export const session = shallowRef<Session>();
 export const device = shallowRef<HIDDevice>();
 export const asleep = ref(false);
+/** Stops the transport listening to the device once the session ends. */
+let link: AbortController | undefined;
 
 /**
  * Opens `hid` and connects to it; on failure, the device is closed again and the error rethrown. The device is
@@ -17,7 +19,8 @@ export async function connectTo(hid: HIDDevice): Promise<void> {
       await hid.open();
     }
 
-    session.value = await connect(hidTransport(hid), () => {
+    link = new AbortController();
+    session.value = await connect(hidTransport(hid, link.signal), () => {
       asleep.value = true;
     });
   } catch (e) {
@@ -29,9 +32,19 @@ export async function connectTo(hid: HIDDevice): Promise<void> {
   }
 }
 
+/** Ends the session, e.g. when the device was unplugged. */
 export function forget(): void {
+  link?.abort();
+  link = undefined;
   session.value = undefined;
   device.value = undefined;
+}
+
+/** Ends the session and releases the device, which stays authorised. */
+export async function disconnect(): Promise<void> {
+  const hid = device.value;
+  forget();
+  await hid?.close();
 }
 
 export function connectionType(): "dongle" | "cable" {

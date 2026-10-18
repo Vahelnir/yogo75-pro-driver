@@ -68,3 +68,15 @@ test("stray reports received before a request are ignored", async () => {
   const report = new Uint8Array(64).fill(1);
   expect(await transport.transfer(report)).toEqual(report);
 });
+
+test("once its signal aborts, the transport stops listening to the device", async () => {
+  const device = new FakeHidDevice(PID_CABLE);
+  const link = new AbortController();
+  const transport = hidTransport(asDevice(device), link.signal);
+  link.abort();
+
+  const reply = transport.transfer(new Uint8Array(64));
+  await vi.advanceTimersByTimeAsync(500);
+
+  expect(await reply).toBe(undefined);
+});

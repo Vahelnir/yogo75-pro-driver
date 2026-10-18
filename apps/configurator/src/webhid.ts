@@ -26,10 +26,10 @@ export async function requestKeyboard(): Promise<HIDDevice | undefined> {
   return device;
 }
 
-/** A keyboard the user already authorised, to reconnect without the picker. */
-export async function authorisedKeyboard(): Promise<HIDDevice | undefined> {
+/** The plugged keyboards the user already authorised, to connect without the picker. */
+export async function authorisedKeyboards(): Promise<HIDDevice[]> {
   const devices = await navigator.hid.getDevices();
-  return devices.find(
+  return devices.filter(
     (d) =>
       d.vendorId === VID &&
       [PID_CABLE, PID_DONGLE].includes(d.productId) &&
@@ -39,24 +39,31 @@ export async function authorisedKeyboard(): Promise<HIDDevice | undefined> {
 
 /**
  * The core's pull-based `Transport` over an opened device's `inputreport` events, with the report size and timeout
- * of the link (cable or dongle).
+ * of the link (cable or dongle). Aborting `signal` stops listening to the device.
  */
-export function hidTransport(device: HIDDevice): Transport {
+export function hidTransport(
+  device: HIDDevice,
+  signal?: AbortSignal,
+): Transport {
   const dongle = isDongle(device);
   const timeout = dongle ? DONGLE_TIMEOUT_MS : CABLE_TIMEOUT_MS;
   let queued: Uint8Array[] = [];
   let waiting: ((report: Uint8Array) => void) | undefined;
 
-  device.addEventListener("inputreport", (e) => {
-    const { buffer, byteOffset, byteLength } = e.data;
-    const report = new Uint8Array(buffer, byteOffset, byteLength);
+  device.addEventListener(
+    "inputreport",
+    (e) => {
+      const { buffer, byteOffset, byteLength } = e.data;
+      const report = new Uint8Array(buffer, byteOffset, byteLength);
 
-    if (waiting) {
-      waiting(report);
-    } else {
-      queued.push(report);
-    }
-  });
+      if (waiting) {
+        waiting(report);
+      } else {
+        queued.push(report);
+      }
+    },
+    { signal },
+  );
 
   function next() {
     const report = queued.shift();

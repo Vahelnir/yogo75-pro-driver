@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import IconLanguages from "~icons/lucide/languages";
-import { device, forget } from "./keyboard.ts";
+import IconUnplug from "~icons/lucide/unplug";
+import { device, disconnect, forget, session } from "./keyboard.ts";
 
 const { t, locale } = useI18n();
 const router = useRouter();
@@ -15,6 +16,11 @@ useEventListener(
     }
   },
 );
+
+async function leave() {
+  await disconnect();
+  await router.push("/");
+}
 </script>
 
 <template>
@@ -23,6 +29,10 @@ useEventListener(
       class="flex items-center justify-between border-b border-zinc-200 px-4 py-3"
     >
       <h1 class="font-semibold">{{ t("title") }}</h1>
+      <UiButton v-if="session" class="ml-auto mr-4" @click="leave">
+        <IconUnplug />
+        {{ t("disconnect") }}
+      </UiButton>
       <label class="flex items-center gap-2 text-sm">
         <IconLanguages :aria-label="t('language')" />
         <UiSelect
