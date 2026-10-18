@@ -1,72 +1,55 @@
 <script setup lang="ts">
-import {
-  PopoverAnchor,
-  PopoverContent,
-  PopoverPortal,
-  PopoverRoot,
-} from "reka-ui";
-import { PALETTE } from "../palette.ts";
+import { PALETTE, PALETTE_DRAG_TYPE } from "../palette.ts";
 
-/** Next to `anchor` while it is set: the bindings that can't be typed, the keyboard's macros last. */
-defineProps<{ anchor?: Element; macros: number[] }>();
+/** The bindings that can't be typed, the keyboard's macros last: picked for the selected key, or dragged onto one. */
+const props = defineProps<{ macros: number[] }>();
 const emit = defineEmits<{ pick: [name: string] }>();
 
 const { t } = useI18n();
+
+const groups = computed(() =>
+  [
+    ...PALETTE.map((group) => ({
+      label: t(group.label),
+      entries: group.entries.map((e) => ({ name: e.name, label: t(e.label) })),
+    })),
+    {
+      label: t("palette.groups.macros"),
+      entries: props.macros.map((n) => ({
+        name: `MACRO(${n})`,
+        label: t("palette.macro", { n }),
+      })),
+    },
+  ].filter((group) => group.entries.length),
+);
+
+function drag(e: DragEvent, name: string) {
+  e.dataTransfer?.setData(PALETTE_DRAG_TYPE, name);
+}
 </script>
 
 <template>
-  <PopoverRoot :open="anchor !== undefined">
-    <PopoverAnchor :reference="anchor" />
-    <PopoverPortal>
-      <!-- shortcut: mouse only, as key capture swallows Tab and the arrows; revisit with keyboard navigation -->
-      <PopoverContent
-        data-palette
-        side="bottom"
-        align="start"
-        :side-offset="4"
-        :collision-padding="8"
-        class="max-h-[60vh] w-96 overflow-y-auto rounded-md border border-zinc-200 bg-white p-2 text-sm shadow"
-        @open-auto-focus.prevent
-      >
-        <section v-for="group in PALETTE" :key="group.label" class="mb-2">
-          <h3 class="mb-1 text-xs font-medium text-zinc-500">
-            {{ t(group.label) }}
-          </h3>
-          <div class="grid grid-cols-2 gap-1">
-            <button
-              v-for="entry in group.entries"
-              :key="entry.name"
-              type="button"
-              class="flex flex-col items-start rounded px-2 py-1 text-left hover:bg-zinc-100"
-              @click="emit('pick', entry.name)"
-            >
-              <span>{{ t(entry.label) }}</span>
-              <span class="font-mono text-xs text-zinc-500">{{
-                entry.name
-              }}</span>
-            </button>
-          </div>
-        </section>
-        <section v-if="macros.length">
-          <h3 class="mb-1 text-xs font-medium text-zinc-500">
-            {{ t("palette.groups.macros") }}
-          </h3>
-          <div class="grid grid-cols-2 gap-1">
-            <button
-              v-for="n in macros"
-              :key="n"
-              type="button"
-              class="flex flex-col items-start rounded px-2 py-1 text-left hover:bg-zinc-100"
-              @click="emit('pick', `MACRO(${n})`)"
-            >
-              <span>{{ t("palette.macro", { n }) }}</span>
-              <span class="font-mono text-xs text-zinc-500"
-                >MACRO({{ n }})</span
-              >
-            </button>
-          </div>
-        </section>
-      </PopoverContent>
-    </PopoverPortal>
-  </PopoverRoot>
+  <!-- shortcut: mouse only, as key capture swallows Tab and the arrows; revisit with keyboard navigation -->
+  <div
+    data-palette
+    class="mt-4 grid max-w-5xl grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4 text-sm"
+  >
+    <section v-for="group in groups" :key="group.label">
+      <h3 class="mb-1 text-xs font-medium text-zinc-500">{{ group.label }}</h3>
+      <div class="flex flex-wrap gap-1">
+        <button
+          v-for="entry in group.entries"
+          :key="entry.name"
+          type="button"
+          draggable="true"
+          class="flex cursor-grab flex-col items-start rounded border border-zinc-300 bg-white px-2 py-1 text-left shadow-sm hover:border-zinc-500"
+          @click="emit('pick', entry.name)"
+          @dragstart="drag($event, entry.name)"
+        >
+          <span>{{ entry.label }}</span>
+          <span class="font-mono text-xs text-zinc-500">{{ entry.name }}</span>
+        </button>
+      </div>
+    </section>
+  </div>
 </template>

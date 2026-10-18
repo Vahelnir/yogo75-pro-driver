@@ -13,13 +13,6 @@ const layer = ref(0);
 const selected = ref<number>();
 const error = ref<string>();
 const drawing = useTemplateRef("drawing");
-/** The selected key's element, which the palette opens next to. */
-const anchor = computed(() =>
-  selected.value === undefined
-    ? undefined
-    : (drawing.value?.querySelector(`[data-index="${selected.value}"]`) ??
-      undefined),
-);
 const macros = computed(() =>
   session.value ? macroNumbers(session.value.state.macros) : [],
 );
@@ -36,14 +29,14 @@ function swallow(e: KeyboardEvent) {
   e.stopPropagation();
 }
 
-/** Binds the selected key to `name`, whether captured or picked in the palette. */
-async function assign(name: string) {
-  const index = selected.value;
-  if (index === undefined || !session.value) {
+/** Binds key `index` of the shown layer to `name`, whether captured, picked or dropped from the palette. */
+async function assign(index: number, name: string) {
+  if (!session.value) {
     return;
   }
 
   selected.value = undefined;
+  error.value = undefined;
   try {
     await session.value.setKey(layer.value, index, keycode(name));
   } catch (err) {
@@ -70,7 +63,13 @@ async function bind(e: KeyboardEvent) {
     return;
   }
 
-  await assign(name);
+  await assign(selected.value, name);
+}
+
+function pick(name: string) {
+  if (selected.value !== undefined) {
+    assign(selected.value, name);
+  }
 }
 
 useEventListener(globalThis, "keydown", bind, { capture: true });
@@ -126,15 +125,16 @@ onClickOutside(
           :keymap="session.state.keymaps[value]"
           :selected
           @select="select"
+          @drop="assign"
         />
       </div>
     </template>
   </UiTabs>
-  <KeyPalette :anchor :macros @pick="assign" />
   <p v-if="selected !== undefined" class="mt-4">
     {{ t("keymap.listening") }}
   </p>
   <p v-if="error" class="mt-4 text-red-700">
     {{ t("keymap.write_failed", { error }) }}
   </p>
+  <KeyPalette v-if="session" :macros @pick="pick" />
 </template>

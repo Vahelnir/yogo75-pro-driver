@@ -1,5 +1,8 @@
 import { isEmptyMacro, splitMacros } from "@yogo75/core";
 
+/** The drag data type of a palette entry, holding its key name: drops of anything else are refused. */
+export const PALETTE_DRAG_TYPE = "application/x-yogo75-key";
+
 /** A binding the browser can't capture: the key name the core parses, and the translation key of its label. */
 export interface PaletteEntry {
   name: string;

@@ -10,10 +10,14 @@ import {
   LAYOUT,
   type KeyRect,
 } from "@yogo75/core";
+import { PALETTE_DRAG_TYPE } from "../palette.ts";
 
 /** One layer and its knob, as the keyboard holds them; `selected` is the key (or knob action) listening. */
 const props = defineProps<{ keymap: Uint8Array; selected?: number }>();
-const emit = defineEmits<{ select: [index: number] }>();
+const emit = defineEmits<{
+  select: [index: number];
+  drop: [index: number, name: string];
+}>();
 
 const { t } = useI18n();
 
@@ -30,6 +34,24 @@ const keys = computed(() =>
     name: keycodeName(keyAt(props.keymap, index)),
   })),
 );
+
+/** Drop handlers for a key (or knob action): only a palette entry is accepted. */
+function dropTarget(index: number) {
+  return {
+    onDragover: (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes(PALETTE_DRAG_TYPE)) {
+        e.preventDefault();
+      }
+    },
+    onDrop: (e: DragEvent) => {
+      const name = e.dataTransfer?.getData(PALETTE_DRAG_TYPE);
+      if (name) {
+        e.preventDefault();
+        emit("drop", index, name);
+      }
+    },
+  };
+}
 
 /** Radii of the knob's rotation ring, in its 100 × 100 viewBox; the press disc sits inside it. */
 const OUTER = 49;
@@ -55,12 +77,12 @@ function knobPart(index: number) {
   return {
     role: "button",
     tabindex: 0,
-    "data-index": index,
     "aria-pressed": props.selected === index,
     class: [
       "cursor-pointer hover:stroke-zinc-500",
       props.selected === index && "fill-amber-100 stroke-amber-500",
     ],
+    ...dropTarget(index),
     onClick: () => emit("select", index),
     onKeydown: (e: KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
@@ -97,8 +119,8 @@ function place(rect: KeyRect) {
         class="flex h-full w-full items-center justify-center overflow-hidden rounded border border-zinc-300 bg-white px-0.5 text-[clamp(7px,1.1cqw,13px)] shadow-sm hover:border-zinc-500"
         :class="{ 'border-amber-500 bg-amber-100': selected === index }"
         :aria-pressed="selected === index"
-        :data-index="index"
         :title="`${index}: ${name}`"
+        v-bind="dropTarget(index)"
         @click="emit('select', index)"
       >
         <span class="truncate">{{ name }}</span>
