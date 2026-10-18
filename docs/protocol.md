@@ -453,7 +453,9 @@ A macro with 0 actions does not stop there. In the same block with #0 reduced to
  24     14 00 1b 01     release X        ▼ types "x"
 ```
 
-Only the result (`x` typed) is verified. How the firmware reads past the 0 count (header of #1 taken as an action, or the count treated as 65536) is a hypothesis.
+Only the result (`x` typed) is verified. The cause is in the firmware's player (code, firmware 1.26): after each action, it ends the run only if `count != 0` and `--count == 0`. A count of 0 never reaches the end, so the player keeps reading 4-byte actions: it runs into the next macros, then the zeros (type 0, ignored), then past offset 1024 into RAM, until something else stops the playback. Never write a 0-action macro: it can play whatever the RAM holds as keys.
+
+**The player** (code): to start macro `n`, it takes offset `table[n]`, reads the count there and starts at offset + 4. An action runs when its delay is below 2 or when the player's tick counter has reached the delay. Then the counter goes back to 0.
 
 **Empty macro** (verified): a macro made of one modifier press and release with mask `00` (`00 00 00 82`, `00 00 00 02`) does nothing, leaves no modifier held, and the next macro still works: it is the way to empty a slot without renumbering the others.
 
