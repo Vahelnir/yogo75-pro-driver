@@ -38,7 +38,7 @@ const WIDTHS: Record<number, number> = {
 const SIDE_X = 16.5;
 
 /** The knob; its actions are in each layer, past the matrix (`readKnob`). */
-export const KNOB: KeyRect = { x: SIDE_X, y: 0, w: 1.5, h: 1.5 };
+export const KNOB: KeyRect = { x: SIDE_X, y: 0, w: 2, h: 2 };
 
 /** Every key that exists, by matrix index: the 84 of the grid, then the side buttons 46 (top) and 47. */
 export const LAYOUT: ReadonlyMap<number, KeyRect> = new Map([
@@ -51,6 +51,6 @@ export const LAYOUT: ReadonlyMap<number, KeyRect> = new Map([
       return [index, rect];
     });
   }),
-  [46, { x: SIDE_X + 0.25, y: 2, w: 1, h: 1 }],
-  [47, { x: SIDE_X + 0.25, y: 3, w: 1, h: 1 }],
+  [46, { x: SIDE_X + 0.5, y: 2.5, w: 1, h: 1 }],
+  [47, { x: SIDE_X + 0.5, y: 3.5, w: 1, h: 1 }],
 ]);

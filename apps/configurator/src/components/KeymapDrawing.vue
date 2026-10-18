@@ -24,6 +24,26 @@ const keys = computed(() =>
   })),
 );
 
+/** Radii of the knob's rotation ring, in its 100 × 100 viewBox; the press disc sits inside it. */
+const OUTER = 49;
+const INNER = 33;
+
+/** SVG path of the ring between two angles, in degrees clockwise from the right. */
+function ring(from: number, to: number): string {
+  function at(radius: number, degrees: number) {
+    const a = (degrees * Math.PI) / 180;
+    return `${50 + radius * Math.cos(a)} ${50 + radius * Math.sin(a)}`;
+  }
+
+  return [
+    `M ${at(OUTER, from)}`,
+    `A ${OUTER} ${OUTER} 0 0 1 ${at(OUTER, to)}`,
+    `L ${at(INNER, to)}`,
+    `A ${INNER} ${INNER} 0 0 0 ${at(INNER, from)}`,
+    "Z",
+  ].join(" ");
+}
+
 function place(rect: KeyRect) {
   return {
     left: `${(rect.x / width) * 100}%`,
@@ -53,16 +73,33 @@ function place(rect: KeyRect) {
       </div>
     </div>
     <div class="absolute p-[0.4%]" :style="place(KNOB)">
-      <div
-        class="flex h-full flex-col items-center justify-center overflow-hidden rounded-full border-2 border-zinc-400 bg-zinc-200 text-[clamp(6px,0.75cqw,10px)] leading-tight"
+      <svg
+        viewBox="0 0 100 100"
+        class="h-full w-full text-[9px]"
         role="img"
         :aria-label="t('keymap.knob', knob)"
-        :title="t('keymap.knob', knob)"
       >
-        <span>↺ {{ knob.left }}</span>
-        <span>{{ knob.press }}</span>
-        <span>↻ {{ knob.right }}</span>
-      </div>
+        <g class="fill-white stroke-zinc-300">
+          <path :d="ring(110, 250)">
+            <title>↺ {{ knob.left }}</title>
+          </path>
+          <path :d="ring(-70, 70)">
+            <title>↻ {{ knob.right }}</title>
+          </path>
+          <circle cx="50" cy="50" :r="INNER - 4">
+            <title>{{ knob.press }}</title>
+          </circle>
+        </g>
+        <g class="pointer-events-none fill-zinc-900" text-anchor="middle">
+          <text x="50" y="53">{{ knob.press }}</text>
+          <text transform="translate(16.5 50) rotate(-90)" dy="3">
+            {{ knob.left }}
+          </text>
+          <text transform="translate(83.5 50) rotate(90)" dy="3">
+            {{ knob.right }}
+          </text>
+        </g>
+      </svg>
     </div>
   </div>
 </template>
