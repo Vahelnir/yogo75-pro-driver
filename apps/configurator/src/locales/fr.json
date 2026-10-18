@@ -16,7 +16,7 @@
   "keymap": {
     "firmware": "Firmware",
     "connection": "Connexion",
-    "knob": "Molette",
+    "knob": "Molette : gauche {left}, appui {press}, droite {right}",
     "layers": {
       "base": "Base",
       "fn": "Fn",

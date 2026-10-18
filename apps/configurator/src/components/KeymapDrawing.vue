@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { keyAt, keycodeName, KNOB, LAYOUT, type KeyRect } from "@yogo75/core";
 
-/** One layer, as the keyboard holds it. */
-const props = defineProps<{ keymap: Uint8Array }>();
+/** One layer and its knob, as the keyboard holds them. */
+const props = defineProps<{ keymap: Uint8Array; knob: Uint8Array }>();
 
 const { t } = useI18n();
 
 const rects = [...LAYOUT.values(), KNOB];
 const width = Math.max(...rects.map((r) => r.x + r.w));
 const height = Math.max(...rects.map((r) => r.y + r.h));
+
+const knob = computed(() => ({
+  left: keycodeName(keyAt(props.knob, 0)),
+  right: keycodeName(keyAt(props.knob, 1)),
+  press: keycodeName(keyAt(props.knob, 2)),
+}));
 
 const keys = computed(() =>
   [...LAYOUT].map(([index, rect]) => ({
@@ -48,11 +54,15 @@ function place(rect: KeyRect) {
     </div>
     <div class="absolute p-[0.4%]" :style="place(KNOB)">
       <div
-        class="h-full rounded-full border-2 border-zinc-400 bg-zinc-200"
+        class="flex h-full flex-col items-center justify-center overflow-hidden rounded-full border-2 border-zinc-400 bg-zinc-200 text-[clamp(6px,0.75cqw,10px)] leading-tight"
         role="img"
-        :aria-label="t('keymap.knob')"
-        :title="t('keymap.knob')"
-      />
+        :aria-label="t('keymap.knob', knob)"
+        :title="t('keymap.knob', knob)"
+      >
+        <span>↺ {{ knob.left }}</span>
+        <span>{{ knob.press }}</span>
+        <span>↻ {{ knob.right }}</span>
+      </div>
     </div>
   </div>
 </template>

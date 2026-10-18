@@ -1,6 +1,9 @@
 import { Keyboard } from "@yogo75/core";
 import { expect, test } from "vitest";
-import { FakeKeyboard } from "../../../packages/core/test/fake-transport.ts";
+import {
+  FakeKeyboard,
+  KNOB_FIXTURE,
+} from "../../../packages/core/test/fake-transport.ts";
 import { connect } from "../src/session.ts";
 
 test("connect reads the firmware version and the full state", async () => {
@@ -11,6 +14,7 @@ test("connect reads the firmware version and the full state", async () => {
   expect(session.snapshot).toEqual(expected);
   expect(session.state).toEqual(expected);
   expect(session.state).not.toBe(session.snapshot);
+  expect(session.knobs).toEqual(KNOB_FIXTURE);
 });
 
 test("concurrent requests are sent one after the other, never interleaved", async () => {

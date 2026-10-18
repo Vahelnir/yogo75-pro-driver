@@ -35,7 +35,7 @@ import {
   withoutFullBytes,
   type FlashPage,
 } from "./flash.ts";
-import { CODE_BYTES, keyAt } from "./keymap.ts";
+import { CODE_BYTES, keyAt, KNOB_BYTES } from "./keymap.ts";
 import {
   EMPTY_MACRO,
   joinMacros,
@@ -145,11 +145,15 @@ export class Keyboard {
     throw new NoReplyError(`no reply to ${cmdName(cmd)}`);
   }
 
-  async #readChunks(cmd: number, total: number): Promise<Uint8Array> {
+  async #readChunks(
+    cmd: number,
+    total: number,
+    start = 0,
+  ): Promise<Uint8Array> {
     const out = new Uint8Array(total);
     for (let off = 0; off < total; off += this.#chunkBytes) {
       const len = Math.min(this.#chunkBytes, total - off);
-      const reply = await this.#transfer(cmd, len, off);
+      const reply = await this.#transfer(cmd, len, start + off);
       out.set(reply.subarray(HEADER_BYTES, HEADER_BYTES + len), off);
     }
     return out;
@@ -275,6 +279,11 @@ export class Keyboard {
   readKeymap(layer: number, factory = false) {
     const cmds = factory ? CMD_GET_DEFAULT_KEYMAP : CMD_GET_KEYMAP;
     return this.#readChunks(cmds[layer], MATRIX_BYTES);
+  }
+
+  /** The knob of layer 0..3: rotate left, rotate right and press, 3 bytes each. */
+  readKnob(layer: number) {
+    return this.#readChunks(CMD_GET_KEYMAP[layer], KNOB_BYTES, MATRIX_BYTES);
   }
 
   /** Rewrites a whole layer, as the hub does (it never writes a single key). */

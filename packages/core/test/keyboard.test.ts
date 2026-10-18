@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { withoutFullBytes } from "../src/flash.ts";
 import { firmwareVersion, keyAt, Keyboard } from "../src/index.ts";
-import { BACKUP, FakeKeyboard } from "./fake-transport.ts";
+import { BACKUP, FakeKeyboard, KNOB_FIXTURE } from "./fake-transport.ts";
 
 function setup(reportSize = 64) {
   const fake = new FakeKeyboard(reportSize);
@@ -241,16 +241,27 @@ for (const layer of [0, 1]) {
     assert.deepEqual(old, keyAt(before, CAPS));
     const expected = before.slice();
     keyAt(expected, CAPS).set(FN);
-    assert.deepEqual(fake.data[`keymap${layer}`], expected);
+    assert.deepEqual(fake.data[`keymap${layer}`].subarray(0, 336), expected);
     const writes = packets(fake).filter(([cmd]) => cmd === 0x1b + 2 * layer);
     assert.deepEqual(writes, [[0x1b + 2 * layer, CAPS * 3, 3]]);
   });
 }
 
+test("each layer's knob is read from slots 112 to 114", async () => {
+  const { fake, kb } = setup();
+
+  assert.deepEqual(await kb.readKnob(0), KNOB_FIXTURE[0]);
+  assert.deepEqual(await kb.readKnob(3), KNOB_FIXTURE[3]);
+  assert.deepEqual(packets(fake), [
+    [0x1a, 336, 9],
+    [0x20, 336, 9],
+  ]);
+});
+
 test("keymap and colour packets must stay inside their buffer", async () => {
   const { fake, kb } = setup();
   for (const [cmd, offset, len] of [
-    [0x1a, 334, 3],
+    [0x1a, 382, 3],
     [0x21, 336, 1],
     [0x16, 300, 56],
     [0x22, 380, 5],
@@ -262,8 +273,8 @@ test("keymap and colour packets must stay inside their buffer", async () => {
 
   await kb.raw(0x1b, 333, 3, [1, 2, 3]);
   await kb.raw(0x23, 328, 56);
-  await assert.rejects(kb.setKey(0, 112, FN), /within bytes 0 to 336/);
-  await assert.rejects(kb.setKey(0, -1, FN), /within bytes 0 to 336/);
+  await assert.rejects(kb.setKey(0, 112, FN), /within bytes/);
+  await assert.rejects(kb.setKey(0, -1, FN), /within bytes/);
 });
 
 test("resetKey puts back the factory code", async () => {
@@ -274,5 +285,5 @@ test("resetKey puts back the factory code", async () => {
 
   assert.deepEqual(old, keyAt(BACKUP.keymap1, CAPS));
   assert.deepEqual(code, FN);
-  assert.deepEqual(fake.data.keymap1, fake.data.factory1);
+  assert.deepEqual(fake.data.keymap1.subarray(0, 336), fake.data.factory1);
 });

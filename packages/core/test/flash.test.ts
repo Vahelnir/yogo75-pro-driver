@@ -59,7 +59,9 @@ test("a stuck page is saved as zeros first, then the data erases it", async () =
 test("setKey on a stuck page saves the key with the whole layer", async () => {
   const { fake, kb } = setup();
   fake.fillPage("keymap1", 10);
-  fake.pages.keymap1.records[9] = flip(BACKUP.keymap1); // the newest change, lost at the reboot
+  // the newest change, lost at the reboot; our writes never change the knob past the matrix
+  fake.pages.keymap1.records[9] = fake.data.keymap1.slice();
+  fake.pages.keymap1.records[9].set(flip(BACKUP.keymap1));
   fake.reboot();
   const code = Uint8Array.of(0x10, 0x00, 0x1b);
 
