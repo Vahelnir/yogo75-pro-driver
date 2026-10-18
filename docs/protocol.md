@@ -376,7 +376,7 @@ So the configurator draws F4 of layer 0 with the "desktop" icon: it really is F4
 Tested on the keyboard by putting the factory codes back in the Fn layer (verified):
 
 - `3c` (Fn + Win): Win key lock, toggle. The Win LED lights up red and the `winLock` byte of the config block goes to 1, then back to 0.
-- `31` (Fn + `=`) / `32` (Fn + `-`): dot screen speed + / −. `LedTFTSpeed` (raw value, 0 = fastest) goes down to 0 with `31` and up one step per press with `32` (0 → 3 read back). Caps Lock and Win blink on each press, maybe to signal the limit (hypothesis).
+- `31` (Fn + `=`) / `32` (Fn + `-`): dot screen speed + / −. `LedTFTSpeed` (raw value, 0 = fastest) goes down to 0 with `31` and up one step per press with `32` (0 → 3 read back). The range is 0–4: Caps Lock and Win blink three times when `31` reaches 0 (pressed at 1 or 0) or `32` reaches 4 (code, firmware 1.26). It is the firmware's generic signal, also used by the WASD toggle.
 - `3e` (Fn + H): low latency toggle. A short press does nothing. Held for 3 s or more, it switches `scanDelay` between 2 and 0, and H blinks red (0, low latency) or green (2, normal) (verified, held 5 s).
 
 ### Factory Fn layer
