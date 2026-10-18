@@ -1,4 +1,5 @@
 import { isEmptyMacro, splitMacros } from "@yogo75/core";
+import { KEY_NAMES } from "./keycodes.ts";
 
 /** The drag data type of a palette entry, holding its key name: drops of anything else are refused. */
 export const PALETTE_DRAG_TYPE = "application/x-yogo75-key";
@@ -23,10 +24,6 @@ export const PALETTE: { label: string; entries: PaletteEntry[] }[] = [
       { name: "PDF(2)", label: "palette.keys.pdf_2" },
       { name: "PDF(3)", label: "palette.keys.pdf_3" },
     ],
-  },
-  {
-    label: "palette.groups.keys",
-    entries: [{ name: "ESC", label: "palette.keys.esc" }],
   },
   {
     label: "palette.groups.media",
@@ -145,6 +142,16 @@ export const PALETTE: { label: string; entries: PaletteEntry[] }[] = [
     ],
   },
 ];
+
+/**
+ * Every key the capture knows, as its `KeyboardEvent.code` and QMK name, but those another group holds (media…):
+ * the way back to a plain key when no key of the keyboard types any more.
+ */
+export const TYPED_KEYS = Object.entries(KEY_NAMES)
+  .filter(
+    ([, name]) => !PALETTE.some((g) => g.entries.some((e) => e.name === name)),
+  )
+  .map(([code, name]) => ({ code, name }));
 
 /** The number of each macro of the area that holds actions; none for a malformed area. */
 export function macroNumbers(area: Uint8Array): number[] {

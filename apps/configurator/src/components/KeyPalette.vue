@@ -1,15 +1,34 @@
 <script setup lang="ts">
-import { PALETTE, PALETTE_DRAG_TYPE } from "../palette.ts";
+import { PALETTE, PALETTE_DRAG_TYPE, TYPED_KEYS } from "../palette.ts";
 
-/** The bindings that can't be typed, the keyboard's macros last: picked for the selected key, or dragged onto one. */
+/** Chromium's Keyboard API, missing from TypeScript's DOM types: `KeyboardEvent.code` → what the OS layout types. */
+interface KeyboardLayout {
+  getLayoutMap(): Promise<Map<string, string>>;
+}
+
+/** Every binding, plain keys first and the keyboard's macros last: picked for the selected key, or dragged onto one. */
 const props = defineProps<{ macros: number[] }>();
 const emit = defineEmits<{ pick: [name: string] }>();
 
 const { t } = useI18n();
 const tab = ref(0);
+const layout = ref<Map<string, string>>();
+
+onMounted(async () => {
+  const keyboard = (navigator as { keyboard?: KeyboardLayout }).keyboard;
+  layout.value = await keyboard?.getLayoutMap().catch(() => undefined);
+});
 
 const groups = computed(() =>
   [
+    {
+      label: t("palette.groups.keys"),
+      // the character the OS layout types there (é on AZERTY's 2), else the QMK name
+      entries: TYPED_KEYS.map((k) => ({
+        name: k.name,
+        label: layout.value?.get(k.code)?.toUpperCase() ?? k.name,
+      })),
+    },
     ...PALETTE.map((group) => ({
       label: t(group.label),
       entries: group.entries.map((e) => ({ name: e.name, label: t(e.label) })),
@@ -48,9 +67,11 @@ function drag(e: DragEvent, name: string) {
             @dragstart="drag($event, entry.name)"
           >
             <span>{{ entry.label }}</span>
-            <span class="font-mono text-xs text-zinc-500">{{
-              entry.name
-            }}</span>
+            <span
+              v-if="entry.label !== entry.name"
+              class="font-mono text-xs text-zinc-500"
+              >{{ entry.name }}</span
+            >
           </button>
         </div>
       </template>

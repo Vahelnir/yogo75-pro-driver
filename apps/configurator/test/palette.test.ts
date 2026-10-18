@@ -8,7 +8,7 @@ import {
 import { expect, test } from "vitest";
 import en from "../src/locales/en.json";
 import fr from "../src/locales/fr.json";
-import { macroNumbers, PALETTE } from "../src/palette.ts";
+import { macroNumbers, PALETTE, TYPED_KEYS } from "../src/palette.ts";
 
 const entries = PALETTE.flatMap((group) => group.entries);
 
@@ -39,9 +39,19 @@ test.each([...PALETTE.map((g) => g.label), ...entries.map((e) => e.label)])(
 
 test("the issue's must-haves are in the palette", () => {
   const names = entries.map((e) => e.name);
-  for (const name of ["FN", "MO(2)", "MO(3)", "PDF(0)", "ESC", "MUTE"]) {
+  for (const name of ["FN", "MO(2)", "MO(3)", "PDF(0)", "MUTE"]) {
     expect(names).toContain(name);
   }
+});
+
+test("plain keys are all there, and no name is in two tabs", () => {
+  const keys = TYPED_KEYS.map((k) => k.name);
+  for (const name of ["A", "1", "MINS", "ESC", "SPC", "LSFT", "F1"]) {
+    expect(keys).toContain(name);
+  }
+
+  const names = [...keys, ...entries.map((e) => e.name)];
+  expect(new Set(names).size).toBe(names.length);
 });
 
 test("macroNumbers numbers the macros that hold actions", () => {
