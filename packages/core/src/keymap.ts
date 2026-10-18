@@ -7,8 +7,16 @@ export const COLS = 16;
 /** Matrix slots used; a layer read holds 16 more, always zero. */
 export const KEYS = ROWS * COLS;
 export const CODE_BYTES = 3;
-/** The knob, past the matrix in each layer: rotate left, rotate right, press. */
+/** The knob's slots, past the matrix in each layer: rotate left, rotate right, press. */
+export const KNOB_LEFT = 112;
+export const KNOB_RIGHT = 113;
+export const KNOB_PRESS = 114;
 export const KNOB_BYTES = 3 * CODE_BYTES;
+const KNOB_POSITIONS: Record<string, number> = {
+  KNOB_LEFT,
+  KNOB_RIGHT,
+  KNOB_PRESS,
+};
 
 // Read from the keyboard with get_default_key_matrix 1 (0x16), one row per line.
 export const FACTORY_LAYER0 = fromHex(
@@ -32,8 +40,29 @@ export function keyNames(map: Uint8Array): string[] {
   return Array.from({ length: KEYS }, (_, i) => keycodeName(keyAt(map, i)));
 }
 
-/** A position as `row,col` or as the name of its key on factory layer 0 (`CAPS`); throws if not exactly one. */
+/** The names of a layer's knob actions. */
+export function knobNames(map: Uint8Array): {
+  left: string;
+  right: string;
+  press: string;
+} {
+  return {
+    left: keycodeName(keyAt(map, KNOB_LEFT)),
+    right: keycodeName(keyAt(map, KNOB_RIGHT)),
+    press: keycodeName(keyAt(map, KNOB_PRESS)),
+  };
+}
+
+/**
+ * A position as `row,col`, as the name of its key on factory layer 0 (`CAPS`) or as a knob action
+ * (`KNOB_LEFT`, `KNOB_RIGHT`, `KNOB_PRESS`); throws if not exactly one.
+ */
 export function keyIndex(position: string): number {
+  const knob = KNOB_POSITIONS[position.trim().toUpperCase()];
+  if (knob !== undefined) {
+    return knob;
+  }
+
   const rowCol = position.match(/^\s*(\d+)\s*,\s*(\d+)\s*$/);
   if (rowCol) {
     const [row, col] = [Number(rowCol[1]), Number(rowCol[2])];

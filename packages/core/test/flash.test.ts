@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { readU16le } from "../src/bytes.ts";
 import { CONFIG_PAGE } from "../src/flash.ts";
 import { keyAt, Keyboard } from "../src/index.ts";
-import { BACKUP, FakeKeyboard } from "./fake-transport.ts";
+import { BACKUP, FakeKeyboard, LAYER_FIXTURE } from "./fake-transport.ts";
 
 function setup(reportSize = 64) {
   const fake = new FakeKeyboard(reportSize);
@@ -19,12 +19,12 @@ for (const size of [64, 32]) {
     const { fake, kb } = setup(size);
 
     await kb.writeConfig(flip(BACKUP.config));
-    await kb.writeKeymap(2, flip(BACKUP.keymap2));
+    await kb.writeKeymap(2, flip(LAYER_FIXTURE[2]));
     await kb.writeCustomLeds(Uint8Array.of(1, 2, 3));
     fake.reboot();
 
     assert.deepEqual(await kb.readConfig(), flip(BACKUP.config));
-    assert.deepEqual(await kb.readKeymap(2), flip(BACKUP.keymap2));
+    assert.deepEqual(await kb.readKeymap(2), flip(LAYER_FIXTURE[2]));
     assert.deepEqual(
       [...(await kb.readCustomLeds()).subarray(0, 3)],
       [1, 2, 3],
@@ -84,11 +84,11 @@ test("a write that fills its page is written again, which erases the page", asyn
   const { fake, kb } = setup();
   fake.fillPage("keymap0", 9);
 
-  await kb.writeKeymap(0, flip(BACKUP.keymap0));
+  await kb.writeKeymap(0, flip(LAYER_FIXTURE[0]));
 
   assert.equal(fake.pages.keymap0.next, 1);
   fake.reboot();
-  assert.deepEqual(await kb.readKeymap(0), flip(BACKUP.keymap0));
+  assert.deepEqual(await kb.readKeymap(0), flip(LAYER_FIXTURE[0]));
 });
 
 test("a stuck page is saved as zeros first, then the data erases it", async () => {
@@ -103,19 +103,19 @@ test("a stuck page is saved as zeros first, then the data erases it", async () =
   assert.deepEqual([...(await kb.readCustomLeds()).subarray(0, 3)], [1, 2, 3]);
 });
 
-test("setKey on a stuck page saves the key with the whole layer", async () => {
+test("setKey on a stuck page saves the key with the whole layer, knob included", async () => {
   const { fake, kb } = setup();
   fake.fillPage("keymap1", 10);
-  // the newest change, lost at the reboot; our writes never change the knob past the matrix
+  // the newest change, lost at the reboot, changed the knob too: the zeros must cover it
   fake.pages.keymap1.records[9] = fake.data.keymap1.slice();
-  fake.pages.keymap1.records[9].set(flip(BACKUP.keymap1));
+  fake.pages.keymap1.records[9].set(flip(LAYER_FIXTURE[1]));
   fake.reboot();
   const code = Uint8Array.of(0x10, 0x00, 0x1b);
 
   await kb.setKey(1, 48, code);
 
   fake.reboot();
-  const expected = BACKUP.keymap1.slice();
+  const expected = LAYER_FIXTURE[1].slice();
   keyAt(expected, 48).set(code);
   assert.deepEqual(await kb.readKeymap(1), expected);
 });
@@ -147,9 +147,9 @@ test("repairFlashPages rewrites only the pages left full or maybe stuck", async 
     fake.written.map((p) => p[1]).filter((c) => c % 2 === 1 && c !== 0x15),
   );
   assert.deepEqual([...writes], [0x1f]); // keymap2, besides the config
-  await kb.writeKeymap(2, flip(BACKUP.keymap2));
+  await kb.writeKeymap(2, flip(LAYER_FIXTURE[2]));
   fake.reboot();
-  assert.deepEqual(await kb.readKeymap(2), flip(BACKUP.keymap2));
+  assert.deepEqual(await kb.readKeymap(2), flip(LAYER_FIXTURE[2]));
   assert.deepEqual(await kb.repairFlashPages(), []);
 });
 
@@ -171,10 +171,10 @@ test("saves landing during a write never leave the page full", async () => {
     fake.savesDuringWrites = true;
     fake.fillPage("keymap1", used);
 
-    await kb.writeKeymap(1, flip(BACKUP.keymap1));
+    await kb.writeKeymap(1, flip(LAYER_FIXTURE[1]));
 
     assert.ok(fake.pages.keymap1.next < 10, `from ${used} records`);
     fake.reboot();
-    assert.deepEqual(await kb.readKeymap(1), flip(BACKUP.keymap1));
+    assert.deepEqual(await kb.readKeymap(1), flip(LAYER_FIXTURE[1]));
   }
 });

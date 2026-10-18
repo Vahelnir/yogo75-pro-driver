@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { withoutFullBytes } from "../src/flash.ts";
-import { firmwareVersion, keyAt, Keyboard } from "../src/index.ts";
-import { BACKUP, FakeKeyboard, KNOB_FIXTURE } from "./fake-transport.ts";
+import { firmwareVersion, keyAt, Keyboard, keyIndex } from "../src/index.ts";
+import { BACKUP, FakeKeyboard, LAYER_FIXTURE } from "./fake-transport.ts";
 
 function setup(reportSize = 64) {
   const fake = new FakeKeyboard(reportSize);
   return { fake, kb: new Keyboard(fake) };
+}
+
+function flip(b: Uint8Array) {
+  return b.map((x) => x ^ 0x5a);
 }
 
 /** [cmd, offset, len] of each packet sent. */
@@ -80,7 +84,7 @@ for (const size of [64, 32]) {
     const { fake, kb } = setup(size);
     assert.deepEqual(await kb.readConfig(), BACKUP.config);
     for (const l of [0, 1, 2, 3]) {
-      assert.deepEqual(await kb.readKeymap(l), BACKUP[`keymap${l}`]);
+      assert.deepEqual(await kb.readKeymap(l), LAYER_FIXTURE[l]);
     }
     assert.deepEqual(await kb.readCustomLeds(), BACKUP.leds);
     assert.deepEqual(await kb.readMacros(), BACKUP.macros);
@@ -158,16 +162,13 @@ test("colour writes reach the end of the buffer, so the keyboard saves them", as
 
 test("each writable resource reads back what was written", async () => {
   const { kb } = setup(32);
-  function flip(b: Uint8Array) {
-    return b.map((x) => x ^ 0x5a);
-  }
 
   await kb.writeConfig(flip(BACKUP.config));
   assert.deepEqual(await kb.readConfig(), flip(BACKUP.config));
   for (const l of [0, 1, 2, 3]) {
-    await kb.writeKeymap(l, flip(BACKUP[`keymap${l}`]));
-    assert.deepEqual(await kb.readKeymap(l), flip(BACKUP[`keymap${l}`]));
-    assert.deepEqual(await kb.readKeymap(l, true), BACKUP[`keymap${l}`]);
+    await kb.writeKeymap(l, flip(LAYER_FIXTURE[l]));
+    assert.deepEqual(await kb.readKeymap(l), flip(LAYER_FIXTURE[l]));
+    assert.deepEqual(await kb.readKeymap(l, true), LAYER_FIXTURE[l]);
   }
   await kb.writeCustomLeds(flip(BACKUP.leds));
   assert.deepEqual(await kb.readCustomLeds(), flip(BACKUP.leds));
@@ -247,22 +248,62 @@ for (const layer of [0, 1]) {
   });
 }
 
-test("each layer's knob is read from slots 112 to 114", async () => {
+test("setKey writes only a knob action's 3 bytes", async () => {
+  const { fake, kb } = setup();
+  const press = keyIndex("KNOB_PRESS");
+
+  const old = await kb.setKey(3, press, FN);
+
+  assert.deepEqual(old, keyAt(LAYER_FIXTURE[3], press));
+  const expected = LAYER_FIXTURE[3].slice();
+  keyAt(expected, press).set(FN);
+  assert.deepEqual(fake.data.keymap3.subarray(0, 345), expected);
+  assert.deepEqual(fake.data.keymap3.subarray(345), new Uint8Array(39));
+  const writes = packets(fake).filter(([cmd]) => cmd === 0x21);
+  assert.deepEqual(writes, [[0x21, 342, 3]]);
+});
+
+for (const size of [64, 32]) {
+  test(`a layer is written up to its knob, never past it (${size}-byte reports)`, async () => {
+    const { fake, kb } = setup(size);
+    fake.data.keymap1.fill(7, 345);
+
+    await kb.writeKeymap(1, flip(LAYER_FIXTURE[1]));
+
+    const writes = packets(fake).filter(([cmd]) => cmd === 0x1d);
+    assert.deepEqual(writes.at(-1), [0x1d, 336, 9]);
+    assert.ok(writes.every(([, offset, len]) => offset + len <= 345));
+    assert.deepEqual(
+      fake.data.keymap1.subarray(0, 345),
+      flip(LAYER_FIXTURE[1]),
+    );
+    assert.deepEqual(
+      fake.data.keymap1.subarray(345),
+      new Uint8Array(39).fill(7),
+    );
+  });
+}
+
+test("a layer without its knob is written with the knob the keyboard holds", async () => {
   const { fake, kb } = setup();
 
-  assert.deepEqual(await kb.readKnob(0), KNOB_FIXTURE[0]);
-  assert.deepEqual(await kb.readKnob(3), KNOB_FIXTURE[3]);
-  assert.deepEqual(packets(fake), [
-    [0x1a, 336, 9],
-    [0x20, 336, 9],
-  ]);
+  await kb.writeKeymap(2, flip(BACKUP.keymap2));
+
+  const expected = LAYER_FIXTURE[2].slice();
+  expected.set(flip(BACKUP.keymap2));
+  assert.deepEqual(fake.data.keymap2.subarray(0, 345), expected);
+  await assert.rejects(
+    kb.writeKeymap(2, new Uint8Array(340)),
+    /336 or 345 bytes/,
+  );
 });
 
 test("keymap and colour packets must stay inside their buffer", async () => {
   const { fake, kb } = setup();
   for (const [cmd, offset, len] of [
     [0x1a, 382, 3],
-    [0x21, 336, 1],
+    [0x21, 345, 1],
+    [0x18, 340, 6],
     [0x16, 300, 56],
     [0x22, 380, 5],
     [0x23, 384, 1],
@@ -271,9 +312,9 @@ test("keymap and colour packets must stay inside their buffer", async () => {
   }
   assert.equal(fake.written.length, 0);
 
-  await kb.raw(0x1b, 333, 3, [1, 2, 3]);
+  await kb.raw(0x1b, 342, 3, [1, 2, 3]);
   await kb.raw(0x23, 328, 56);
-  await assert.rejects(kb.setKey(0, 112, FN), /within bytes/);
+  await assert.rejects(kb.setKey(0, 115, FN), /within bytes/);
   await assert.rejects(kb.setKey(0, -1, FN), /within bytes/);
 });
 
@@ -285,5 +326,20 @@ test("resetKey puts back the factory code", async () => {
 
   assert.deepEqual(old, keyAt(BACKUP.keymap1, CAPS));
   assert.deepEqual(code, FN);
-  assert.deepEqual(fake.data.keymap1.subarray(0, 336), fake.data.factory1);
+  assert.deepEqual(
+    fake.data.keymap1.subarray(0, 345),
+    fake.data.factory1.subarray(0, 345),
+  );
+});
+
+test("resetKey puts back a knob action", async () => {
+  const { fake, kb } = setup();
+  const left = keyIndex("knob_left");
+  keyAt(fake.data.keymap0, left).set(FN);
+
+  const { old, code } = await kb.resetKey(0, left);
+
+  assert.deepEqual(old, FN);
+  assert.deepEqual(code, keyAt(LAYER_FIXTURE[0], left));
+  assert.deepEqual(fake.data.keymap0.subarray(0, 345), LAYER_FIXTURE[0]);
 });

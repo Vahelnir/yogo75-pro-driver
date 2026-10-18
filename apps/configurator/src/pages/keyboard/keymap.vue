@@ -31,10 +31,7 @@ const layer = ref(0);
     ]"
   >
     <template #default="{ value }">
-      <KeymapDrawing
-        :keymap="session.state.keymaps[value]"
-        :knob="session.knobs[value]"
-      />
+      <KeymapDrawing :keymap="session.state.keymaps[value]" />
     </template>
   </UiTabs>
 </template>

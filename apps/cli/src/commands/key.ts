@@ -5,6 +5,7 @@ import {
   keycodeName,
   keyIndex,
   keyNames,
+  knobNames,
   ROWS,
 } from "@yogo75/core";
 import { coreArg, intArg, LAST_LAYER, SAVE_FIRST } from "../args.ts";
@@ -13,7 +14,7 @@ import { withKeyboard } from "../hid.ts";
 const LAYER_FLAGS = "--layer <layer>";
 const LAYER_DESCRIPTION = `Layer 0-${LAST_LAYER} (1 = Fn)`;
 
-const POSITION_DESCRIPTION = `Key by its factory layer-0 name (CAPS) or as row,col (3,0); row 0-${ROWS - 1}, col 0-${COLS - 1}`;
+const POSITION_DESCRIPTION = `Key by its factory layer-0 name (CAPS) or as row,col (3,0); row 0-${ROWS - 1}, col 0-${COLS - 1}; the knob as KNOB_LEFT, KNOB_RIGHT or KNOB_PRESS`;
 
 function printChange(
   layer: number,
@@ -31,13 +32,14 @@ export function registerKeyCommands(program: Command): void {
 
   key
     .command("list")
-    .description("Print a layer as key names, one line per row")
+    .description(
+      "Print a layer as key names, one line per row, then the knob's actions",
+    )
     .option(LAYER_FLAGS, LAYER_DESCRIPTION, intArg(0, LAST_LAYER), 0)
     .option("--factory", "Read the factory keymap")
     .action(async ({ layer, factory }) => {
-      const names = await withKeyboard(async (k) =>
-        keyNames(await k.readKeymap(layer, factory)),
-      );
+      const map = await withKeyboard((k) => k.readKeymap(layer, factory));
+      const names = keyNames(map);
 
       const width = Math.max(...names.map((n) => n.length));
       for (let i = 0; i < names.length; i += COLS) {
@@ -49,6 +51,9 @@ export function registerKeyCommands(program: Command): void {
             .trimEnd(),
         );
       }
+
+      const { left, right, press } = knobNames(map);
+      console.log(`knob: left ${left}, right ${right}, press ${press}`);
     });
 
   key

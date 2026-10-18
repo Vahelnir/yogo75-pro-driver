@@ -1,27 +1,31 @@
 import { fromHex, hex } from "./bytes.ts";
-import { CMD_GET_KEYMAP, MATRIX_BYTES } from "./commands.ts";
+import { CMD_GET_KEYMAP, LAYER_BYTES, MATRIX_BYTES } from "./commands.ts";
 import { CONFIG_BYTES } from "./config.ts";
 import { MACRO_AREA_BYTES, macroAreaLength, splitMacros } from "./macro.ts";
 
 /** Everything the keyboard can read back (the dot screen image has no read command). */
 export interface KeyboardState {
   config: Uint8Array;
-  /** Layers 0..3. */
+  /** Layers 0..3 with their knob; an older file's hold only the matrix, and leave the knob as it is. */
   keymaps: Uint8Array[];
   leds: Uint8Array;
   macros: Uint8Array;
 }
 
-/** Files without `version` are the full backups from before it existed: same shape. */
-const STATE_VERSION = 1;
+/** Version 2 adds the knob to each layer. Files without `version` are version 1 backups from before it existed. */
+const STATE_VERSION = 2;
+const MATRIX_ONLY_VERSION = 1;
 const LAYERS = CMD_GET_KEYMAP.map((_, layer) => layer);
 
-/** Resource name in the file → expected size; the macro area's varies, see `parseMacroArea`. */
-const SIZES: Record<string, number> = {
-  config: CONFIG_BYTES,
-  ...Object.fromEntries(LAYERS.map((l) => [`keymap${l}`, MATRIX_BYTES])),
-  leds: MATRIX_BYTES,
-};
+/** Resource name in the file → expected size for each version; the macro area's varies, see `parseMacroArea`. */
+function sizes(version: number): Record<string, number> {
+  const layer = version === MATRIX_ONLY_VERSION ? MATRIX_BYTES : LAYER_BYTES;
+  return {
+    config: CONFIG_BYTES,
+    ...Object.fromEntries(LAYERS.map((l) => [`keymap${l}`, layer])),
+    leds: MATRIX_BYTES,
+  };
+}
 
 /** Each resource under its name in the file, in write order. */
 function resources(state: KeyboardState): [string, Uint8Array][] {
@@ -41,8 +45,17 @@ export function stateDiff(a: KeyboardState, b: KeyboardState): string[] {
     .map(([name]) => name);
 }
 
-/** Version 1 file: one hex string per resource. */
+/** Version 2 file: one hex string per resource. Throws on a state without the knob (an older file's). */
 export function stateToJson(state: KeyboardState): string {
+  const expected = sizes(STATE_VERSION);
+  for (const [name, bytes] of resources(state)) {
+    if (expected[name] !== undefined && bytes.length !== expected[name]) {
+      throw new Error(
+        `${name}: ${bytes.length} bytes, expected ${expected[name]}`,
+      );
+    }
+  }
+
   const file = {
     version: STATE_VERSION,
     ...Object.fromEntries(
@@ -53,7 +66,7 @@ export function stateToJson(state: KeyboardState): string {
   return JSON.stringify(file, null, 2) + "\n";
 }
 
-/** Parses a `stateToJson` file, or a version-less full backup; throws on anything incomplete or malformed. */
+/** Parses a `stateToJson` file, an older version, or a version-less full backup; throws on anything incomplete or malformed. */
 export function stateFromJson(text: string): KeyboardState {
   let file;
   try {
@@ -66,13 +79,13 @@ export function stateFromJson(text: string): KeyboardState {
     throw new Error("not a saved keyboard state");
   }
 
-  const version = file.version ?? STATE_VERSION;
-  if (version !== STATE_VERSION) {
+  const version = file.version ?? MATRIX_ONLY_VERSION;
+  if (version !== MATRIX_ONLY_VERSION && version !== STATE_VERSION) {
     throw new Error(`unknown version ${version}`);
   }
 
   const data: Record<string, Uint8Array> = {};
-  for (const [name, size] of Object.entries(SIZES)) {
+  for (const [name, size] of Object.entries(sizes(version))) {
     data[name] = resource(file[name], name, size);
   }
 

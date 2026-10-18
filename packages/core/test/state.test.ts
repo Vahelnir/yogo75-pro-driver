@@ -6,11 +6,13 @@ import {
   encodeMacro,
   hex,
   joinMacros,
+  keyAt,
   Keyboard,
+  KNOB_PRESS,
   stateFromJson,
   stateToJson,
 } from "../src/index.ts";
-import { BACKUP, FakeKeyboard } from "./fake-transport.ts";
+import { BACKUP, FakeKeyboard, LAYER_FIXTURE } from "./fake-transport.ts";
 
 const FIXTURE = readFileSync(
   new URL("full-backup.json", import.meta.url),
@@ -41,7 +43,13 @@ test("read → serialise → parse → write gives back exactly the bytes read",
       name === "leds" ? withoutFullBytes(BACKUP.leds) : BACKUP[name];
     assert.deepEqual(written, expected, name);
   }
-  assert.equal(JSON.parse(text).version, 1);
+  for (const l of [0, 1, 2, 3]) {
+    assert.deepEqual(
+      target.data[`keymap${l}`].subarray(0, 345),
+      LAYER_FIXTURE[l],
+    );
+  }
+  assert.equal(JSON.parse(text).version, 2);
 });
 
 test("writes config, layers 0-3, colours, then macros", async () => {
@@ -96,6 +104,27 @@ test("an old file's 224 bytes load cut to the area's header length", async () =>
   );
 });
 
+test("an older file, without the knob, leaves the knob as the keyboard holds it", async () => {
+  for (const file of [FIXTURE, withFixture((b) => (b.version = 1))]) {
+    const fake = new FakeKeyboard(64);
+    keyAt(fake.data.keymap0, KNOB_PRESS).set([0x10, 0x00, 0x04]);
+    const knob = fake.data.keymap0.slice(336, 345);
+
+    const differs = await new Keyboard(fake).writeState(stateFromJson(file));
+
+    assert.deepEqual(differs, []);
+    assert.deepEqual(fake.data.keymap0.subarray(0, 336), BACKUP.keymap0);
+    assert.deepEqual(fake.data.keymap0.subarray(336, 345), knob);
+  }
+});
+
+test("a state without the knob is not saved: its file would claim a knob", () => {
+  assert.throws(
+    () => stateToJson(stateFromJson(FIXTURE)),
+    /keymap0: 336 bytes, expected 345/,
+  );
+});
+
 test("a backup without version loads as version 1", () => {
   const state = stateFromJson(FIXTURE);
   assert.deepEqual(state.config, BACKUP.config);
@@ -108,7 +137,8 @@ test("invalid files are rejected", () => {
   for (const [text, error] of [
     ["not json", /not JSON/],
     ["[]", /not a saved keyboard state/],
-    [withFixture((b) => (b.version = 2)), /unknown version 2/],
+    [withFixture((b) => (b.version = 3)), /unknown version 3/],
+    [withFixture((b) => (b.version = 2)), /keymap0: 336 bytes, expected 345/],
     [withFixture((b) => delete b.keymap2), /keymap2: missing/],
     [withFixture((b) => (b.leds = "00 11")), /leds: 2 bytes, expected 336/],
     [withFixture((b) => (b.config = "zz".repeat(64))), /config: not hex/],

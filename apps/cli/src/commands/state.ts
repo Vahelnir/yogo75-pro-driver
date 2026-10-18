@@ -8,7 +8,7 @@ export function registerStateCommands(program: Command): void {
   program
     .command("save")
     .description(
-      "Save config, layers 0-3, per-key colours and macros to a file",
+      "Save config, layers 0-3 with their knob, per-key colours and macros to a file",
     )
     .argument("<file>", "JSON file to write", stateFileArg)
     .option("--force", "Overwrite the file if it exists")
@@ -23,7 +23,7 @@ export function registerStateCommands(program: Command): void {
           flag: force ? "w" : "wx",
         });
         console.log(
-          `config, layers 0-3, per-key colours and macros saved to ${file}`,
+          `config, layers 0-3 with their knob, per-key colours and macros saved to ${file}`,
         );
       });
     });

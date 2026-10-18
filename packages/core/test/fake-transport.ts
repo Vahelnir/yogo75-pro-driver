@@ -30,6 +30,14 @@ export const KNOB_FIXTURE = [
   "30ea00 30e900 30e200",
 ].map(fromHex);
 
+/** Each layer as `readKeymap` returns it: the backup's matrix, then its knob. */
+export const LAYER_FIXTURE = KNOB_FIXTURE.map((knob, l) => {
+  const layer = new Uint8Array(MATRIX_BYTES + knob.length);
+  layer.set(BACKUP[`keymap${l}`]);
+  layer.set(knob, MATRIX_BYTES);
+  return layer;
+});
+
 const READS: Record<number, string> = {
   0x12: "info",
   0x14: "config",
@@ -99,20 +107,11 @@ export class FakeKeyboard implements Transport {
     ...Object.fromEntries(
       Object.entries(BACKUP).map(([name, b]) => [name, b.slice()]),
     ),
-    ...Object.fromEntries(
-      [0, 1, 2, 3].map((l) => [`factory${l}`, BACKUP[`keymap${l}`].slice()]),
-    ),
     power: Uint8Array.of(87, 1),
     // get_keyboard_info as read on the keyboard, up to macroSize (4)
     info: fromHex("aa bb 3b 37 9b 11 26 01 03 01 00 02 80 04"),
   };
-  /** One record each to start with: what the backup holds. */
-  pages: Record<string, FakePage> = Object.fromEntries(
-    [CONFIG_PAGE, ...KEYMAP_PAGES, LEDS_PAGE].map((page) => [
-      page.name,
-      { page, records: [BACKUP[page.name].slice()], next: 1 },
-    ]),
-  );
+  pages: Record<string, FakePage>;
   #armed = new Set<string>();
   #configStaging = this.data.config.slice();
   /** Packets left before the tick applies the staged config; 0 = nothing staged to apply. */
@@ -139,7 +138,16 @@ export class FakeKeyboard implements Transport {
       layer.set(this.data[`keymap${l}`]);
       layer.set(knob, MATRIX_BYTES);
       this.data[`keymap${l}`] = layer;
+      // the factory keymap holds a knob too
+      this.data[`factory${l}`] = layer.slice();
     });
+    // one record each to start with: what the backup holds
+    this.pages = Object.fromEntries(
+      [CONFIG_PAGE, ...KEYMAP_PAGES, LEDS_PAGE].map((page) => [
+        page.name,
+        { page, records: [this.data[page.name].slice()], next: 1 },
+      ]),
+    );
   }
 
   /** Fills a page with copies of the current data, up to `used` records (10 or 64 = full). */
