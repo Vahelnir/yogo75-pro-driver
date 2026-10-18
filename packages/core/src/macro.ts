@@ -15,7 +15,7 @@ export interface MacroSpec {
   delay: number;
 }
 
-/** Probable size of the area: foreign data starts at offset 1024 (hypothesis, see docs/protocol.md). */
+/** Size of the area: the firmware drops writes past offset 1024 (see docs/protocol.md). */
 export const MACRO_AREA_BYTES = 1024;
 export const DEFAULT_DELAY = 20;
 export const MAX_DELAY = 0xffff;

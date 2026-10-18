@@ -378,9 +378,15 @@ Read with `0x17` (verified for the codes; the functions come from the tables abo
 
 Read `0x2C`, write `0x2D` (`getMacro`, `setMacro`, classes `tW` / `vI`). `get_keyboard_info` announces 4 macros.
 
-**Configurator limits** (code): for the Yogo 75 PRO, none. Its macro composable (`nw`) sets `maxMacroCount` and `maxActionsCount` to infinity for this API family (`Mi` / `Ui`), and `setMacro` imposes no size on the block: it simply splits it into packets. Only `macroSize` = 4 from `get_keyboard_info` gives a number. The real capacity of the area (in bytes and in macros) remains to be checked in the firmware.
+**Configurator limits** (code): for the Yogo 75 PRO, none. Its macro composable (`nw`) sets `maxMacroCount` and `maxActionsCount` to infinity for this API family (`Mi` / `Ui`), and `setMacro` imposes no size on the block: it simply splits it into packets. Only `macroSize` = 4 from `get_keyboard_info` gives a number.
 
-**Probable size of the area: 1024 bytes** (hypothesis, based on one read). Reading 4480 bytes with `0x2C` (80 packets, no error), we find 16 `ff` bytes, then zeros up to offset 1023, then from 1024 data unrelated to macros (regular `ff ff ff` patterns, then what looks like RAM: addresses `0x2000xxxx`). So the firmware doesn't bound the read. To be confirmed in the firmware before writing beyond it.
+**Size of the area: 1024 bytes** (code, firmware 1.26). The macros live in a 1024-byte RAM buffer, saved to flash at `0x02075000`:
+
+- **Write** (`0x2D`): copies the data only if `offset + len ≤ 1024`. Otherwise it drops the whole packet silently, even its bytes below 1024, and still replies `0x55` (verified: 4 bytes at 1020 are written, 8 bytes at 1020 leave 1020–1023 unchanged). Each accepted write arms a save: about 100 ticks later, the firmware erases the flash page and writes the 1024 bytes back.
+- **Read** (`0x2C`): no bound. It copies from the buffer at any offset, so it goes on into the RAM after it (verified: reading 4480 bytes gives no error, and byte 1024 changes on every read, rising by about 74–75 each time, like a counter).
+- **Boot**: the firmware reads the first 16 bytes from flash and loads all 1024 only if they start with `aa 55`. Otherwise the buffer stays empty.
+
+The firmware sets no limit on the number of macros: a key's macro number indexes the offset table directly.
 
 **The configurator doesn't read the macros back from the keyboard**: it keeps the list on its side (local storage / account) and only writes it. Its `getMacro` only reads one packet at offset 0 and does nothing with it. With no macro, the area reads as 16 `ff` bytes then zeros (verified, 8 packets with `0x2C`).
 
@@ -493,4 +499,5 @@ Writing these four resources back as is, then reading them in a new session, giv
 
 ## Open questions
 
+- What is byte 7 of the reply (`0x55`)?
 - Role of slots 46–47 (`30 cb 01`, `30 cf 00`) and of the unknown `0x50` functions.
