@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { keyAt, keycodeName, KNOB, LAYOUT, type KeyRect } from "@yogo75/core";
+import {
+  keyAt,
+  keycodeName,
+  KNOB,
+  knobNames,
+  LAYOUT,
+  type KeyRect,
+} from "@yogo75/core";
 
 /** One layer and its knob, as the keyboard holds them. */
-const props = defineProps<{ keymap: Uint8Array; knob: Uint8Array }>();
+const props = defineProps<{ keymap: Uint8Array }>();
 
 const { t } = useI18n();
 
@@ -10,11 +17,7 @@ const rects = [...LAYOUT.values(), KNOB];
 const width = Math.max(...rects.map((r) => r.x + r.w));
 const height = Math.max(...rects.map((r) => r.y + r.h));
 
-const knob = computed(() => ({
-  left: keycodeName(keyAt(props.knob, 0)),
-  right: keycodeName(keyAt(props.knob, 1)),
-  press: keycodeName(keyAt(props.knob, 2)),
-}));
+const knob = computed(() => knobNames(props.keymap));
 
 const keys = computed(() =>
   [...LAYOUT].map(([index, rect]) => ({

@@ -2,7 +2,7 @@ import { Keyboard } from "@yogo75/core";
 import { expect, test } from "vitest";
 import {
   FakeKeyboard,
-  KNOB_FIXTURE,
+  LAYER_FIXTURE,
 } from "../../../packages/core/test/fake-transport.ts";
 import { connect } from "../src/session.ts";
 
@@ -14,7 +14,7 @@ test("connect reads the firmware version and the full state", async () => {
   expect(session.snapshot).toEqual(expected);
   expect(session.state).toEqual(expected);
   expect(session.state).not.toBe(session.snapshot);
-  expect(session.knobs).toEqual(KNOB_FIXTURE);
+  expect(session.state.keymaps).toEqual(LAYER_FIXTURE);
 });
 
 test("concurrent requests are sent one after the other, never interleaved", async () => {
@@ -28,7 +28,7 @@ test("concurrent requests are sent one after the other, never interleaved", asyn
   ]);
 
   const cmds = fake.written.map((p) => p[1]);
-  expect(cmds).toEqual([...Array(14).fill(0x1a), ...Array(14).fill(0x1c)]);
+  expect(cmds).toEqual([...Array(15).fill(0x1a), ...Array(15).fill(0x1c)]);
 });
 
 test("a failed request does not block the next ones", async () => {
@@ -38,7 +38,7 @@ test("a failed request does not block the next ones", async () => {
   const next = session.run((k) => k.readKeymap(0));
 
   await expect(failed).rejects.toThrow("boom");
-  expect(await next).toHaveLength(336);
+  expect(await next).toHaveLength(345);
 });
 
 test("a dongle that does not answer is asleep: connect retries until it does", async () => {

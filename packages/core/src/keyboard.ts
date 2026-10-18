@@ -21,6 +21,7 @@ import {
   CUSTOM_LEDS_BUFFER_BYTES,
   INFO_MACRO_SIZE,
   isDangerous,
+  LAYER_BYTES,
   LED_MATRIX_BYTES,
   MACROS_BYTES,
   MATRIX_BYTES,
@@ -35,7 +36,7 @@ import {
   withoutFullBytes,
   type FlashPage,
 } from "./flash.ts";
-import { CODE_BYTES, keyAt, KNOB_BYTES } from "./keymap.ts";
+import { CODE_BYTES, keyAt } from "./keymap.ts";
 import {
   EMPTY_MACRO,
   joinMacros,
@@ -284,23 +285,31 @@ export class Keyboard {
     );
   }
 
-  /** Layer 0..3, 3 bytes per key; `factory` reads the default keymap. */
+  /** Layer 0..3, 3 bytes per key, then the knob (`KNOB_LEFT`…); `factory` reads the default keymap. */
   readKeymap(layer: number, factory = false) {
     const cmds = factory ? CMD_GET_DEFAULT_KEYMAP : CMD_GET_KEYMAP;
-    return this.#readChunks(cmds[layer], MATRIX_BYTES);
+    return this.#readChunks(cmds[layer], LAYER_BYTES);
   }
 
-  /** The knob of layer 0..3: rotate left, rotate right and press, 3 bytes each. */
-  readKnob(layer: number) {
-    return this.#readChunks(CMD_GET_KEYMAP[layer], KNOB_BYTES, MATRIX_BYTES);
-  }
+  /**
+   * Rewrites a whole layer, as the hub does (it never writes a single key). A layer without its knob (an older
+   * file's) is written with the knob the keyboard holds, so the save, and its zeros on a stuck page, cover it.
+   */
+  async writeKeymap(layer: number, map: Uint8Array) {
+    if (map.length !== MATRIX_BYTES && map.length !== LAYER_BYTES) {
+      throw new Error(`a layer is ${MATRIX_BYTES} or ${LAYER_BYTES} bytes`);
+    }
 
-  /** Rewrites a whole layer, as the hub does (it never writes a single key). */
-  writeKeymap(layer: number, map: Uint8Array) {
-    return this.#save(
+    let whole = map;
+    if (map.length === MATRIX_BYTES) {
+      whole = (await this.readKeymap(layer)).slice();
+      whole.set(map);
+    }
+
+    await this.#save(
       KEYMAP_PAGES[layer],
-      (d) => this.#writeChunks(CMD_SET_KEYMAP[layer], d),
-      map,
+      (d) => this.#writeChunks(CMD_SET_KEYMAP[layer], d, false),
+      whole,
     );
   }
 
@@ -438,7 +447,8 @@ export class Keyboard {
 
   /**
    * Rewrites every resource, in `readState`'s order, then reads them back: resolves with those that differ.
-   * Colours read back 0xFE where the state has 0xFF (see `writeCustomLeds`).
+   * Colours read back 0xFE where the state has 0xFF (see `writeCustomLeds`); a layer without its knob is compared
+   * without it.
    */
   async writeState(state: KeyboardState): Promise<string[]> {
     await this.writeConfig(state.config);
@@ -450,10 +460,16 @@ export class Keyboard {
     await this.writeMacros(state.macros);
 
     await new Promise((resolve) => setTimeout(resolve, APPLY_DELAY_MS));
-    return stateDiff(await this.readState(), {
-      ...state,
-      leds: withoutFullBytes(state.leds),
-    });
+    const read = await this.readState();
+    return stateDiff(
+      {
+        ...read,
+        keymaps: read.keymaps.map((map, l) =>
+          map.subarray(0, state.keymaps[l].length),
+        ),
+      },
+      { ...state, leds: withoutFullBytes(state.leds) },
+    );
   }
 
   /** 6×6 RGB888 image, row by row, shown by dot screen mode 6. There is no read command. */

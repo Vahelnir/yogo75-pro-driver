@@ -37,7 +37,7 @@ const WIDTHS: Record<number, number> = {
 /** Left edge of the column right of the grid: the knob, then the two side buttons under it. */
 const SIDE_X = 16.5;
 
-/** The knob; its actions are in each layer, past the matrix (`readKnob`). */
+/** The knob; its actions are in each layer, past the matrix (`KNOB_LEFT`…). */
 export const KNOB: KeyRect = { x: SIDE_X, y: 0, w: 2, h: 2 };
 
 /** Every key that exists, by matrix index: the 84 of the grid, then the side buttons 46 (top) and 47. */
