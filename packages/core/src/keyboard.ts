@@ -72,6 +72,11 @@ const APPLY_DELAY_MS = 50;
 /** A save lands about 60 ms after the last write while we poll; past this, its page is stuck. */
 const SAVE_TIMEOUT_MS = 1000;
 const SAVE_POLL_MS = 10;
+/**
+ * Through the dongle, the session closes after 5 to 7 s without a packet: writes are acked but ignored and reads
+ * return zeros until the next start packet. The hub sends it again past 5 s.
+ */
+const SESSION_IDLE_MS = 5000;
 /** The hub reads only this many info bytes through the dongle. */
 const WIRELESS_INFO_BYTES = 39;
 
@@ -98,6 +103,8 @@ export class Keyboard {
   #transport: Transport;
   #log?: PacketLogger;
   #request = 0;
+  /** When the last packet was sent; undefined until the caller starts the session. */
+  #lastPacket?: number;
 
   constructor(transport: Transport, log?: PacketLogger) {
     this.#transport = transport;
@@ -115,6 +122,12 @@ export class Keyboard {
     data: ArrayLike<number> = [],
   ): Promise<Uint8Array> {
     checkBounds(cmd, offset, length);
+    const idle = Date.now() - (this.#lastPacket ?? Date.now());
+    if (cmd !== CMD_START && idle > SESSION_IDLE_MS) {
+      await this.start();
+    }
+    this.#lastPacket = Date.now();
+
     this.#request = (this.#request % 0xffff) + 1; // 1..65535, wraps
     const request = this.#request;
     const pkt = encodePacket(this.#transport.reportSize, {

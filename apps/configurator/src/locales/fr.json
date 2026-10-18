@@ -17,6 +17,8 @@
     "firmware": "Firmware",
     "connection": "Connexion",
     "knob": "Molette : gauche {left}, appui {press}, droite {right}",
+    "listening": "Appuie sur la touche à assigner, ou Échap pour annuler.",
+    "write_failed": "Impossible d'écrire la touche : {error}",
     "layers": {
       "base": "Base",
       "fn": "Fn",

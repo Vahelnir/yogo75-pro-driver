@@ -3,13 +3,17 @@ import {
   keyAt,
   keycodeName,
   KNOB,
+  KNOB_LEFT,
+  KNOB_PRESS,
+  KNOB_RIGHT,
   knobNames,
   LAYOUT,
   type KeyRect,
 } from "@yogo75/core";
 
-/** One layer and its knob, as the keyboard holds them. */
-const props = defineProps<{ keymap: Uint8Array }>();
+/** One layer and its knob, as the keyboard holds them; `selected` is the key (or knob action) listening. */
+const props = defineProps<{ keymap: Uint8Array; selected?: number }>();
+const emit = defineEmits<{ select: [index: number] }>();
 
 const { t } = useI18n();
 
@@ -47,6 +51,25 @@ function ring(from: number, to: number): string {
   ].join(" ");
 }
 
+function knobPart(index: number) {
+  return {
+    role: "button",
+    tabindex: 0,
+    "aria-pressed": props.selected === index,
+    class: [
+      "cursor-pointer hover:stroke-zinc-500",
+      props.selected === index && "fill-amber-100 stroke-amber-500",
+    ],
+    onClick: () => emit("select", index),
+    onKeydown: (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        emit("select", index);
+      }
+    },
+  };
+}
+
 function place(rect: KeyRect) {
   return {
     left: `${(rect.x / width) * 100}%`,
@@ -68,28 +91,32 @@ function place(rect: KeyRect) {
       class="absolute p-[0.2%]"
       :style="place(rect)"
     >
-      <div
-        class="flex h-full items-center justify-center overflow-hidden rounded border border-zinc-300 bg-white px-0.5 text-[clamp(7px,1.1cqw,13px)] shadow-sm"
+      <button
+        type="button"
+        class="flex h-full w-full items-center justify-center overflow-hidden rounded border border-zinc-300 bg-white px-0.5 text-[clamp(7px,1.1cqw,13px)] shadow-sm hover:border-zinc-500"
+        :class="{ 'border-amber-500 bg-amber-100': selected === index }"
+        :aria-pressed="selected === index"
         :title="`${index}: ${name}`"
+        @click="emit('select', index)"
       >
         <span class="truncate">{{ name }}</span>
-      </div>
+      </button>
     </div>
     <div class="absolute p-[0.4%]" :style="place(KNOB)">
       <svg
         viewBox="0 0 100 100"
         class="h-full w-full text-[9px]"
-        role="img"
+        role="group"
         :aria-label="t('keymap.knob', knob)"
       >
         <g class="fill-white stroke-zinc-300">
-          <path :d="ring(110, 250)">
+          <path :d="ring(110, 250)" v-bind="knobPart(KNOB_LEFT)">
             <title>↺ {{ knob.left }}</title>
           </path>
-          <path :d="ring(-70, 70)">
+          <path :d="ring(-70, 70)" v-bind="knobPart(KNOB_RIGHT)">
             <title>↻ {{ knob.right }}</title>
           </path>
-          <circle cx="50" cy="50" :r="INNER - 4">
+          <circle cx="50" cy="50" :r="INNER - 4" v-bind="knobPart(KNOB_PRESS)">
             <title>{{ knob.press }}</title>
           </circle>
         </g>

@@ -343,3 +343,28 @@ test("resetKey puts back a knob action", async () => {
   assert.deepEqual(code, keyAt(LAYER_FIXTURE[0], left));
   assert.deepEqual(fake.data.keymap0.subarray(0, 345), LAYER_FIXTURE[0]);
 });
+
+test("after 5 s without a packet, the session is opened again before the next request", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const { fake, kb } = setup(32);
+  await kb.start();
+
+  t.mock.timers.tick(10_000);
+  fake.written = [];
+  const map = await kb.readKeymap(0);
+
+  assert.deepEqual(map, LAYER_FIXTURE[0]);
+  assert.equal(fake.written[0][1], 0x10);
+});
+
+test("a request within 5 s of the last one sends no start packet", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"] });
+  const { fake, kb } = setup(32);
+  await kb.start();
+
+  t.mock.timers.tick(4_000);
+  fake.written = [];
+  await kb.readConfig();
+
+  assert.ok(fake.written.every((p) => p[1] !== 0x10));
+});

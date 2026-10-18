@@ -17,6 +17,8 @@
     "firmware": "Firmware",
     "connection": "Connection",
     "knob": "Knob: left {left}, press {press}, right {right}",
+    "listening": "Press the key to bind, or Esc to cancel.",
+    "write_failed": "Could not write the key: {error}",
     "layers": {
       "base": "Base",
       "fn": "Fn",
