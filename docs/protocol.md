@@ -274,7 +274,7 @@ The 84 LEDs are all covered; 8 keys between the two centres (F7, 7, 8, U, I, H, 
 - `colorful` = 1: hue wheel entry `counter + 26 × ring` (8-bit, wraps), scaled by `brightness`;
 - `colorful` = 0: `colorR/G/B` × level wave entry `counter + 6 × ring` (counter 0–127; a ring index past 126 restarts at 0 rather than wrapping).
 
-The colour at ring `r` reaches ring `r − 1` 26 steps later (6 in single colour), so the rings should move **inwards**, towards R and P. Open: the direction has not been checked on the keyboard.
+The colour at ring `r` reaches ring `r − 1` 26 steps later (6 in single colour), so the rings move **inwards**, towards R and P (verified, in both `colorful` values; nothing visible where the rings overlap). In single colour, each ring lights up in visible steps and fades out smoothly (verified).
 
 ## Dot screen: built-in modes
 
