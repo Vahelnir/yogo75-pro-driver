@@ -118,15 +118,15 @@ byte   0     1     2..3          4      5..6               7       8..63
       0xAA  cmd   offset (LE)   len    request code (LE)  -       data (56 max)
 ```
 
-| Byte  | Request                               | Reply                               | Status                         |
-| ----- | ------------------------------------- | ----------------------------------- | ------------------------------ |
-| 0     | `0xAA` (constant `rA`)                | `0xAA`                              | verified                       |
-| 1     | command                               | command echoed                      | verified                       |
-| 2..3  | offset in the resource, little-endian | echoed; **`[2] == 0xFF` = error**   | verified (echo) / code (error) |
-| 4     | data length (≤ 56)                    | echoed                              | verified                       |
-| 5..6  | request code                          | echoed                              | verified                       |
-| 7     | 0                                     | `0x55`, probably an acknowledgement | hypothesis                     |
-| 8..63 | data to write                         | data read                           | verified                       |
+| Byte  | Request                               | Reply                                                                                                                                                                                                                | Status                         |
+| ----- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| 0     | `0xAA` (constant `rA`)                | `0xAA`                                                                                                                                                                                                               | verified                       |
+| 1     | command                               | command echoed                                                                                                                                                                                                       | verified                       |
+| 2..3  | offset in the resource, little-endian | echoed; **`[2] == 0xFF` = error**                                                                                                                                                                                    | verified (echo) / code (error) |
+| 4     | data length (≤ 56)                    | echoed                                                                                                                                                                                                               | verified                       |
+| 5..6  | request code                          | echoed                                                                                                                                                                                                               | verified                       |
+| 7     | 0                                     | status: `0x55` accepted, `0x0F` rejected (byte 0 not `0xAA`, `len` > 56, or no start packet `0x10` yet). `0x55` only means the packet was dispatched: a command can still ignore its data (e.g. `0x2D` out of range) | code (firmware 1.26)           |
+| 8..63 | data to write                         | data read                                                                                                                                                                                                            | verified                       |
 
 Resources larger than 56 bytes are read or written in several packets, advancing the offset by 56 each time.
 
@@ -493,5 +493,4 @@ Writing these four resources back as is, then reading them in a new session, giv
 
 ## Open questions
 
-- What is byte 7 of the reply (`0x55`)?
 - Role of slots 46–47 (`30 cb 01`, `30 cf 00`) and of the unknown `0x50` functions.
