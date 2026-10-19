@@ -13,7 +13,7 @@ I started this repository out of frustration. The official configurator wouldn't
 
 1. **Protocol documentation** for anyone who wants to write a proper driver or tool. [`docs/protocol.md`](docs/protocol.md) describes the USB HID protocol, independently of any tool: packet format, every command, the config block and the keymap, macro and image formats. Each fact is tagged _verified_ (tested on a real keyboard, firmware `01.26`), _code_ (read in the configurator's JavaScript, untested) or _hypothesis_.
    If you don't trust AI-written code, this is the part to take: it is plain prose you can check against the configurator and your own keyboard, and build your own tool from.
-2. **Tools to configure the Yogo 75 PRO**: [`yogo75`](apps/cli), a command-line tool, and a web configurator ([`apps/configurator`](apps/configurator), not hosted yet: run it with `pnpm configurator`).
+2. **Tools to configure the Yogo 75 PRO**: [`yogo75`](apps/cli), a command-line tool, and a web configurator ([`apps/configurator`](apps/configurator)), hosted at [vahelnir.github.io/yogo75-pro-driver](https://vahelnir.github.io/yogo75-pro-driver/).
 
 No driver needs to be installed: the official configurator is a website that talks to the keyboard over WebHID, using 64-byte reports on a vendor HID interface (usage page `0xFF60`), or 32-byte reports through the 2.4 GHz dongle. `yogo75` sends the same reports with [`node-hid`](https://github.com/node-hid/node-hid).
 
@@ -38,7 +38,7 @@ DEBUG=1 pnpm yogo75 info              # print every packet sent and received
 
 `pnpm yogo75 --help` is the command reference. Commands that write follow read → modify → write, but back nothing up: run `save` first to keep the current state.
 
-`pnpm configurator` starts the web configurator ([`apps/configurator`](apps/configurator)) on a local dev server. It needs a Chromium browser (WebHID) and connects over the cable or the dongle.
+The web configurator ([`apps/configurator`](apps/configurator)) is hosted at [vahelnir.github.io/yogo75-pro-driver](https://vahelnir.github.io/yogo75-pro-driver/), deployed from `main`; `pnpm configurator` runs it on a local dev server. It needs a Chromium browser (WebHID) and connects over the cable or the dongle.
 
 **Do not send** `0x31` (factory reset) or `0xA0`–`0xC0` (firmware flashing): they are documented but never used. `yogo75 raw` refuses them without `--force`.
 
