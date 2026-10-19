@@ -1,15 +1,19 @@
 # yogo75-driver
 
-Reverse engineering of the **ATK Yogo 75 PRO** keyboard and of its official web configurator ([v3-hub.atk.store](https://v3-hub.atk.store/)), so the keyboard can be driven without it. For now, only the Yogo 75 PRO is supported; other ATK keyboards are untested.
+Reverse engineering of the **ATK Yogo 75 PRO**'s protocol and of its official web configurator ([v3-hub.atk.store](https://v3-hub.atk.store/)), so the keyboard can be driven without it. For now, only the Yogo 75 PRO is supported; other ATK keyboards are untested.
+
+## Why
+
+I started this repository out of frustration. The official configurator wouldn't let me rebind keys the way I wanted: Fn is locked in place, I couldn't turn Caps Lock into Fn, and some keys were missing from the palette or had unreadable names. As far as I remember, colours could barely be set, let alone the pixel screen. ATK's VIA driver simply didn't work for me.
 
 > [!WARNING]
-> **This repository was produced entirely agentically.** The protocol analysis, the code and the documentation were written by an AI agent (Claude Code), with a human only plugging in the keyboard, reporting what it did and approving risky steps. Treat everything here as unaudited: read the code before you run it, and keep in mind that writing to the keyboard can leave it in a bad state.
+> **AI-made project.** The protocol analysis, the code and the documentation were written by an AI agent (Claude Code). I'm not necessarily a fan of AI-made projects, but I'm not sure anyone would have reverse-engineered ATK's configurator to fix my issues with the board. I reviewed and tested it, and I use it daily, but **don't trust the project blindly**: read the code before you run it, and keep in mind that writing to the keyboard can leave it in a bad state.
 
 ## What this repository is for
 
 1. **Protocol documentation** for anyone who wants to write a proper driver or tool. [`docs/protocol.md`](docs/protocol.md) describes the USB HID protocol, independently of any tool: packet format, every command, the config block and the keymap, macro and image formats. Each fact is tagged _verified_ (tested on a real keyboard, firmware `01.26`), _code_ (read in the configurator's JavaScript, untested) or _hypothesis_.
    If you don't trust AI-written code, this is the part to take: it is plain prose you can check against the configurator and your own keyboard, and build your own tool from.
-2. **A fully AI-written reimplementation**: [`yogo75`](apps/cli/src/commands.ts), a small command-line tool that talks to the keyboard directly.
+2. **Tools to configure the Yogo 75 PRO**: [`yogo75`](apps/cli), a command-line tool, and a web configurator ([`apps/configurator`](apps/configurator), not hosted yet: run it with `pnpm configurator`).
 
 No driver needs to be installed: the official configurator is a website that talks to the keyboard over WebHID, using 64-byte reports on a vendor HID interface (usage page `0xFF60`), or 32-byte reports through the 2.4 GHz dongle. `yogo75` sends the same reports with [`node-hid`](https://github.com/node-hid/node-hid).
 
@@ -34,14 +38,10 @@ DEBUG=1 pnpm yogo75 info              # print every packet sent and received
 
 `pnpm yogo75 --help` is the command reference. Commands that write follow read → modify → write, but back nothing up: run `save` first to keep the current state.
 
-`pnpm configurator` starts the web configurator ([`apps/configurator`](apps/configurator), in progress) on a local dev server. It needs a Chromium browser (WebHID) and connects over the cable or the dongle.
+`pnpm configurator` starts the web configurator ([`apps/configurator`](apps/configurator)) on a local dev server. It needs a Chromium browser (WebHID) and connects over the cable or the dongle.
 
 **Do not send** `0x31` (factory reset) or `0xA0`–`0xC0` (firmware flashing): they are documented but never used. `yogo75 raw` refuses them without `--force`.
 
 ## To do
 
 Open questions and planned work are tracked in the [issues](https://github.com/Vahelnir/yogo75-pro-driver/issues).
-
-## The configurator copy
-
-`web-dump/` holds a local copy of the configurator's JavaScript, read to find the protocol. It is ATK's proprietary code, so it is **not** committed; `docs/protocol.md` explains how to download it again. It is only read and grepped, never executed.
