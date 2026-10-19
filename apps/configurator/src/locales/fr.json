@@ -154,7 +154,7 @@
       "color_steps": "Parcourt la palette : couleur perso, rouge, jaune, bleu, rose, arc-en-ciel.",
       "key_colors": "1er appui : affiche ce profil de couleurs par touche. 2e : mode édition, chaque touche pressée change de couleur. 3e : sauvegarde.",
       "dot_hue_prev": "Bug du firmware : revenir en arrière ne redonne pas les couleurs de « Couleur suivante ».",
-      "bluetooth": "Appui court : passe à cet appareil Bluetooth. Maintenu 3 s : l'appaire (mode Bluetooth seulement).",
+      "bluetooth": "Appui court : passe à cet appareil Bluetooth. Maintenu 3 s sur l'appareil courant : le réappaire (mode Bluetooth seulement).",
       "rf_pair": "En 2,4 GHz seulement, maintenu 3 s : donne au clavier une nouvelle identité radio, sans doute pour réappairer le dongle (non vérifié).",
       "gu_togg": "Verrouille la touche Win, en mode Windows seulement ; sa LED passe au rouge.",
       "nk_togg": "Au relâchement : bascule entre touches simultanées illimitées (NKRO) et 6 touches, et sauvegarde.",
@@ -164,7 +164,9 @@
       "fkey_togg": "Au relâchement : bascule un réglage qui ne fait qu'allumer Tab en blanc.",
       "knob_lock": "Maintenu 3 s : verrouille ou déverrouille les fonctions de volume du knob. Les flèches clignotent en blanc (verrouillé) ou en rouge.",
       "knob": "Seulement quand le knob est déverrouillé.",
-      "us_character": "La touche {character} {shifted} du QWERTY US : les caractères tapés dépendent de la disposition de l'OS."
+      "us_character": "La touche {character} {shifted} du QWERTY US : les caractères tapés dépendent de la disposition de l'OS.",
+      "color_picker": "Chaque touche s'allume d'une couleur : la prochaine touche pressée donne sa couleur au rétroéclairage. Espace parcourt la roue des teintes et choisit l'arc-en-ciel.",
+      "bat_lvl": "Affiche le niveau de batterie ; tant qu'elle est tenue, les touches d'éclairage ne font rien."
     },
     "macro_modes": {
       "once": "S'exécute une fois.",
@@ -214,13 +216,13 @@
     "down": "↓",
     "up": "↑",
     "app": "Menu",
-    "lctl": "Ctrl G",
-    "lsft": "Maj G",
-    "lalt": "Alt G",
-    "lgui": "Win G",
-    "rctl": "Ctrl D",
-    "rsft": "Maj D",
-    "ralt": "Alt D",
-    "rgui": "Win D"
+    "lctl": "Ctrl g.",
+    "lsft": "Maj g.",
+    "lalt": "Alt g.",
+    "lgui": "Win g.",
+    "rctl": "Ctrl d.",
+    "rsft": "Maj d.",
+    "ralt": "Alt d.",
+    "rgui": "Win d."
   }
 }

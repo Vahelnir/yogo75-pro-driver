@@ -213,20 +213,21 @@ export const PALETTE: { label: string; entries: PaletteEntry[] }[] = [
         name: "COLOR_NEXT",
         label: "palette.keys.color_next",
         icon: IconLightbulb,
-        badge: "C+",
+        badge: "◐+",
         description: "palette.descriptions.color_steps",
       },
       {
         name: "COLOR_PREV",
         label: "palette.keys.color_prev",
         icon: IconLightbulb,
-        badge: "C−",
+        badge: "◐−",
         description: "palette.descriptions.color_steps",
       },
       {
         name: "COLOR_PICKER",
         label: "palette.keys.color_picker",
         icon: IconPipette,
+        description: "palette.descriptions.color_picker",
       },
       {
         name: "KEY_COLORS_1",
@@ -309,13 +310,13 @@ export const PALETTE: { label: string; entries: PaletteEntry[] }[] = [
         name: "DOT_HUE",
         label: "palette.keys.dot_hue",
         icon: IconGrid3x3,
-        badge: "C+",
+        badge: "◐+",
       },
       {
         name: "DOT_HUE_PREV",
         label: "palette.keys.dot_hue_prev",
         icon: IconGrid3x3,
-        badge: "C−",
+        badge: "◐−",
         description: "palette.descriptions.dot_hue_prev",
       },
       {
@@ -378,6 +379,7 @@ export const PALETTE: { label: string; entries: PaletteEntry[] }[] = [
         name: "BAT_LVL",
         label: "palette.keys.bat_lvl",
         icon: IconBatteryMedium,
+        description: "palette.descriptions.bat_lvl",
       },
       {
         name: "GU_TOGG",
@@ -444,7 +446,7 @@ export const PALETTE: { label: string; entries: PaletteEntry[] }[] = [
 ];
 
 /** Plain keys whose meaning doesn't depend on the OS layout → the translation key of their label. */
-export const KEY_LABELS: Record<string, string> = {
+const KEY_LABELS: Record<string, string> = {
   P0: "key_labels.p0",
   P1: "key_labels.p1",
   P2: "key_labels.p2",
@@ -550,13 +552,10 @@ export interface Binding {
   description?: string;
 }
 
-export type Translate = (
-  key: string,
-  params?: Record<string, unknown>,
-) => string;
+type Translate = (key: string, params?: Record<string, unknown>) => string;
 
 /** Everything shown for a key name: the palette's entry, a macro, a plain key, or the bare name (`0x…`). */
-export function describe(name: string, t: Translate): Binding {
+export function bindingOf(name: string, t: Translate): Binding {
   const entry = ENTRIES.get(name);
   if (entry) {
     return {

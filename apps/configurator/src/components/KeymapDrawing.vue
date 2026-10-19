@@ -10,7 +10,7 @@ import {
   LAYOUT,
   type KeyRect,
 } from "@yogo75/core";
-import { describe, PALETTE_DRAG_TYPE } from "../palette.ts";
+import { bindingOf, PALETTE_DRAG_TYPE } from "../palette.ts";
 import BindingLabel from "./BindingLabel.vue";
 import BindingTooltip from "./BindingTooltip.vue";
 
@@ -29,32 +29,16 @@ const height = Math.max(...rects.map((r) => r.y + r.h));
 
 const knob = computed(() => knobNames(props.keymap));
 const knobBindings = computed(() => ({
-  left: describe(knob.value.left, t),
-  right: describe(knob.value.right, t),
-  press: describe(knob.value.press, t),
+  left: bindingOf(knob.value.left, t),
+  right: bindingOf(knob.value.right, t),
+  press: bindingOf(knob.value.press, t),
 }));
-/** Each knob label, upright in a box inside the ring's side or the press disc (viewBox units). */
-// shortcut: text is cut in the ring's 16-unit sides (F10 → F…), only icons fit; see #67
-const knobLabels = computed(() => [
-  {
-    binding: knobBindings.value.left,
-    box: { x: 50 - OUTER, y: 30, width: OUTER - INNER, height: 40 },
-  },
-  {
-    binding: knobBindings.value.right,
-    box: { x: 50 + INNER, y: 30, width: OUTER - INNER, height: 40 },
-  },
-  {
-    binding: knobBindings.value.press,
-    box: { x: 25, y: 35, width: 50, height: 30 },
-  },
-]);
 
 const keys = computed(() =>
   [...LAYOUT].map(([index, rect]) => ({
     index,
     rect,
-    binding: describe(keycodeName(keyAt(props.keymap, index)), t),
+    binding: bindingOf(keycodeName(keyAt(props.keymap, index)), t),
   })),
 );
 
@@ -79,6 +63,25 @@ function dropTarget(index: number) {
 /** Radii of the knob's rotation ring, in its 100 × 100 viewBox; the press disc sits inside it. */
 const OUTER = 49;
 const INNER = 33;
+
+/** A box of the knob's 100 × 100 viewBox, centred on (`cx`, 50). */
+function centred(cx: number, width: number, height: number) {
+  return { x: cx - width / 2, y: 50 - height / 2, width, height };
+}
+
+/** Each knob label, upright in a box inside a side of the ring or the press disc. */
+// shortcut: text is cut in the ring's 16-unit sides (F10 → F…), only icons fit; revisit once #67 picks a layout
+const knobLabels = computed(() => [
+  {
+    binding: knobBindings.value.left,
+    box: centred(50 - (OUTER + INNER) / 2, OUTER - INNER, 40),
+  },
+  {
+    binding: knobBindings.value.right,
+    box: centred(50 + (OUTER + INNER) / 2, OUTER - INNER, 40),
+  },
+  { binding: knobBindings.value.press, box: centred(50, 50, 30) },
+]);
 
 /** SVG path of the ring between two angles, in degrees clockwise from the right. */
 function ring(from: number, to: number): string {

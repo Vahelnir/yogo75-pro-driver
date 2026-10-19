@@ -154,7 +154,7 @@
       "color_steps": "Steps through the palette: custom colour, red, yellow, blue, pink, rainbow.",
       "key_colors": "1st press: shows this per-key colour profile. 2nd: edit mode, each key pressed steps its colour. 3rd: saves.",
       "dot_hue_prev": "Firmware bug: going back doesn't give back the colours of \"Next colour\".",
-      "bluetooth": "Short press: switches to this Bluetooth device. Held 3 s: pairs it (Bluetooth mode only).",
+      "bluetooth": "Short press: switches to this Bluetooth device. Held 3 s on the current device: pairs it again (Bluetooth mode only).",
       "rf_pair": "2.4 GHz only, held 3 s: gives the keyboard a new radio identity, probably to pair the dongle again (unverified).",
       "gu_togg": "Locks the Win key, in Windows mode only; its LED turns red.",
       "nk_togg": "On release: switches between no limit on simultaneous keys (NKRO) and 6 keys, and saves.",
@@ -164,7 +164,9 @@
       "fkey_togg": "On release: toggles a setting that only lights Tab white.",
       "knob_lock": "Held 3 s: locks or unlocks the knob's volume functions. The arrows blink white (locked) or red.",
       "knob": "Only while the knob is unlocked.",
-      "us_character": "The {character} {shifted} key of US QWERTY: the characters typed depend on the OS layout."
+      "us_character": "The {character} {shifted} key of US QWERTY: the characters typed depend on the OS layout.",
+      "color_picker": "Every key lights in a colour: the next key pressed gives the backlight its colour. Space cycles the hue wheel and picks the rainbow.",
+      "bat_lvl": "Shows the battery level; while held, the lighting keys do nothing."
     },
     "macro_modes": {
       "once": "Runs once.",

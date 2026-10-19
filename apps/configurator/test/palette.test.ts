@@ -9,7 +9,7 @@ import { expect, test } from "vitest";
 import en from "../src/locales/en.json";
 import fr from "../src/locales/fr.json";
 import {
-  describe,
+  bindingOf,
   macroNumbers,
   NUMPAD_KEYS,
   PALETTE,
@@ -35,7 +35,7 @@ test.each(entries.map((e) => e.name))(
   },
 );
 
-/** Every translation key `describe` asks for, over every name the drawing and the palette can show. */
+/** Every translation key `bindingOf` asks for, over every name the drawing and the palette can show. */
 function describedKeys(): string[] {
   const keys = new Set<string>();
   const names = [
@@ -49,7 +49,7 @@ function describedKeys(): string[] {
     "MACRO(1,4,5)",
   ];
   for (const name of names) {
-    describe(name, (key) => {
+    bindingOf(name, (key) => {
       keys.add(key);
       return key;
     });
@@ -66,14 +66,14 @@ test.each([...PALETTE.map((g) => g.label), ...describedKeys()])(
   },
 );
 
-/** `describe` with the English messages, parameters filled in. */
+/** `bindingOf` with the English messages, parameters filled in. */
 function english(name: string) {
-  return describe(name, (key, params = {}) =>
+  return bindingOf(name, (key, params = {}) =>
     String(message(en, key)).replace(/\{(\w+)\}/g, (_, p) => String(params[p])),
   );
 }
 
-test("describe gives entries, macros and plain keys their label and description", () => {
+test("bindingOf gives entries, macros and plain keys their label and description", () => {
   expect(english("PDF(2)")).toMatchObject({
     label: "Base layer 2 (saved)",
     short: "Base",

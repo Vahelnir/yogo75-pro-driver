@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  describe,
+  bindingOf,
   NUMPAD_KEYS,
   PALETTE,
   PALETTE_DRAG_TYPE,
@@ -19,19 +19,19 @@ const groups = computed(() =>
   [
     {
       label: t("palette.groups.keys"),
-      entries: TYPED_KEYS.map((name) => describe(name, t)),
+      entries: TYPED_KEYS.map((name) => bindingOf(name, t)),
     },
     {
       label: t("palette.groups.numpad"),
-      entries: NUMPAD_KEYS.map((name) => describe(name, t)),
+      entries: NUMPAD_KEYS.map((name) => bindingOf(name, t)),
     },
     ...PALETTE.map((group) => ({
       label: t(group.label),
-      entries: group.entries.map((e) => describe(e.name, t)),
+      entries: group.entries.map((e) => bindingOf(e.name, t)),
     })),
     {
       label: t("palette.groups.macros"),
-      entries: props.macros.map((n) => describe(`MACRO(${n})`, t)),
+      entries: props.macros.map((n) => bindingOf(`MACRO(${n})`, t)),
     },
   ].filter((group) => group.entries.length),
 );
