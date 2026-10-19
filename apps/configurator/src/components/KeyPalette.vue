@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import {
+  describe,
   NUMPAD_KEYS,
   PALETTE,
   PALETTE_DRAG_TYPE,
   TYPED_KEYS,
 } from "../palette.ts";
+import BindingTooltip from "./BindingTooltip.vue";
 
 /** Every binding, plain keys first and the keyboard's macros last: picked for the selected key, or dragged onto one. */
 const props = defineProps<{ macros: number[] }>();
@@ -17,22 +19,19 @@ const groups = computed(() =>
   [
     {
       label: t("palette.groups.keys"),
-      entries: TYPED_KEYS.map((name) => ({ name, label: name })),
+      entries: TYPED_KEYS.map((name) => describe(name, t)),
     },
     {
       label: t("palette.groups.numpad"),
-      entries: NUMPAD_KEYS.map((name) => ({ name, label: name })),
+      entries: NUMPAD_KEYS.map((name) => describe(name, t)),
     },
     ...PALETTE.map((group) => ({
       label: t(group.label),
-      entries: group.entries.map((e) => ({ name: e.name, label: t(e.label) })),
+      entries: group.entries.map((e) => describe(e.name, t)),
     })),
     {
       label: t("palette.groups.macros"),
-      entries: props.macros.map((n) => ({
-        name: `MACRO(${n})`,
-        label: t("palette.macro", { n }),
-      })),
+      entries: props.macros.map((n) => describe(`MACRO(${n})`, t)),
     },
   ].filter((group) => group.entries.length),
 );
@@ -51,22 +50,29 @@ function drag(e: DragEvent, name: string) {
     >
       <template #default="{ value }">
         <div class="flex flex-wrap gap-1">
-          <button
+          <BindingTooltip
             v-for="entry in groups[value].entries"
             :key="entry.name"
-            type="button"
-            draggable="true"
-            class="flex min-w-10 cursor-grab flex-col items-center rounded border border-zinc-300 bg-white px-2 py-0.5 shadow-sm hover:border-zinc-500"
-            @click="emit('pick', entry.name)"
-            @dragstart="drag($event, entry.name)"
+            :binding="entry"
           >
-            <span>{{ entry.label }}</span>
-            <span
-              v-if="entry.label !== entry.name"
-              class="font-mono text-xs text-zinc-500"
-              >{{ entry.name }}</span
+            <button
+              type="button"
+              draggable="true"
+              class="flex min-w-10 cursor-grab flex-col items-center rounded border border-zinc-300 bg-white px-2 py-0.5 shadow-sm hover:border-zinc-500"
+              @click="emit('pick', entry.name)"
+              @dragstart="drag($event, entry.name)"
             >
-          </button>
+              <span class="inline-flex items-center gap-1">
+                <component :is="entry.icon" v-if="entry.icon" />
+                {{ entry.label }}
+              </span>
+              <span
+                v-if="entry.label !== entry.name"
+                class="font-mono text-xs text-zinc-500"
+                >{{ entry.name }}</span
+              >
+            </button>
+          </BindingTooltip>
         </div>
       </template>
     </UiTabs>
