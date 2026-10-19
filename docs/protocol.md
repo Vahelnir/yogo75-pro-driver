@@ -412,7 +412,15 @@ Known `0x50` functions (labels from `keyboard-info.util-*.js` and `keymap-*.js`)
 | `0e` / `0f`            | brightness + / − (verified: 15 per press, 90 ↔ 75)                                                                                           | `47` / `48` | knob volume − / + (`KNOB_VOLD` / `KNOB_VOLU`): volume while `wheelMode` is 0, nothing otherwise (verified on layers 0 and 1, where the knob holds them) |
 | `10` / `11`            | effect speed + / − (verified: raw `ledSpeed` −1 / +1 per press, 0 = fastest)                                                                 |             |                                                                                                                                                         |
 | `12`                   | colour picker (verified), see [per-key colours](#per-key-colours)                                                                            |             |                                                                                                                                                         |
-| `19`, `1b`, `1d`, `1e` | side strip: effect, colour, brightness + / −                                                                                                 |             |                                                                                                                                                         |
+| `19`, `1b`, `1d`, `1e` | no effect: no case in the handler (code); the hub labels them side strip effect, colour, brightness + / −                                    |             |                                                                                                                                                         |
+
+Other functions the handler (`FUN_020343ec`) knows, absent from the hub (code, firmware 1.26):
+
+- `13`–`17`: per-key colour profiles 1–5. A first press sets `ledMode` 253 with that profile (config byte 10); a second press of the same key enters edit mode, where Caps Lock and Win blink and each key pressed steps its own colour through the 7-colour palette, then off; a third press saves the profile and leaves edit mode (`FUN_0202c478`).
+- `2a`: dot screen on / off. `2c`: dot screen previous effect. `2e`: dot screen previous colour, but it reads the backlight palette where `2d` reads the dot screen's (`0x0204baa6`): probably a firmware bug.
+- `38` and `4a`: no effect (`38` is an empty case; `4a` sets a flag read nowhere).
+
+More on the listed functions (code): `09` turns off the backlight and the dot screen together; `02`, while held, sets the flag that cancels the Mac F6 translation (see below); `39` (battery), while held, blocks the lighting functions `0a`–`12`, `2b` and `2c`; `3c` on a short press only unlocks, in Mac mode, never locks.
 
 Configurator special keys ("Touche supplémentaire" / extra key tab, arrays `Xi`, `Io`, `Et`, `Go`/`Vo`, `ji`, `Hi` of `keyboard-info.util-*.js`; code, icons confirmed by screenshot):
 
@@ -436,11 +444,18 @@ Configurator special keys ("Touche supplémentaire" / extra key tab, arrays `Xi`
 
 So slots 46–47 are the desktop and lock keys of the configurator's "Extension" category, and the firmware adapts them to the OS. F6 is skipped while an internal flag is set.
 
+Other translations by position or mode (code, `FUN_0204e85c`; `FUN_020422e0` on the knob path):
+
+- Mac mode swaps Alt and Win only at their factory positions: a pure L Alt (`10 04 00`) at index 82 becomes L Win, a pure L Win at 81 becomes L Alt, R Alt at 89 becomes R Win. The swap drops any key byte on that slot. Bound elsewhere, Alt and Win are sent as is.
+- `wasd` = 1 swaps W, A, S, D with the arrows only at indices 34, 49, 50, 51 ↔ 78, 93, 94, 95.
+- `winLock` = 1 drops the Application key (`0x65`) anywhere, in both modes, and a modifier byte of exactly `08` or `80` (Win alone) only in Windows mode.
+- In Mac mode, the Fn layer codes put back to plain F keys are: `30 70 00` at 1, `30 6f 00` at 2, Win+Tab at 3, `30 21 02` at 4, Win+H at 5, `30 b6 00` at 7, `30 cd 00` at 8, `30 b5 00` at 9, `30 e2 00` at 10, `30 ea 00` at 11, `30 e9 00` at 12.
+
 So the configurator draws F4 of layer 0 with the "desktop" icon: it really is F4 that is sent (verified by reading). It shows "NO" for any `0x50` function it doesn't know (Fn + Esc, 1…4, `-`, `=`, Backspace, H, Win), and only shows the key, without the modifier (Win+Tab is shown as "TAB", Win+H as "H").
 
-`34`, `35`, `36` (Fn + 1, 2, 3 of the factory Fn layer): Bluetooth devices 1, 2, 3 (verified in Bluetooth mode). A short press switches to the device already paired on that channel; a press of a few seconds starts pairing. `37` (Fn + 4): no effect observed, absent from the paper guide. Wired, it is not the Win/Mac toggle (verified: `macWin` unchanged and F1 without Fn doesn't set the brightness). On 2.4 GHz, a short press does nothing visible and doesn't put the keyboard to sleep (it still answers through the dongle). Holding it for 3 s on 2.4 GHz calls a radio routine (code), probably dongle pairing (hypothesis).
+`34`, `35`, `36` (Fn + 1, 2, 3 of the factory Fn layer): Bluetooth devices 1, 2, 3 (verified in Bluetooth mode). A short press switches to the device already paired on that channel; a press of a few seconds starts pairing. In code: the press switches at once if that channel isn't the current one; after 3 s held, pairing starts only if that channel is current by then. `37` (Fn + 4): no effect observed, absent from the paper guide. Wired, it is not the Win/Mac toggle (verified: `macWin` unchanged and F1 without Fn doesn't set the brightness). On 2.4 GHz, a short press does nothing visible and doesn't put the keyboard to sleep (it still answers through the dongle). Holding it for 3 s on 2.4 GHz calls a radio routine (code): `FUN_02041018` writes a new radio identity (`0x1234567a`) and restarts the 2.4 GHz link, probably dongle pairing (hypothesis). Over the cable and Bluetooth it does nothing (code).
 
-`33` and `41` (Fn + Backspace, Fn + Esc): the two halves of the factory reset. Holding both for 3 s resets the keyboard (code). The paper guide says "Fn + Esc + Backspace, hold 5 s: back to factory settings". **Do not test** without the user's approval: it would erase the config.
+`33` and `41` (Fn + Backspace, Fn + Esc): the two halves of the factory reset. Neither does anything alone, short or long; each only marks itself held. The reset fires when both are held as the shared 3 s count runs out; a press or release of `33` restarts it, not `41`. So it comes 3 s after `33` if `41` is already down, and 0 to 3 s after `41` otherwise. It keeps `macWin` (code, `FUN_020343ec`, `FUN_02036364`). The paper guide says "Fn + Esc + Backspace, hold 5 s: back to factory settings". **Do not test** without the user's approval: it would erase the config.
 
 **Long-press functions** (code, firmware 1.26): some functions act only once held for 3 s (300 ticks of 10 ms; each press restarts the count). Each one toggles a config field and flashes its keys as an indicator:
 
@@ -449,12 +464,21 @@ So the configurator draws F4 of layer 0 with the "desktop" icon: it really is F4
 | `33` + `41`      | factory reset                                                  |
 | `34`, `35`, `36` | Bluetooth pairing on channel 1, 2, 3 (Bluetooth mode)          |
 | `37`             | radio routine on 2.4 GHz, probably dongle pairing (hypothesis) |
-| `3a`, `3b`       | toggles `macWin`                                               |
+| `3b`             | toggles `macWin`                                               |
 | `3d`             | toggles `wasd`                                                 |
 | `3e`             | toggles `scanDelay` 0 ↔ 2 (verified)                           |
 | `40`             | toggles `wheelMode` 0 ↔ 1                                      |
 
-`3a`, `3b`, `3d`, `3f` and `40` are in no factory layer: you only get them by binding them to a key. `3f` acts on a short press: on release, it toggles `fkeyChange` (code).
+`3a`, `3b`, `3d`, `3f` and `40` are in no factory layer: you only get them by binding them to a key. `3f` acts on a short press: on release, it toggles `fkeyChange` (code). `3a` is not a long press either: on release it toggles `sixN` (NKRO ↔ 6KRO), releases every key and saves, with no indicator (verified: a short press, 1 → 0 → 1, no blink, `macWin` unchanged).
+
+The 3 s count (`FUN_02036364`) is shared: a press or release of `33`, `39`, `3d`, `3e` or `40` restarts it (code). Indicators (code, `FUN_020379f4`):
+
+- `3b`: Caps Lock and Win blink yellow, 3 times into Mac mode, once into Windows mode. Switching to Mac also clears `winLock`.
+- `3d`: the generic signal, Caps Lock and Win blink 3 times, in entry 0 of the backlight palette (`c8 64 5a`).
+- `3e`: H blinks 3 times, red for 0 (low latency), green for 2. From any value other than 0 it goes to 0.
+- `40`: the four arrows blink 3 times, white when locked (1), red when unlocked (0). From any non-zero value it goes to 0.
+- `3c` held 3 s: the generic signal, and the Win lock is not toggled on release; the flag it flips is read nowhere, so nothing else happens.
+- `34`–`37`: no indicator.
 
 Tested on the keyboard by putting the factory codes back in the Fn layer (verified):
 
