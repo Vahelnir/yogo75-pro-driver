@@ -416,7 +416,7 @@ Known `0x50` functions (labels from `keyboard-info.util-*.js` and `keymap-*.js`)
 
 Other functions the handler (`FUN_020343ec`) knows, absent from the hub (code, firmware 1.26):
 
-- `13`–`17`: per-key colour profiles 1–5. A first press sets `ledMode` 253 with that profile, as `customColorIndex` (config byte 10) = profile − 1 (verified for 1 and 2: each shows its own colours); a second press of the same key enters edit mode, where Caps Lock and Win blink and each key pressed steps its own colour through the 7-colour palette, then off; a third press saves the profile and leaves edit mode (`FUN_0202c478`) (verified: Caps Lock and Win blink from the second press to the third; stepping a key's colour not tried).
+- `13`–`17`: per-key colour profiles 1–5. A first press sets `ledMode` 253 with that profile, as `customColorIndex` (config byte 10) = profile − 1 (verified for 1 and 2: each shows its own colours); a second press of the same key enters edit mode, where Caps Lock and Win blink and each key pressed steps its own colour through the 7-colour palette, then off; a third press saves the profile and leaves edit mode (`FUN_0202c478`) (verified: Caps Lock and Win blink from the second press to the third; a key pressed in edit mode steps through `c8645a` (seen as white), red, `ff9000`, `4600ff`, pink, `0081ff`, green, then off).
 - `2a`: dot screen on / off (verified). `2c`: dot screen previous effect (verified). `2e`: dot screen previous colour: it steps `LedTFTColorIndex` down like `2d` steps it up, but takes the RGB from another table, so going back doesn't give back the same colours, a firmware bug (verified: index 3 → 2, the colour stayed `ff 90 00` where `2d` gives `ff 00 00` at 2). The tables, index 0–6:
 
   | Function | Table        | 0        | 1        | 2        | 3        | 4        | 5        | 6        |
@@ -426,7 +426,7 @@ Other functions the handler (`FUN_020343ec`) knows, absent from the hub (code, f
 
 - `38` and `4a`: no effect (`38` is an empty case; `4a` sets a flag read nowhere).
 
-More on the listed functions (code): `09` turns off the backlight and the dot screen together; `02`, while held, sets the flag that cancels the Mac F6 translation (see below); `39` (battery), while held, blocks the lighting functions `0a`–`12`, `2b` and `2c`; `3c` on a short press only unlocks, in Mac mode, never locks.
+More on the listed functions (code): `09` turns off the backlight and the dot screen together; `02`, while held, sets the flag that cancels the Mac F6 translation (see below); `39` (battery), while held, blocks the lighting functions `0a`–`12`, `2b` and `2c`; `3c`'s own case only holds a Mac mode unlock; the short-press toggle of `winLock` (verified both ways in Windows mode) is done elsewhere.
 
 Configurator special keys ("Touche supplémentaire" / extra key tab, arrays `Xi`, `Io`, `Et`, `Go`/`Vo`, `ji`, `Hi` of `keyboard-info.util-*.js`; code, icons confirmed by screenshot):
 
@@ -452,7 +452,7 @@ So slots 46–47 are the desktop and lock keys of the configurator's "Extension"
 
 Other translations by position or mode (code, `FUN_0204e85c`; `FUN_020422e0` on the knob path):
 
-- Mac mode swaps Alt and Win only at their factory positions: a pure L Alt (`10 04 00`) at index 82 becomes L Win, a pure L Win at 81 becomes L Alt, R Alt at 89 becomes R Win. The swap drops any key byte on that slot. Bound elsewhere, Alt and Win are sent as is. (Verified for the swap itself: in Mac mode the physical Alt key gives Cmd; the other positions not tried.)
+- Mac mode swaps Alt and Win only at their factory positions: a pure L Alt (`10 04 00`) at index 82 becomes L Win, a pure L Win at 81 becomes L Alt, R Alt at 89 becomes R Win. The swap drops any key byte on that slot. Bound elsewhere, Alt and Win are sent as is. (Verified in Mac mode: L Alt and R Alt give Cmd, L Win gives Option, and `LGUI` bound to side button 46 stays Cmd.)
 - `wasd` = 1 swaps W, A, S, D with the arrows only at indices 34, 49, 50, 51 ↔ 78, 93, 94, 95.
 - `winLock` = 1 drops the Application key (`0x65`) anywhere, in both modes, and a modifier byte of exactly `08` or `80` (Win alone) only in Windows mode (verified on macOS: in Windows mode Win+Space types a space; in Mac mode Cmd+Space still opens Spotlight).
 - In Mac mode, the Fn layer codes put back to plain F keys are: `30 70 00` at 1, `30 6f 00` at 2, Win+Tab at 3, `30 21 02` at 4, Win+H at 5, `30 b6 00` at 7, `30 cd 00` at 8, `30 b5 00` at 9, `30 e2 00` at 10, `30 ea 00` at 11, `30 e9 00` at 12.
@@ -483,7 +483,7 @@ The 3 s count (`FUN_02036364`) is shared: a press or release of `33`, `39`, `3d`
 - `3d`: the generic signal, Caps Lock and Win blink 3 times, in entry 0 of the backlight palette (`c8 64 5a`, seen as white) (verified, W and ↑ swapped, and back).
 - `3e`: H blinks 3 times, red for 0 (low latency), green for 2. From any value other than 0 it goes to 0.
 - `40`: the four arrows blink 3 times, white when locked (1), red when unlocked (0) (verified: locked, rotating no longer changes the volume, while a press bound to `MUTE` still mutes). From any non-zero value it goes to 0.
-- `3c` held 3 s: the generic signal, and the Win lock is not toggled on release; the flag it flips is read nowhere, so nothing else happens.
+- `3c` held 3 s: the generic signal, and the Win lock is not toggled on release (verified: 3 blinks, the Win LED stays off); the flag it flips is read nowhere, so nothing else happens.
 - `34`–`37`: no indicator.
 
 Tested on the keyboard by putting the factory codes back in the Fn layer (verified):
