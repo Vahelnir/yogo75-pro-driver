@@ -47,6 +47,9 @@ test("the issue's must-haves are in the palette", () => {
   for (const name of ["FN", "MO(2)", "MO(3)", "PDF(0)", "MUTE"]) {
     expect(names).toContain(name);
   }
+
+  expect(names).not.toContain("RESET_1");
+  expect(names).not.toContain("RESET_2");
 });
 
 test("plain keys are all there, and no name is in two tabs", () => {

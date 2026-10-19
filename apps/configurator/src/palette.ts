@@ -10,7 +10,10 @@ export interface PaletteEntry {
   label: string;
 }
 
-/** The palette's fixed groups, in display order; the macros come from the keyboard, see `macroNumbers`. */
+/**
+ * The palette's fixed groups, in display order; the macros come from the keyboard, see `macroNumbers`.
+ * The factory reset halves (`RESET_1`, `RESET_2`) are left out on purpose.
+ */
 export const PALETTE: { label: string; entries: PaletteEntry[] }[] = [
   {
     label: "palette.groups.layers",
@@ -101,21 +104,25 @@ export const PALETTE: { label: string; entries: PaletteEntry[] }[] = [
       { name: "COLOR_NEXT", label: "palette.keys.color_next" },
       { name: "COLOR_PREV", label: "palette.keys.color_prev" },
       { name: "COLOR_PICKER", label: "palette.keys.color_picker" },
+      { name: "KEY_COLORS_1", label: "palette.keys.key_colors_1" },
+      { name: "KEY_COLORS_2", label: "palette.keys.key_colors_2" },
+      { name: "KEY_COLORS_3", label: "palette.keys.key_colors_3" },
+      { name: "KEY_COLORS_4", label: "palette.keys.key_colors_4" },
+      { name: "KEY_COLORS_5", label: "palette.keys.key_colors_5" },
       { name: "RM_VALU", label: "palette.keys.rm_valu" },
       { name: "RM_VALD", label: "palette.keys.rm_vald" },
       { name: "RM_SPDU", label: "palette.keys.rm_spdu" },
       { name: "RM_SPDD", label: "palette.keys.rm_spdd" },
-      { name: "SIDE_NEXT", label: "palette.keys.side_next" },
-      { name: "SIDE_HUE", label: "palette.keys.side_hue" },
-      { name: "SIDE_VALU", label: "palette.keys.side_valu" },
-      { name: "SIDE_VALD", label: "palette.keys.side_vald" },
     ],
   },
   {
     label: "palette.groups.dot_screen",
     entries: [
+      { name: "DOT_TOGG", label: "palette.keys.dot_togg" },
       { name: "DOT_NEXT", label: "palette.keys.dot_next" },
+      { name: "DOT_PREV", label: "palette.keys.dot_prev" },
       { name: "DOT_HUE", label: "palette.keys.dot_hue" },
+      { name: "DOT_HUE_PREV", label: "palette.keys.dot_hue_prev" },
       { name: "DOT_VALU", label: "palette.keys.dot_valu" },
       { name: "DOT_VALD", label: "palette.keys.dot_vald" },
       { name: "DOT_SPDU", label: "palette.keys.dot_spdu" },
@@ -128,10 +135,11 @@ export const PALETTE: { label: string; entries: PaletteEntry[] }[] = [
       { name: "BT_1", label: "palette.keys.bt_1" },
       { name: "BT_2", label: "palette.keys.bt_2" },
       { name: "BT_3", label: "palette.keys.bt_3" },
+      { name: "RF_PAIR", label: "palette.keys.rf_pair" },
       { name: "BAT_LVL", label: "palette.keys.bat_lvl" },
       { name: "GU_TOGG", label: "palette.keys.gu_togg" },
+      { name: "NK_TOGG", label: "palette.keys.nk_togg" },
       { name: "MAC_TOGG", label: "palette.keys.mac_togg" },
-      { name: "MAC_TOGG2", label: "palette.keys.mac_togg2" },
       { name: "WASD_TOGG", label: "palette.keys.wasd_togg" },
       { name: "LOWLAT_TOGG", label: "palette.keys.lowlat_togg" },
       { name: "FKEY_TOGG", label: "palette.keys.fkey_togg" },
