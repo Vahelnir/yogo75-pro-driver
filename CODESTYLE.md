@@ -23,7 +23,7 @@ The configurator's messages live in `apps/configurator/src/locales/` (`en.json`,
 
 - Keys are nested and in snake_case: one group per page or topic (`home.add_keyboard`), and one for a set of values shown in several places (`connection_type.cable`, `connection_type.dongle`).
 - Every key is written in full where it is used, so that a search finds it: never a computed key (``t(`connection_type.${type}`)``). To pick between values, pick between whole keys: `dongle ? t("connection_type.dongle") : t("connection_type.cable")`.
-- QMK key names and the labels drawn on the keys are not translated.
+- QMK key names are not translated; the short labels drawn on the keys are, but not their symbols and numbers (`+`, `2`, `fx+`, `◐+`).
 
 ## Comments
 

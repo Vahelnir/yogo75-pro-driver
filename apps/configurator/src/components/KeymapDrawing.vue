@@ -10,7 +10,9 @@ import {
   LAYOUT,
   type KeyRect,
 } from "@yogo75/core";
-import { PALETTE_DRAG_TYPE } from "../palette.ts";
+import { bindingOf, PALETTE_DRAG_TYPE } from "../palette.ts";
+import BindingLabel from "./BindingLabel.vue";
+import BindingTooltip from "./BindingTooltip.vue";
 
 /** One layer and its knob, as the keyboard holds them; `selected` is the key (or knob action) listening. */
 const props = defineProps<{ keymap: Uint8Array; selected?: number }>();
@@ -26,12 +28,17 @@ const width = Math.max(...rects.map((r) => r.x + r.w));
 const height = Math.max(...rects.map((r) => r.y + r.h));
 
 const knob = computed(() => knobNames(props.keymap));
+const knobBindings = computed(() => ({
+  left: bindingOf(knob.value.left, t),
+  right: bindingOf(knob.value.right, t),
+  press: bindingOf(knob.value.press, t),
+}));
 
 const keys = computed(() =>
   [...LAYOUT].map(([index, rect]) => ({
     index,
     rect,
-    name: keycodeName(keyAt(props.keymap, index)),
+    binding: bindingOf(keycodeName(keyAt(props.keymap, index)), t),
   })),
 );
 
@@ -56,6 +63,25 @@ function dropTarget(index: number) {
 /** Radii of the knob's rotation ring, in its 100 × 100 viewBox; the press disc sits inside it. */
 const OUTER = 49;
 const INNER = 33;
+
+/** A box of the knob's 100 × 100 viewBox, centred on (`cx`, 50). */
+function centred(cx: number, width: number, height: number) {
+  return { x: cx - width / 2, y: 50 - height / 2, width, height };
+}
+
+/** Each knob label, upright in a box inside a side of the ring or the press disc. */
+// shortcut: text is cut in the ring's 16-unit sides (F10 → F…), only icons fit; revisit once #67 picks a layout
+const knobLabels = computed(() => [
+  {
+    binding: knobBindings.value.left,
+    box: centred(50 - (OUTER + INNER) / 2, OUTER - INNER, 40),
+  },
+  {
+    binding: knobBindings.value.right,
+    box: centred(50 + (OUTER + INNER) / 2, OUTER - INNER, 40),
+  },
+  { binding: knobBindings.value.press, box: centred(50, 50, 30) },
+]);
 
 /** SVG path of the ring between two angles, in degrees clockwise from the right. */
 function ring(from: number, to: number): string {
@@ -109,26 +135,28 @@ function place(rect: KeyRect) {
     :style="{ aspectRatio: `${width} / ${height}` }"
   >
     <div
-      v-for="{ index, rect, name } in keys"
+      v-for="{ index, rect, binding } in keys"
       :key="index"
       class="absolute p-[0.2%]"
       :style="place(rect)"
     >
-      <button
-        type="button"
-        class="flex h-full w-full items-center justify-center overflow-hidden rounded border px-0.5 text-[clamp(7px,1.1cqw,13px)] shadow-sm"
-        :class="
-          selected === index
-            ? 'border-amber-500 bg-amber-100 ring-2 ring-amber-500'
-            : 'border-zinc-300 bg-white hover:border-zinc-500'
-        "
-        :aria-pressed="selected === index"
-        :title="`${index}: ${name}`"
-        v-bind="dropTarget(index)"
-        @click="emit('select', index)"
-      >
-        <span class="truncate">{{ name }}</span>
-      </button>
+      <BindingTooltip :binding>
+        <button
+          type="button"
+          class="flex h-full w-full items-center justify-center overflow-hidden rounded border px-0.5 text-[clamp(7px,1.1cqw,13px)] shadow-sm"
+          :class="
+            selected === index
+              ? 'border-amber-500 bg-amber-100 ring-2 ring-amber-500'
+              : 'border-zinc-300 bg-white hover:border-zinc-500'
+          "
+          :aria-pressed="selected === index"
+          :aria-label="binding.label"
+          v-bind="dropTarget(index)"
+          @click="emit('select', index)"
+        >
+          <BindingLabel :binding />
+        </button>
+      </BindingTooltip>
     </div>
     <div class="absolute p-[0.4%]" :style="place(KNOB)">
       <svg
@@ -138,25 +166,33 @@ function place(rect: KeyRect) {
         :aria-label="t('keymap.knob', knob)"
       >
         <g class="fill-white stroke-zinc-300">
-          <path :d="ring(110, 250)" v-bind="knobPart(KNOB_LEFT)">
-            <title>↺ {{ knob.left }}</title>
-          </path>
-          <path :d="ring(-70, 70)" v-bind="knobPart(KNOB_RIGHT)">
-            <title>↻ {{ knob.right }}</title>
-          </path>
-          <circle cx="50" cy="50" :r="INNER - 4" v-bind="knobPart(KNOB_PRESS)">
-            <title>{{ knob.press }}</title>
-          </circle>
+          <BindingTooltip :binding="knobBindings.left">
+            <path :d="ring(110, 250)" v-bind="knobPart(KNOB_LEFT)" />
+          </BindingTooltip>
+          <BindingTooltip :binding="knobBindings.right">
+            <path :d="ring(-70, 70)" v-bind="knobPart(KNOB_RIGHT)" />
+          </BindingTooltip>
+          <BindingTooltip :binding="knobBindings.press">
+            <circle
+              cx="50"
+              cy="50"
+              :r="INNER - 4"
+              v-bind="knobPart(KNOB_PRESS)"
+            />
+          </BindingTooltip>
         </g>
-        <g class="pointer-events-none fill-zinc-900" text-anchor="middle">
-          <text x="50" y="53">{{ knob.press }}</text>
-          <text transform="translate(16.5 50) rotate(-90)" dy="3">
-            {{ knob.left }}
-          </text>
-          <text transform="translate(83.5 50) rotate(90)" dy="3">
-            {{ knob.right }}
-          </text>
-        </g>
+        <foreignObject
+          v-for="{ binding, box } in knobLabels"
+          :key="box.x"
+          v-bind="box"
+          class="pointer-events-none"
+        >
+          <div
+            class="flex h-full items-center justify-center overflow-hidden text-center text-[12px]"
+          >
+            <BindingLabel :binding />
+          </div>
+        </foreignObject>
       </svg>
     </div>
   </div>

@@ -9,6 +9,7 @@ import { expect, test } from "vitest";
 import en from "../src/locales/en.json";
 import fr from "../src/locales/fr.json";
 import {
+  bindingOf,
   macroNumbers,
   NUMPAD_KEYS,
   PALETTE,
@@ -34,13 +35,92 @@ test.each(entries.map((e) => e.name))(
   },
 );
 
-test.each([...PALETTE.map((g) => g.label), ...entries.map((e) => e.label)])(
+/** Every translation key `bindingOf` asks for, over every name the drawing and the palette can show. */
+function describedKeys(): string[] {
+  const keys = new Set<string>();
+  const names = [
+    ...entries.map((e) => e.name),
+    ...TYPED_KEYS,
+    ...NUMPAD_KEYS,
+    "MACRO(1)",
+    "MACRO(1,1)",
+    "MACRO(1,2)",
+    "MACRO(1,3)",
+    "MACRO(1,4,5)",
+  ];
+  for (const name of names) {
+    bindingOf(name, (key) => {
+      keys.add(key);
+      return key;
+    });
+  }
+
+  return [...keys];
+}
+
+test.each([...PALETTE.map((g) => g.label), ...describedKeys()])(
   "%s is translated in en and fr",
   (key) => {
     expect(message(en, key)).toBeTypeOf("string");
     expect(message(fr, key)).toBeTypeOf("string");
   },
 );
+
+/** `bindingOf` with the English messages, parameters filled in. */
+function english(name: string) {
+  return bindingOf(name, (key, params = {}) =>
+    String(message(en, key)).replace(/\{(\w+)\}/g, (_, p) => String(params[p])),
+  );
+}
+
+test("bindingOf gives entries, macros and plain keys their label and description", () => {
+  expect(english("PDF(2)")).toMatchObject({
+    label: "Base layer 2 (saved)",
+    short: "Base",
+    badge: "2",
+    description: expect.stringContaining("saved"),
+  });
+  expect(english("MACRO(3,4,10)")).toMatchObject({
+    label: "Macro 3",
+    badge: "3",
+    description: "Runs 10 times.",
+  });
+  expect(english("MACRO(3)").description).toBe("Runs once.");
+  expect(english("PMNS")).toMatchObject({ label: "Num −", short: "Num −" });
+  expect(english("QUOT")).toMatchObject({
+    label: `' "`,
+    short: "'",
+    shifted: '"',
+    description: expect.stringContaining("depend on the OS layout"),
+  });
+  expect(english("1")).toMatchObject({ short: "1", shifted: "!" });
+  expect(english("MPLY").icon).toBeDefined();
+});
+
+test("unknown codes and modified keys keep their raw name, without an icon", () => {
+  for (const name of ["0x501900", "LCTL(C)", "A"]) {
+    expect(english(name)).toEqual({ name, label: name });
+  }
+});
+
+test("long-press, base layer, knob and side button functions have a description", () => {
+  for (const name of [
+    "MAC_TOGG",
+    "WASD_TOGG",
+    "LOWLAT_TOGG",
+    "KNOB_LOCK",
+    "BT_1",
+    "RF_PAIR",
+    "PDF(0)",
+    "KNOB_VOLD",
+    "KNOB_VOLU",
+    "KNOB_MUTE",
+    "DESKTOP",
+    "LOCK",
+  ]) {
+    expect(english(name).description, name).toBeTruthy();
+  }
+});
 
 test("the issue's must-haves are in the palette", () => {
   const names = entries.map((e) => e.name);
