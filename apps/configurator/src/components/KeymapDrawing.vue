@@ -34,18 +34,19 @@ const knobBindings = computed(() => ({
   press: describe(knob.value.press, t),
 }));
 /** Each knob label, upright in a box inside the ring's side or the press disc (viewBox units). */
+// shortcut: text is cut in the ring's 16-unit sides (F10 → F…), only icons fit; see #67
 const knobLabels = computed(() => [
   {
     binding: knobBindings.value.left,
-    box: { x: 8.5, y: 30, width: 16, height: 40 },
+    box: { x: 50 - OUTER, y: 30, width: OUTER - INNER, height: 40 },
   },
   {
     binding: knobBindings.value.right,
-    box: { x: 75.5, y: 30, width: 16, height: 40 },
+    box: { x: 50 + INNER, y: 30, width: OUTER - INNER, height: 40 },
   },
   {
     binding: knobBindings.value.press,
-    box: { x: 25, y: 40, width: 50, height: 20 },
+    box: { x: 25, y: 35, width: 50, height: 30 },
   },
 ]);
 
@@ -184,7 +185,7 @@ function place(rect: KeyRect) {
           class="pointer-events-none"
         >
           <div
-            class="flex h-full items-center justify-center overflow-hidden text-center"
+            class="flex h-full items-center justify-center overflow-hidden text-center text-[12px]"
           >
             <BindingLabel :binding />
           </div>
