@@ -4,7 +4,7 @@ Reverse engineering of the **ATK Yogo 75 PRO**'s protocol and of its official we
 
 ## Why
 
-I started this repository out of frustration. The official configurator wouldn't let me rebind keys the way I wanted: Fn is locked in place, I couldn't turn Caps Lock into Fn, and some keys were missing from the palette or had unreadable names. As far as I remember, colours could barely be set, let alone the pixel screen. ATK's VIA driver simply didn't work for me.
+I started this repository out of frustration. The official configurator wouldn't let me rebind keys the way I wanted: Fn is locked in place, I couldn't turn Caps Lock into Fn, and some keys were missing from the palette or had unreadable names. ATK's VIA driver simply didn't work for me: as far as I remember, colours could barely be set, let alone the pixel screen.
 
 > [!WARNING]
 > **AI-made project.** The protocol analysis, the code and the documentation were written by an AI agent (Claude Code). I'm not necessarily a fan of AI-made projects, but I'm not sure anyone would have reverse-engineered ATK's configurator to fix my issues with the board. I reviewed and tested it, and I use it daily, but **don't trust the project blindly**: read the code before you run it, and keep in mind that writing to the keyboard can leave it in a bad state.
