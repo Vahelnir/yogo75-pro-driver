@@ -201,23 +201,34 @@ const FUNCTIONS: Entry<string>[] = [
   [fn(0x10), "RM_SPDU", "RGB_SPI"],
   [fn(0x11), "RM_SPDD", "RGB_SPD"],
   [fn(0x12), "COLOR_PICKER"],
-  [fn(0x19), "SIDE_NEXT"],
-  [fn(0x1b), "SIDE_HUE"],
-  [fn(0x1d), "SIDE_VALU"],
-  [fn(0x1e), "SIDE_VALD"],
+  // per-key colour profiles: press to show, again to edit, again to save
+  [fn(0x13), "KEY_COLORS_1"],
+  [fn(0x14), "KEY_COLORS_2"],
+  [fn(0x15), "KEY_COLORS_3"],
+  [fn(0x16), "KEY_COLORS_4"],
+  [fn(0x17), "KEY_COLORS_5"],
+  [fn(0x2a), "DOT_TOGG"],
   [fn(0x2b), "DOT_NEXT"],
+  [fn(0x2c), "DOT_PREV"],
   [fn(0x2d), "DOT_HUE"],
+  // steps through the backlight palette, not the dot screen's: a firmware bug
+  [fn(0x2e), "DOT_HUE_PREV"],
   [fn(0x2f), "DOT_VALU"],
   [fn(0x30), "DOT_VALD"],
   [fn(0x31), "DOT_SPDU"],
   [fn(0x32), "DOT_SPDD"],
+  // the factory reset, once both halves are held for 3 s
+  [fn(0x33), "RESET_1"],
   [fn(0x34), "BT_1"],
   [fn(0x35), "BT_2"],
   [fn(0x36), "BT_3"],
+  // 2.4 GHz only, held 3 s: a new radio identity, probably dongle pairing
+  [fn(0x37), "RF_PAIR"],
   [fn(0x39), "BAT_LVL"],
-  // the toggles from 3a to 40, except 3c and 3f, act once held for 3 s
-  [fn(0x3a), "MAC_TOGG"],
-  [fn(0x3b), "MAC_TOGG2"],
+  // sixN, on release
+  [fn(0x3a), "NK_TOGG"],
+  // the toggles from 3b to 40, except 3c and 3f, act once held for 3 s
+  [fn(0x3b), "MAC_TOGG"],
   [fn(0x3c), "GU_TOGG"],
   [fn(0x3d), "WASD_TOGG"],
   // scanDelay 0 ↔ 2
@@ -225,6 +236,7 @@ const FUNCTIONS: Entry<string>[] = [
   [fn(0x3f), "FKEY_TOGG"],
   // wheelMode 0 ↔ 1
   [fn(0x40), "KNOB_LOCK"],
+  [fn(0x41), "RESET_2"],
   // the knob's volume and mute, off while config wheelMode is not 0
   [fn(0x47), "KNOB_VOLD", "KNOB_LEFT"],
   [fn(0x48), "KNOB_VOLU", "KNOB_RIGHT"],

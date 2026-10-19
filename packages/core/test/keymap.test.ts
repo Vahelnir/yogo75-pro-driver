@@ -30,7 +30,7 @@ test("a fixture layer lists as names", () => {
     "BT_1",
     "BT_2",
     "BT_3",
-    "0x503700",
+    "RF_PAIR",
   ]);
   assert.deepEqual(names.slice(46, 49), ["DESKTOP", "LOCK", "LCTL"]);
   assert.deepEqual(names.slice(88, 91), ["NO", "RALT", "FN"]);
