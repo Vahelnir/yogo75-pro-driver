@@ -1,21 +1,26 @@
-import { hex, Keyboard, type Transport } from "@yogo75/core";
+import {
+  hex,
+  Keyboard,
+  LINKS,
+  NoReplyError,
+  openKeyboard,
+  PID_CABLE,
+  PID_DONGLE,
+  USAGE_PAGE,
+  VENDOR_ID,
+  type Transport,
+} from "@yogo75/core";
 import HID from "node-hid";
 
-const VID = 0x373b;
-const PID_USB = 0x119b;
-const PID_DONGLE = 0x11ff; // 4607
-const USAGE_PAGE = 0xff60; // the vendor interface the hub talks to
-
-/**
- * Opens the keyboard over node-hid: USB cable first, else the 2.4 GHz dongle.
- * The hub only changes the report size and the timeout for wireless.
- */
-export async function openKeyboard(): Promise<{
+/** Opens the keyboard over node-hid: USB cable first, else the 2.4 GHz dongle. */
+export async function openHid(): Promise<{
   transport: Transport;
   close: () => Promise<void>;
 }> {
-  const device = [PID_USB, PID_DONGLE]
-    .map((pid) => HID.devices(VID, pid).find((d) => d.usagePage === USAGE_PAGE))
+  const device = [PID_CABLE, PID_DONGLE]
+    .map((pid) =>
+      HID.devices(VENDOR_ID, pid).find((d) => d.usagePage === USAGE_PAGE),
+    )
     .find((d) => d);
   if (!device?.path) {
     throw new Error(
@@ -23,16 +28,16 @@ export async function openKeyboard(): Promise<{
     );
   }
 
-  const wireless = device.productId === PID_DONGLE;
+  const { reportSize, timeoutMs } = LINKS[device.productId];
   const dev = await HID.HIDAsync.open(device.path);
   const transport: Transport = {
-    reportSize: wireless ? 32 : 64,
+    reportSize,
     async transfer(report) {
       if (report) {
         await dev.write([0x00, ...report]); // report id 0
       }
 
-      const r = await dev.read(wireless ? 3000 : 500);
+      const r = await dev.read(timeoutMs);
       return r?.length ? r : undefined;
     },
   };
@@ -40,19 +45,29 @@ export async function openKeyboard(): Promise<{
   return { transport, close: () => dev.close() };
 }
 
-/** Opens the keyboard, sends the start packet, repairs its flash pages, runs `use` and closes; DEBUG=1 traces every packet. */
+/** Opens the keyboard, starts it and repairs its flash pages, runs `use` and closes; DEBUG=1 traces every packet. */
 export async function withKeyboard<T>(
   use: (k: Keyboard) => Promise<T>,
 ): Promise<T> {
-  const { transport, close } = await openKeyboard();
+  const { transport, close } = await openHid();
   const k = new Keyboard(
     transport,
     process.env.DEBUG ? (dir, p) => console.error(dir, hex(p)) : undefined,
   );
 
   try {
-    await k.start();
-    for (const name of await k.repairFlashPages()) {
+    let repaired: string[];
+    try {
+      repaired = await openKeyboard(k);
+    } catch (e) {
+      if (e instanceof NoReplyError && k.throughDongle) {
+        throw new Error(
+          "keyboard asleep (2.4 GHz): press a key, then run the command again",
+        );
+      }
+      throw e;
+    }
+    for (const name of repaired) {
       console.error(
         `repaired the ${name} flash page, left full by another tool or the keyboard`,
       );

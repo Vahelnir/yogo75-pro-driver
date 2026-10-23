@@ -1,7 +1,7 @@
 import {
   firmwareVersion,
   Keyboard,
-  NoReplyError,
+  openKeyboard,
   type KeyboardState,
   type Transport,
 } from "@yogo75/core";
@@ -38,19 +38,7 @@ export async function connect(
     return result;
   }
 
-  for (;;) {
-    try {
-      await keyboard.start();
-      break;
-    } catch (e) {
-      if (!(e instanceof NoReplyError)) {
-        throw e;
-      }
-      onAsleep?.();
-    }
-  }
-
-  await keyboard.repairFlashPages();
+  await openKeyboard(keyboard, { onAsleep });
   const info = await keyboard.readInfo();
   const snapshot = await keyboard.readState();
 

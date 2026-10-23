@@ -27,6 +27,7 @@ import {
   MATRIX_BYTES,
 } from "./commands.ts";
 import { CONFIG_BYTES } from "./config.ts";
+import { LINKS, PID_DONGLE } from "./device.ts";
 import {
   CONFIG_PAGE,
   isFull,
@@ -52,7 +53,7 @@ import {
 } from "./packet.ts";
 import { stateDiff, type KeyboardState } from "./state.ts";
 
-/** HID link to the keyboard (node-hid, WebHID…). Timeouts are its business. */
+/** HID link to the keyboard (node-hid, WebHID…). Timeouts are its business, with the values of `LINKS`. */
 export interface Transport {
   /** Bytes per report: 64 over USB, 32 through the dongle. */
   readonly reportSize: number;
@@ -109,6 +110,11 @@ export class Keyboard {
   constructor(transport: Transport, log?: PacketLogger) {
     this.#transport = transport;
     this.#log = log;
+  }
+
+  /** Whether the link is the 2.4 GHz dongle, whose reports are smaller. */
+  get throughDongle(): boolean {
+    return this.#transport.reportSize === LINKS[PID_DONGLE].reportSize;
   }
 
   get #chunkBytes() {
@@ -277,10 +283,9 @@ export class Keyboard {
 
   /** Raw keyboard info (vid, pid, firmware, matrix and dot screen sizes…). */
   readInfo() {
-    const wireless = this.#transport.reportSize === 32;
     return this.#readChunks(
       CMD_KB_INFO,
-      wireless ? WIRELESS_INFO_BYTES : this.#chunkBytes,
+      this.throughDongle ? WIRELESS_INFO_BYTES : this.#chunkBytes,
     );
   }
 

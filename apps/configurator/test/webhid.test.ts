@@ -1,5 +1,6 @@
+import { LINKS, PID_CABLE, PID_DONGLE } from "@yogo75/core";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { hidTransport, PID_CABLE, PID_DONGLE } from "../src/webhid.ts";
+import { hidTransport } from "../src/webhid.ts";
 import { asDevice, FakeHidDevice } from "./fake-hid.ts";
 
 beforeEach(() => {
@@ -10,23 +11,24 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-test.each([
-  [PID_CABLE, 64, 500],
-  [PID_DONGLE, 32, 3000],
-])("pid %s: %s-byte reports, %s ms timeout", async (pid, size, timeout) => {
-  const device = new FakeHidDevice(pid);
-  device.onReport = () => [];
-  const transport = hidTransport(asDevice(device));
-  expect(transport.reportSize).toBe(size);
+test.each([PID_CABLE, PID_DONGLE])(
+  "pid %s: the link's report size and timeout",
+  async (pid) => {
+    const { reportSize: size, timeoutMs: timeout } = LINKS[pid];
+    const device = new FakeHidDevice(pid);
+    device.onReport = () => [];
+    const transport = hidTransport(asDevice(device));
+    expect(transport.reportSize).toBe(size);
 
-  let reply: Uint8Array | undefined | null = null;
-  void transport.transfer(new Uint8Array(size)).then((r) => (reply = r));
-  await vi.advanceTimersByTimeAsync(timeout - 1);
-  expect(reply).toBe(null);
+    let reply: Uint8Array | undefined | null = null;
+    void transport.transfer(new Uint8Array(size)).then((r) => (reply = r));
+    await vi.advanceTimersByTimeAsync(timeout - 1);
+    expect(reply).toBe(null);
 
-  await vi.advanceTimersByTimeAsync(1);
-  expect(reply).toBe(undefined);
-});
+    await vi.advanceTimersByTimeAsync(1);
+    expect(reply).toBe(undefined);
+  },
+);
 
 test("sends the report as is and resolves with the reply", async () => {
   const device = new FakeHidDevice(PID_CABLE);
