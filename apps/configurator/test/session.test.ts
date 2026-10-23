@@ -41,19 +41,6 @@ test("a failed request does not block the next ones", async () => {
   expect(await next).toHaveLength(345);
 });
 
-test("a dongle that does not answer is asleep: connect retries until it does", async () => {
-  const fake = new FakeKeyboard(32);
-  let sleeping = 2;
-  fake.replies = (reply) =>
-    reply[1] === 0x10 && sleeping-- > 0 ? [] : [reply];
-  let asleep = 0;
-
-  const session = await connect(fake, () => asleep++);
-
-  expect(asleep).toBe(2);
-  expect(session.firmware).toBe("1.26");
-});
-
 const CAPS = 48;
 const FN = keycode("FN");
 

@@ -1,17 +1,14 @@
-import type { Transport } from "@yogo75/core";
+import {
+  LINKS,
+  PID_CABLE,
+  PID_DONGLE,
+  USAGE_PAGE,
+  VENDOR_ID,
+  type Transport,
+} from "@yogo75/core";
 
-const VID = 0x373b;
-export const PID_CABLE = 0x119b;
-export const PID_DONGLE = 0x11ff;
-/** The vendor interface the hub's WebHID base talks to. */
-const USAGE_PAGE = 0xff60;
-/** The hub's 500 ms timeout, which its applyWirelessTransport() raises to 3 s for the dongle. */
-const CABLE_TIMEOUT_MS = 500;
-const DONGLE_TIMEOUT_MS = 3000;
-const CABLE_REPORT_BYTES = 64;
-const DONGLE_REPORT_BYTES = 32;
 const FILTERS: HIDDeviceFilter[] = [PID_CABLE, PID_DONGLE].map((productId) => ({
-  vendorId: VID,
+  vendorId: VENDOR_ID,
   productId,
   usagePage: USAGE_PAGE,
 }));
@@ -31,7 +28,7 @@ export async function authorisedKeyboards(): Promise<HIDDevice[]> {
   const devices = await navigator.hid.getDevices();
   return devices.filter(
     (d) =>
-      d.vendorId === VID &&
+      d.vendorId === VENDOR_ID &&
       [PID_CABLE, PID_DONGLE].includes(d.productId) &&
       d.collections.some((c) => c.usagePage === USAGE_PAGE),
   );
@@ -45,8 +42,7 @@ export function hidTransport(
   device: HIDDevice,
   signal?: AbortSignal,
 ): Transport {
-  const dongle = isDongle(device);
-  const timeout = dongle ? DONGLE_TIMEOUT_MS : CABLE_TIMEOUT_MS;
+  const { reportSize, timeoutMs } = LINKS[device.productId];
   let queued: Uint8Array[] = [];
   let waiting: ((report: Uint8Array) => void) | undefined;
 
@@ -75,7 +71,7 @@ export function hidTransport(
       const timer = setTimeout(() => {
         waiting = undefined;
         resolve(undefined);
-      }, timeout);
+      }, timeoutMs);
       waiting = (r) => {
         clearTimeout(timer);
         waiting = undefined;
@@ -85,7 +81,7 @@ export function hidTransport(
   }
 
   return {
-    reportSize: dongle ? DONGLE_REPORT_BYTES : CABLE_REPORT_BYTES,
+    reportSize,
     async transfer(report) {
       if (report) {
         // reports received before a request answer nothing it sent

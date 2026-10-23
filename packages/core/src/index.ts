@@ -13,6 +13,14 @@ export {
 } from "./commands.ts";
 export { CONFIG_BYTES, FIELDS } from "./config.ts";
 export {
+  LINKS,
+  PID_CABLE,
+  PID_DONGLE,
+  USAGE_PAGE,
+  VENDOR_ID,
+  type Link,
+} from "./device.ts";
+export {
   Keyboard,
   NoReplyError,
   type PacketLogger,
@@ -31,6 +39,7 @@ export {
   type MacroSpec,
 } from "./macro.ts";
 export { keycode, keycodeName, MAX_MACRO } from "./keycode.ts";
+export { openKeyboard, type OpenOptions } from "./open.ts";
 export {
   COLS,
   keyAt,
