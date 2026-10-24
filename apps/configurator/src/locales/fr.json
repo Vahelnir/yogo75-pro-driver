@@ -2,7 +2,9 @@
   "app": {
     "title": "Configurateur Yogo 75",
     "language": "Langue",
-    "disconnect": "Déconnecter"
+    "disconnect": "Déconnecter",
+    "keymap": "Touches",
+    "lighting": "Éclairage"
   },
   "home": {
     "unsupported": "Ton navigateur ne peut pas parler aux périphériques USB (WebHID). Ouvre cette page dans Chrome, Edge ou un autre navigateur Chromium.",
@@ -23,6 +25,43 @@
       "base": "Base",
       "fn": "Fn",
       "layer": "Couche {n}"
+    }
+  },
+  "lighting": {
+    "backlight": "Rétroéclairage",
+    "effect": "Effet",
+    "brightness": "Luminosité",
+    "percent": "{percent} %",
+    "speed": "Vitesse",
+    "slow": "Lent",
+    "fast": "Rapide",
+    "rainbow": "Arc-en-ciel",
+    "color": "Couleur",
+    "write_failed": "Impossible d'écrire l'éclairage : {error}",
+    "mode": {
+      "all_off": "Tout éteint",
+      "rainbow_flow_1": "Flux arc-en-ciel 1",
+      "color_breathing": "Respiration colorée",
+      "monochrome_breath": "Respiration monochrome",
+      "rainbow": "Arc-en-ciel",
+      "single_light_up": "Allumage à la frappe",
+      "colorful_vortex_1": "Vortex coloré 1",
+      "rainbow_flow_2": "Flux arc-en-ciel 2",
+      "rainbow_flow_4": "Flux arc-en-ciel 4",
+      "spectral_fluctuation_1": "Fluctuation spectrale 1",
+      "spectral_fluctuation_2": "Fluctuation spectrale 2",
+      "spectral_fluctuation_3": "Fluctuation spectrale 3",
+      "neon": "Néon",
+      "cloud_burst": "Explosion de nuages",
+      "colorful_vortex_2": "Vortex coloré 2",
+      "colorful_ribbon_fluttering_1": "Ruban coloré flottant 1",
+      "spectral_diffusion_1": "Diffusion spectrale 1",
+      "rainbow_intersection": "Intersection arc-en-ciel",
+      "spectral_diffusion_2": "Diffusion spectrale 2",
+      "rainbow_flow_3": "Flux arc-en-ciel 3",
+      "dynamic_rainbow": "Arc-en-ciel dynamique",
+      "custom": "Personnalisé",
+      "music_rhythm": "Rythme musical"
     }
   },
   "connection_type": {

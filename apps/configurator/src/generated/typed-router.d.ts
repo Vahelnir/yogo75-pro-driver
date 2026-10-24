@@ -52,6 +52,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/keyboard/lighting': RouteRecordInfo<
+      '/keyboard/lighting',
+      '/keyboard/lighting',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
   }
 
   /**
@@ -84,6 +91,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/keyboard/keymap.vue': {
       routes:
         | '/keyboard/keymap'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/keyboard/lighting.vue': {
+      routes:
+        | '/keyboard/lighting'
       views:
         | never
       pathParamNames:

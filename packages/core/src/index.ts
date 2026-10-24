@@ -21,6 +21,7 @@ export {
   type Link,
 } from "./device.ts";
 export {
+  APPLY_DELAY_MS,
   Keyboard,
   NoReplyError,
   type PacketLogger,
@@ -38,6 +39,17 @@ export {
   splitMacros,
   type MacroSpec,
 } from "./macro.ts";
+export {
+  brightnessPercent,
+  brightnessRaw,
+  LIGHTING_MODES,
+  MAX_BRIGHTNESS,
+  MAX_SPEED,
+  speedRaw,
+  speedSlowToFast,
+  type LightingMode,
+  type LightingSetting,
+} from "./lighting.ts";
 export { keycode, keycodeName, MAX_MACRO } from "./keycode.ts";
 export { openKeyboard, type OpenOptions } from "./open.ts";
 export {

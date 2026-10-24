@@ -31,6 +31,22 @@ async function leave() {
         class="flex items-center justify-between border-b border-zinc-200 px-4 py-3"
       >
         <h1 class="font-semibold">{{ t("app.title") }}</h1>
+        <nav v-if="session" class="ml-6 flex gap-4 text-sm">
+          <RouterLink
+            to="/keyboard/keymap"
+            class="text-zinc-500 hover:text-zinc-900"
+            active-class="font-medium text-zinc-900"
+          >
+            {{ t("app.keymap") }}
+          </RouterLink>
+          <RouterLink
+            to="/keyboard/lighting"
+            class="text-zinc-500 hover:text-zinc-900"
+            active-class="font-medium text-zinc-900"
+          >
+            {{ t("app.lighting") }}
+          </RouterLink>
+        </nav>
         <UiButton v-if="session" class="ml-auto mr-4" @click="leave">
           <IconUnplug />
           {{ t("app.disconnect") }}
