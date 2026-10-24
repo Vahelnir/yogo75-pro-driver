@@ -2,7 +2,9 @@
   "app": {
     "title": "Yogo 75 configurator",
     "language": "Language",
-    "disconnect": "Disconnect"
+    "disconnect": "Disconnect",
+    "keymap": "Keymap",
+    "lighting": "Lighting"
   },
   "home": {
     "unsupported": "Your browser can't talk to USB devices (WebHID). Open this page in Chrome, Edge or another Chromium browser.",
@@ -23,6 +25,34 @@
       "base": "Base",
       "fn": "Fn",
       "layer": "Layer {n}"
+    }
+  },
+  "lighting": {
+    "backlight": "Backlight",
+    "effect": "Effect",
+    "write_failed": "Could not write the lighting: {error}",
+    "mode": {
+      "rainbow_flow_1": "Rainbow Flow 1",
+      "color_breathing": "Color Breathing",
+      "monochrome_breath": "Monochrome Breath",
+      "rainbow": "Rainbow",
+      "single_light_up": "Single Light Up",
+      "colorful_vortex_1": "Colorful Vortex 1",
+      "rainbow_flow_2": "Rainbow Flow 2",
+      "rainbow_flow_4": "Rainbow Flow 4",
+      "spectral_fluctuation_1": "Spectral Fluctuation 1",
+      "spectral_fluctuation_2": "Spectral Fluctuation 2",
+      "spectral_fluctuation_3": "Spectral Fluctuation 3",
+      "neon": "Neon",
+      "cloud_burst": "Cloud Burst",
+      "colorful_vortex_2": "Colorful Vortex 2",
+      "colorful_ribbon_fluttering_1": "Colorful Ribbon Fluttering 1",
+      "spectral_diffusion_1": "Spectral Diffusion 1",
+      "rainbow_intersection": "Rainbow Intersection",
+      "spectral_diffusion_2": "Spectral Diffusion 2",
+      "rainbow_flow_3": "Rainbow Flow 3",
+      "dynamic_rainbow": "Dynamic Rainbow",
+      "custom": "Custom"
     }
   },
   "connection_type": {

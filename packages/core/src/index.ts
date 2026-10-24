@@ -39,6 +39,11 @@ export {
   splitMacros,
   type MacroSpec,
 } from "./macro.ts";
+export {
+  LIGHTING_MODES,
+  type LightingMode,
+  type LightingSetting,
+} from "./lighting.ts";
 export { keycode, keycodeName, MAX_MACRO } from "./keycode.ts";
 export { openKeyboard, type OpenOptions } from "./open.ts";
 export {
