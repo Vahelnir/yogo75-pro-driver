@@ -32,6 +32,7 @@
     "effect": "Effect",
     "write_failed": "Could not write the lighting: {error}",
     "mode": {
+      "all_off": "All off",
       "rainbow_flow_1": "Rainbow Flow 1",
       "color_breathing": "Color Breathing",
       "monochrome_breath": "Monochrome Breath",
@@ -52,7 +53,8 @@
       "spectral_diffusion_2": "Spectral Diffusion 2",
       "rainbow_flow_3": "Rainbow Flow 3",
       "dynamic_rainbow": "Dynamic Rainbow",
-      "custom": "Custom"
+      "custom": "Custom",
+      "music_rhythm": "Music Rhythm"
     }
   },
   "connection_type": {

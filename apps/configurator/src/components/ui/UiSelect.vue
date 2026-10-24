@@ -11,7 +11,9 @@ import {
   SelectViewport,
 } from "reka-ui";
 
-defineProps<{ options: { value: string; label: string }[] }>();
+defineProps<{
+  options: { value: string; label: string; disabled?: boolean }[];
+}>();
 const model = defineModel<string>();
 </script>
 
@@ -33,7 +35,8 @@ const model = defineModel<string>();
             v-for="option in options"
             :key="option.value"
             :value="option.value"
-            class="cursor-pointer rounded px-2 py-1 text-sm outline-none data-highlighted:bg-zinc-100"
+            :disabled="option.disabled"
+            class="cursor-pointer rounded px-2 py-1 text-sm outline-none data-highlighted:bg-zinc-100 data-disabled:cursor-default data-disabled:text-zinc-400"
           >
             <SelectItemText>{{ option.label }}</SelectItemText>
           </SelectItem>

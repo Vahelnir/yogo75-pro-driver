@@ -32,6 +32,7 @@
     "effect": "Effet",
     "write_failed": "Impossible d'écrire l'éclairage : {error}",
     "mode": {
+      "all_off": "Tout éteint",
       "rainbow_flow_1": "Flux arc-en-ciel 1",
       "color_breathing": "Respiration colorée",
       "monochrome_breath": "Respiration monochrome",
@@ -52,7 +53,8 @@
       "spectral_diffusion_2": "Diffusion spectrale 2",
       "rainbow_flow_3": "Flux arc-en-ciel 3",
       "dynamic_rainbow": "Arc-en-ciel dynamique",
-      "custom": "Personnalisé"
+      "custom": "Personnalisé",
+      "music_rhythm": "Rythme musical"
     }
   },
   "connection_type": {

@@ -6,11 +6,14 @@ import { isLit, ledMode, lightingMode, lightingOn } from "../../lighting.ts";
 const { t } = useI18n();
 const error = ref<string>();
 
-// 0 (all off) is replaced by the switch; 254 (music sync) needs ATK's desktop app
-const OFFERED = LIGHTING_MODES.filter(({ mode }) => mode !== 0 && mode !== 254);
+// 0 (all off) is replaced by the switch; 254 (music sync) needs ATK's desktop app: both are only shown, disabled,
+// while the keyboard holds them
+const HIDDEN = [0, 254];
 
 const modes = computed(() => {
+  const held = session.value && ledMode(session.value.state.config);
   const names: Record<number, string> = {
+    0: t("lighting.mode.all_off"),
     1: t("lighting.mode.rainbow_flow_1"),
     2: t("lighting.mode.color_breathing"),
     3: t("lighting.mode.monochrome_breath"),
@@ -32,10 +35,14 @@ const modes = computed(() => {
     19: t("lighting.mode.rainbow_flow_3"),
     20: t("lighting.mode.dynamic_rainbow"),
     253: t("lighting.mode.custom"),
+    254: t("lighting.mode.music_rhythm"),
   };
-  return OFFERED.map(({ mode }) => ({
+  return LIGHTING_MODES.filter(
+    ({ mode }) => !HIDDEN.includes(mode) || mode === held,
+  ).map(({ mode }) => ({
     value: String(mode),
     label: names[mode],
+    disabled: HIDDEN.includes(mode),
   }));
 });
 
