@@ -2,10 +2,12 @@ import { FIELDS, Keyboard, type KeyboardState } from "@yogo75/core";
 import { expect, test } from "vitest";
 import { FakeKeyboard } from "../../../packages/core/test/fake-transport.ts";
 import {
+  brightness,
   lightingBrightness,
   lightingMode,
   lightingOn,
   lightingSpeed,
+  speed,
 } from "../src/lighting.ts";
 import { connect } from "../src/session.ts";
 import { resourcesSent } from "./resources-sent.ts";
@@ -52,4 +54,13 @@ test("off then on keeps the mode", async () => {
   await session.update(lightingOn(true));
   expect(session.state.config[LED_ON_OFF]).toBe(0);
   expect(session.state.config[LED_MODE]).toBe(7);
+});
+
+test("brightness and speed stay on their scale when another tool wrote a raw value out of range", () => {
+  const config = new Uint8Array(64);
+  config[LED_BRIGHTNESS] = 255;
+  config[LED_SPEED] = 200;
+
+  expect(brightness(config)).toBe(100);
+  expect(speed(config)).toBe(0);
 });

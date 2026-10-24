@@ -2,6 +2,7 @@ import {
   brightnessPercent,
   brightnessRaw,
   FIELDS,
+  MAX_SPEED,
   speedRaw,
   speedSlowToFast,
   type KeyboardState,
@@ -21,14 +22,19 @@ export function ledMode(config: Uint8Array): number {
   return config[LED_MODE];
 }
 
+// a raw value out of the documented range (set by another tool) shows at the nearest end of the scale
+function clamp(value: number, max: number): number {
+  return Math.min(Math.max(value, 0), max);
+}
+
 /** The brightness, in %. */
 export function brightness(config: Uint8Array): number {
-  return brightnessPercent(config[LED_BRIGHTNESS]);
+  return clamp(brightnessPercent(config[LED_BRIGHTNESS]), 100);
 }
 
 /** The speed, from 0 (slowest) to 6 (fastest). */
 export function speed(config: Uint8Array): number {
-  return speedSlowToFast(config[LED_SPEED]);
+  return clamp(speedSlowToFast(config[LED_SPEED]), MAX_SPEED);
 }
 
 /** Recipe turning the backlight on or off through `ledOnOff`, keeping `ledMode` (the hub uses mode 0 instead). */
