@@ -95,8 +95,10 @@ async function write(recipe: (next: KeyboardState) => void) {
         :max="100"
         :label="t('lighting.brightness')"
         :commit="(percent) => write(lightingBrightness(percent))"
-      />
-      {{ t("lighting.percent", { percent: brightness(session.state.config) }) }}
+        #default="{ value }"
+      >
+        {{ t("lighting.percent", { percent: value }) }}
+      </UiSlider>
     </div>
     <div v-if="settings.includes('speed')" class="flex items-center gap-4">
       {{ t("lighting.speed") }}
