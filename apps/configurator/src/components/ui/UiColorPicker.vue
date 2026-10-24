@@ -9,10 +9,13 @@ import {
   ColorSliderThumb,
   ColorSliderTrack,
   ColorSwatch,
+  convertToHsb,
+  normalizeColor,
   PopoverContent,
   PopoverPortal,
   PopoverRoot,
   PopoverTrigger,
+  type Color,
 } from "reka-ui";
 
 const props = defineProps<{
@@ -33,6 +36,29 @@ let pending = false;
 let latest = 0;
 let byKey = false;
 
+const shown = computed(() => moved.value ?? props.value);
+// a hex string has no hue at black, white or grey: the hue is kept here, for the area to follow the hue slider
+const hue = ref(0);
+const achromatic = computed(() => {
+  const { s, b } = convertToHsb(normalizeColor(shown.value));
+  return s === 0 || b === 0;
+});
+watch(
+  shown,
+  () => {
+    if (!achromatic.value) {
+      hue.value = convertToHsb(normalizeColor(shown.value)).h;
+    }
+  },
+  { immediate: true },
+);
+// Reka's area takes the hue of a colour only while it has saturation: it is remounted to follow the slider
+const areaKey = ref(0);
+const areaColor = computed<Color>(() => ({
+  ...convertToHsb(normalizeColor(shown.value)),
+  h: hue.value,
+}));
+
 function setByKey(key: boolean) {
   byKey = key;
 }
@@ -49,6 +75,12 @@ async function commitPending() {
   }
 
   pending = false;
+  // Reka's hex field sends the colour again on every blur and Enter, even unchanged
+  if (moved.value === props.value) {
+    moved.value = undefined;
+    return;
+  }
+
   const mine = ++latest;
   try {
     await props.commit(moved.value);
@@ -67,6 +99,17 @@ function onPointerChangeEnd() {
   }
 }
 
+function onHue(color: Color) {
+  if (!("h" in color)) {
+    return;
+  }
+
+  hue.value = color.h;
+  if (achromatic.value) {
+    areaKey.value++;
+  }
+}
+
 function onOpen(open: boolean) {
   if (!open) {
     commitPending();
@@ -80,7 +123,7 @@ function onOpen(open: boolean) {
       :aria-label="label"
       class="rounded-md border border-zinc-300 bg-white p-1"
     >
-      <ColorSwatch :color="moved ?? value" class="block h-5 w-10 rounded" />
+      <ColorSwatch :color="shown" class="block h-5 w-10 rounded" />
     </PopoverTrigger>
     <PopoverPortal>
       <PopoverContent
@@ -94,7 +137,8 @@ function onOpen(open: boolean) {
         @focusout="commitPending"
       >
         <ColorAreaRoot
-          :model-value="moved ?? value"
+          :key="areaKey"
+          :model-value="areaColor"
           color-space="hsb"
           x-channel="saturation"
           y-channel="brightness"
@@ -109,10 +153,11 @@ function onOpen(open: boolean) {
           </ColorAreaArea>
         </ColorAreaRoot>
         <ColorSliderRoot
-          :model-value="moved ?? value"
+          :model-value="shown"
           color-space="hsb"
           channel="hue"
           class="relative flex h-4 w-full touch-none items-center select-none"
+          @update:color="onHue"
           @update:model-value="(color) => onMove(color as string)"
           @change-end="onPointerChangeEnd"
         >
@@ -122,7 +167,7 @@ function onOpen(open: boolean) {
           />
         </ColorSliderRoot>
         <ColorFieldRoot
-          :model-value="moved ?? value"
+          :model-value="shown"
           disable-wheel-change
           @update:model-value="onMove"
         >
