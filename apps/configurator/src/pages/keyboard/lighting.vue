@@ -3,11 +3,15 @@ import { LIGHTING_MODES, MAX_SPEED, type KeyboardState } from "@yogo75/core";
 import { session } from "../../keyboard.ts";
 import {
   brightness,
+  color,
   isLit,
+  isRainbow,
   ledMode,
   lightingBrightness,
+  lightingColor,
   lightingMode,
   lightingOn,
+  lightingRainbow,
   lightingSpeed,
   speed,
 } from "../../lighting.ts";
@@ -60,6 +64,17 @@ const settings = computed(() => {
   return LIGHTING_MODES.find(({ mode }) => mode === held)?.settings ?? [];
 });
 
+// the colour has no visible effect while the rainbow is on, where the mode offers the rainbow
+const showsColor = computed(
+  () =>
+    settings.value.includes("color") &&
+    !(
+      settings.value.includes("rainbow") &&
+      session.value &&
+      isRainbow(session.value.state.config)
+    ),
+);
+
 async function write(recipe: (next: KeyboardState) => void) {
   error.value = undefined;
   try {
@@ -111,6 +126,21 @@ async function write(recipe: (next: KeyboardState) => void) {
         :commit="(value) => write(lightingSpeed(value))"
       />
       <span class="text-sm text-zinc-500">{{ t("lighting.fast") }}</span>
+    </div>
+    <label v-if="settings.includes('rainbow')" class="flex items-center gap-4">
+      {{ t("lighting.rainbow") }}
+      <UiSwitch
+        :model-value="isRainbow(session.state.config)"
+        @update:model-value="(rainbow) => write(lightingRainbow(rainbow))"
+      />
+    </label>
+    <div v-if="showsColor" class="flex items-center gap-4">
+      {{ t("lighting.color") }}
+      <UiColorPicker
+        :value="color(session.state.config)"
+        :label="t('lighting.color')"
+        :commit="(picked) => write(lightingColor(picked))"
+      />
     </div>
   </div>
   <p v-if="error" class="mt-4 text-red-700">

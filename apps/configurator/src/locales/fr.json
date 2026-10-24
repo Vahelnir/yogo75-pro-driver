@@ -35,6 +35,8 @@
     "speed": "Vitesse",
     "slow": "Lent",
     "fast": "Rapide",
+    "rainbow": "Arc-en-ciel",
+    "color": "Couleur",
     "write_failed": "Impossible d'écrire l'éclairage : {error}",
     "mode": {
       "all_off": "Tout éteint",
