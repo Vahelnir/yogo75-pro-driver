@@ -49,6 +49,7 @@ export function color(config: Uint8Array): string {
   return `#${hex(Uint8Array.from(rgb)).replaceAll(" ", "")}`;
 }
 
+// only 0 and 1 are documented: any other value shows as single colour
 /** Whether the effect is multicolour (`colorful` = 1) rather than in the single colour. */
 export function isRainbow(config: Uint8Array): boolean {
   return config[COLORFUL] === 1;

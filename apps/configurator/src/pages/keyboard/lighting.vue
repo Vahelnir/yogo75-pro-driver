@@ -64,17 +64,6 @@ const settings = computed(() => {
   return LIGHTING_MODES.find(({ mode }) => mode === held)?.settings ?? [];
 });
 
-// the colour has no visible effect while the rainbow is on, where the mode offers the rainbow
-const showsColor = computed(
-  () =>
-    settings.value.includes("color") &&
-    !(
-      settings.value.includes("rainbow") &&
-      session.value &&
-      isRainbow(session.value.state.config)
-    ),
-);
-
 async function write(recipe: (next: KeyboardState) => void) {
   error.value = undefined;
   try {
@@ -134,7 +123,7 @@ async function write(recipe: (next: KeyboardState) => void) {
         @update:model-value="(rainbow) => write(lightingRainbow(rainbow))"
       />
     </label>
-    <div v-if="showsColor" class="flex items-center gap-4">
+    <div v-if="settings.includes('color')" class="flex items-center gap-4">
       {{ t("lighting.color") }}
       <UiColorPicker
         :value="color(session.state.config)"
