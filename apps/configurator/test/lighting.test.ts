@@ -3,11 +3,10 @@ import { expect, test } from "vitest";
 import { FakeKeyboard } from "../../../packages/core/test/fake-transport.ts";
 import { lightingMode, lightingOn } from "../src/lighting.ts";
 import { connect } from "../src/session.ts";
+import { resourcesSent } from "./resources-sent.ts";
 
 const LED_ON_OFF = FIELDS.indexOf("ledOnOff");
 const LED_MODE = FIELDS.indexOf("ledMode");
-const CONFIG_WRITE = 0x15;
-const OTHER_WRITES = [0x1b, 0x1d, 0x1f, 0x21, 0x23, 0x2d];
 
 for (const [name, recipe, field, value] of [
   ["turning off", lightingOn(false), LED_ON_OFF, 1],
@@ -22,9 +21,7 @@ for (const [name, recipe, field, value] of [
 
     await session.update(recipe);
 
-    const cmds = fake.written.map((p) => p[1]);
-    expect(cmds).toContain(CONFIG_WRITE);
-    expect(cmds.filter((cmd) => OTHER_WRITES.includes(cmd))).toEqual([]);
+    expect(resourcesSent(fake.written)).toEqual(["config"]);
     expect(session.state.config).toEqual(wanted);
     expect(session.state).toEqual(await new Keyboard(fake).readState());
   });

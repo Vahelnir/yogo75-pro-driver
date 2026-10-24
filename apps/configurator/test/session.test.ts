@@ -13,6 +13,7 @@ import {
   LAYER_FIXTURE,
 } from "../../../packages/core/test/fake-transport.ts";
 import { connect } from "../src/session.ts";
+import { resourcesSent } from "./resources-sent.ts";
 
 test("connect reads the firmware version and the full state", async () => {
   const session = await connect(new FakeKeyboard(64));
@@ -90,14 +91,6 @@ for (const [fault, reply] of [
 
 const LED_MODE = FIELDS.indexOf("ledMode");
 
-/** Write command of each resource, to tell which ones a change sent. */
-const WRITE_CMDS: Record<string, number> = {
-  config: 0x15,
-  keymap2: 0x1f,
-  leds: 0x23,
-  macros: 0x2d,
-};
-
 for (const [name, change] of [
   ["config", (s) => (s.config[LED_MODE] = 253)],
   ["keymap2", (s) => keyAt(s.keymaps[2], CAPS).set(FN)],
@@ -117,10 +110,7 @@ for (const [name, change] of [
 
     await session.update(change);
 
-    const sent = Object.entries(WRITE_CMDS)
-      .filter(([, cmd]) => fake.written.some((p) => p[1] === cmd))
-      .map(([resource]) => resource);
-    expect(sent).toEqual([name]);
+    expect(resourcesSent(fake.written)).toEqual([name]);
     expect(session.state).toEqual(wanted);
     expect(session.state).toEqual(await new Keyboard(fake).readState());
   });
