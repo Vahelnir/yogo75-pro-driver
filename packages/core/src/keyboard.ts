@@ -69,7 +69,7 @@ export type PacketLogger = (direction: "tx" | "rx", packet: Uint8Array) => void;
 /** Input reports read for one request before giving up: others (key presses…) can come first. */
 const MAX_REPORTS = 20;
 /** The keyboard acks a write before applying it: reads within ~5 ms return the old values. */
-const APPLY_DELAY_MS = 50;
+export const APPLY_DELAY_MS = 50;
 /** A save lands about 60 ms after the last write while we poll; past this, its page is stuck. */
 const SAVE_TIMEOUT_MS = 1000;
 const SAVE_POLL_MS = 10;

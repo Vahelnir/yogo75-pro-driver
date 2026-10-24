@@ -41,8 +41,6 @@ async function assign(index: number, name: string) {
     await session.value.setKey(layer.value, index, keycode(name));
   } catch (err) {
     error.value = (err as Error).message;
-  } finally {
-    triggerRef(session);
   }
 }
 

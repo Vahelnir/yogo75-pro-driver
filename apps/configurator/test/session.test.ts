@@ -1,5 +1,13 @@
-import { keyAt, Keyboard, keycode } from "@yogo75/core";
+import {
+  FIELDS,
+  keyAt,
+  Keyboard,
+  keycode,
+  type KeyboardState,
+} from "@yogo75/core";
 import { expect, test } from "vitest";
+import { watch } from "vue";
+import { withoutFullBytes } from "../../../packages/core/src/flash.ts";
 import {
   FakeKeyboard,
   LAYER_FIXTURE,
@@ -15,30 +23,6 @@ test("connect reads the firmware version and the full state", async () => {
   expect(session.state).toEqual(expected);
   expect(session.state).not.toBe(session.snapshot);
   expect(session.state.keymaps).toEqual(LAYER_FIXTURE);
-});
-
-test("concurrent requests are sent one after the other, never interleaved", async () => {
-  const fake = new FakeKeyboard(32);
-  const session = await connect(fake);
-  fake.written = [];
-
-  await Promise.all([
-    session.run((k) => k.readKeymap(0)),
-    session.run((k) => k.readKeymap(1)),
-  ]);
-
-  const cmds = fake.written.map((p) => p[1]);
-  expect(cmds).toEqual([...Array(15).fill(0x1a), ...Array(15).fill(0x1c)]);
-});
-
-test("a failed request does not block the next ones", async () => {
-  const session = await connect(new FakeKeyboard(64));
-
-  const failed = session.run(() => Promise.reject(new Error("boom")));
-  const next = session.run((k) => k.readKeymap(0));
-
-  await expect(failed).rejects.toThrow("boom");
-  expect(await next).toHaveLength(345);
 });
 
 const CAPS = 48;
@@ -103,3 +87,119 @@ for (const [fault, reply] of [
     );
   });
 }
+
+const LED_MODE = FIELDS.indexOf("ledMode");
+
+/** Write command of each resource, to tell which ones a change sent. */
+const WRITE_CMDS: Record<string, number> = {
+  config: 0x15,
+  keymap2: 0x1f,
+  leds: 0x23,
+  macros: 0x2d,
+};
+
+for (const [name, change] of [
+  ["config", (s) => (s.config[LED_MODE] = 253)],
+  ["keymap2", (s) => keyAt(s.keymaps[2], CAPS).set(FN)],
+  ["leds", (s) => s.leds.set([1, 2, 3])],
+  ["macros", (s) => (s.macros[s.macros.length - 1] ^= 1)],
+] as [string, (s: KeyboardState) => void][]) {
+  test(`an update of the ${name} writes only it, then reads it back into the state`, async () => {
+    const fake = new FakeKeyboard(32);
+    const session = await connect(fake);
+    const wanted = structuredClone(session.snapshot);
+    change(wanted);
+    if (name === "leds") {
+      // the colours the backup holds as 0xFF are written, and read back, as 0xFE
+      wanted.leds = withoutFullBytes(wanted.leds);
+    }
+    fake.written = [];
+
+    await session.update(change);
+
+    const sent = Object.entries(WRITE_CMDS)
+      .filter(([, cmd]) => fake.written.some((p) => p[1] === cmd))
+      .map(([resource]) => resource);
+    expect(sent).toEqual([name]);
+    expect(session.state).toEqual(wanted);
+    expect(session.state).toEqual(await new Keyboard(fake).readState());
+  });
+}
+
+test("an update that changes nothing sends nothing", async () => {
+  const fake = new FakeKeyboard(64);
+  const session = await connect(fake);
+  fake.written = [];
+
+  await session.update(() => {});
+
+  expect(fake.written).toEqual([]);
+});
+
+test("a failed update rejects, and every resource it changed is what the keyboard holds", async () => {
+  const fake = new FakeKeyboard(32);
+  const session = await connect(fake);
+  fake.data.leds[0] ^= 1; // changed behind the session's back
+  fake.replies = (r) => (r[1] === 0x23 ? [] : [r]);
+
+  await expect(
+    session.update((s) => {
+      s.config[LED_MODE] = 253;
+      s.leds.set([1, 2, 3]);
+    }),
+  ).rejects.toThrow("cmd 0x23");
+
+  const held = await new Keyboard(fake).readState();
+  expect(session.state.config[LED_MODE]).toBe(253);
+  expect(session.state.config).toEqual(held.config);
+  expect(session.state.leds).toEqual(held.leds);
+});
+
+test("a failed update does not block the next writes", async () => {
+  const session = await connect(new FakeKeyboard(64));
+
+  const failed = session.update(() => {
+    throw new Error("boom");
+  });
+  const next = session.setKey(0, CAPS, FN);
+
+  await expect(failed).rejects.toThrow("boom");
+  await next;
+  expect(keyAt(session.state.keymaps[0], CAPS)).toEqual(FN);
+});
+
+test("an update and a key change are sent one after the other, never interleaved", async () => {
+  const fake = new FakeKeyboard(32);
+  const session = await connect(fake);
+  fake.written = [];
+
+  await Promise.all([
+    session.update((s) => (s.config[LED_MODE] = 253)),
+    session.setKey(0, CAPS, FN),
+  ]);
+
+  const cmds = fake.written.map((p) => p[1]);
+  expect(cmds.lastIndexOf(0x15)).toBeLessThan(cmds.indexOf(0x1b));
+});
+
+test("the state is reactive: a watcher sees each read-back", async () => {
+  const session = await connect(new FakeKeyboard(64));
+  const seen: string[] = [];
+  watch(
+    () => session.state.config,
+    () => seen.push("config"),
+    { flush: "sync" },
+  );
+  watch(
+    () => session.state.keymaps[1],
+    () => seen.push("keymap1"),
+    {
+      flush: "sync",
+    },
+  );
+
+  await session.update((s) => (s.config[LED_MODE] = 253));
+  await session.setKey(1, CAPS, FN);
+
+  expect(seen).toEqual(["config", "keymap1"]);
+});
