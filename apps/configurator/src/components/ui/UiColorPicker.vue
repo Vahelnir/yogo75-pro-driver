@@ -123,7 +123,11 @@ function onOpen(open: boolean) {
       :aria-label="label"
       class="rounded-md border border-zinc-300 bg-white p-1"
     >
-      <ColorSwatch :color="shown" class="block h-5 w-10 rounded" />
+      <!-- Reka's swatch only sets the colour as a CSS variable -->
+      <ColorSwatch
+        :color="shown"
+        class="block h-5 w-10 rounded bg-(--reka-color-swatch-color)"
+      />
     </PopoverTrigger>
     <PopoverPortal>
       <PopoverContent
