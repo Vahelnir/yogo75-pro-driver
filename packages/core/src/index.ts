@@ -21,6 +21,7 @@ export {
   type Link,
 } from "./device.ts";
 export {
+  APPLY_DELAY_MS,
   Keyboard,
   NoReplyError,
   type PacketLogger,
