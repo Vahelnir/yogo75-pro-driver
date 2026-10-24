@@ -40,7 +40,13 @@ export {
   type MacroSpec,
 } from "./macro.ts";
 export {
+  brightnessPercent,
+  brightnessRaw,
   LIGHTING_MODES,
+  MAX_BRIGHTNESS,
+  MAX_SPEED,
+  speedRaw,
+  speedSlowToFast,
   type LightingMode,
   type LightingSetting,
 } from "./lighting.ts";

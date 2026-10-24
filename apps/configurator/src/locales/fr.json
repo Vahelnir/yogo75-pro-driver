@@ -30,6 +30,11 @@
   "lighting": {
     "backlight": "Rétroéclairage",
     "effect": "Effet",
+    "brightness": "Luminosité",
+    "percent": "{percent} %",
+    "speed": "Vitesse",
+    "slow": "Lent",
+    "fast": "Rapide",
     "write_failed": "Impossible d'écrire l'éclairage : {error}",
     "mode": {
       "all_off": "Tout éteint",

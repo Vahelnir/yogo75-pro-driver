@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { LIGHTING_MODES } from "../src/index.ts";
+import {
+  brightnessPercent,
+  brightnessRaw,
+  LIGHTING_MODES,
+  speedRaw,
+  speedSlowToFast,
+} from "../src/index.ts";
 
 const ALL = ["brightness", "speed", "color", "rainbow"];
 
@@ -30,4 +36,30 @@ test("the mode table holds every mode of the protocol doc, with its effective se
     { mode: 253, settings: ["brightness", "color"] },
     { mode: 254, settings: ["color"] },
   ]);
+});
+
+test("brightness converts between raw 0–90 and 0–100 %, both ways", () => {
+  assert.equal(brightnessPercent(0), 0);
+  assert.equal(brightnessPercent(90), 100);
+  assert.equal(brightnessPercent(1), 1);
+  assert.equal(brightnessPercent(44), 49);
+  assert.equal(brightnessRaw(0), 0);
+  assert.equal(brightnessRaw(100), 90);
+  assert.equal(brightnessRaw(1), 1);
+  assert.equal(brightnessRaw(55), 50);
+});
+
+test("every raw brightness survives a round trip through percent", () => {
+  for (let raw = 0; raw <= 90; raw++) {
+    assert.equal(brightnessRaw(brightnessPercent(raw)), raw);
+  }
+});
+
+test("speed converts between the firmware's raw value (0 = fast) and a slow → fast scale (0 = slowest)", () => {
+  assert.equal(speedSlowToFast(0), 6);
+  assert.equal(speedSlowToFast(6), 0);
+  assert.equal(speedSlowToFast(2), 4);
+  assert.equal(speedRaw(0), 6);
+  assert.equal(speedRaw(6), 0);
+  assert.equal(speedRaw(4), 2);
 });

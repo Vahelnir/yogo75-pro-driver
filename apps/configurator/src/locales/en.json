@@ -30,6 +30,11 @@
   "lighting": {
     "backlight": "Backlight",
     "effect": "Effect",
+    "brightness": "Brightness",
+    "percent": "{percent}%",
+    "speed": "Speed",
+    "slow": "Slow",
+    "fast": "Fast",
     "write_failed": "Could not write the lighting: {error}",
     "mode": {
       "all_off": "All off",

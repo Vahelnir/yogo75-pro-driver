@@ -1,7 +1,16 @@
 <script setup lang="ts">
-import { LIGHTING_MODES, type KeyboardState } from "@yogo75/core";
+import { LIGHTING_MODES, MAX_SPEED, type KeyboardState } from "@yogo75/core";
 import { session } from "../../keyboard.ts";
-import { isLit, ledMode, lightingMode, lightingOn } from "../../lighting.ts";
+import {
+  brightness,
+  isLit,
+  ledMode,
+  lightingBrightness,
+  lightingMode,
+  lightingOn,
+  lightingSpeed,
+  speed,
+} from "../../lighting.ts";
 
 const { t } = useI18n();
 const error = ref<string>();
@@ -46,6 +55,11 @@ const modes = computed(() => {
   }));
 });
 
+const settings = computed(() => {
+  const held = session.value && ledMode(session.value.state.config);
+  return LIGHTING_MODES.find(({ mode }) => mode === held)?.settings ?? [];
+});
+
 async function write(recipe: (next: KeyboardState) => void) {
   error.value = undefined;
   try {
@@ -73,6 +87,29 @@ async function write(recipe: (next: KeyboardState) => void) {
         @update:model-value="(mode) => write(lightingMode(Number(mode)))"
       />
     </label>
+    <div v-if="settings.includes('brightness')" class="flex items-center gap-4">
+      {{ t("lighting.brightness") }}
+      <UiSlider
+        :value="brightness(session.state.config)"
+        :min="0"
+        :max="100"
+        :label="t('lighting.brightness')"
+        :commit="(percent) => write(lightingBrightness(percent))"
+      />
+      {{ t("lighting.percent", { percent: brightness(session.state.config) }) }}
+    </div>
+    <div v-if="settings.includes('speed')" class="flex items-center gap-4">
+      {{ t("lighting.speed") }}
+      <span class="text-sm text-zinc-500">{{ t("lighting.slow") }}</span>
+      <UiSlider
+        :value="speed(session.state.config)"
+        :min="0"
+        :max="MAX_SPEED"
+        :label="t('lighting.speed')"
+        :commit="(value) => write(lightingSpeed(value))"
+      />
+      <span class="text-sm text-zinc-500">{{ t("lighting.fast") }}</span>
+    </div>
   </div>
   <p v-if="error" class="mt-4 text-red-700">
     {{ t("lighting.write_failed", { error }) }}
