@@ -70,7 +70,15 @@
     "restore": "Restaurer l'état de connexion",
     "done": "Écrit, et relu à l'identique.",
     "mismatch": "Écrit, mais le clavier relit autre chose pour : {resources}",
-    "failed": "Écriture impossible : {error}"
+    "failed": "Écriture impossible : {error}",
+    "full_export": "Toutes les valeurs, pas seulement ce qui diffère de l'usine",
+    "no_base": "Aucune base d'usine pour le firmware {firmware} : exporté par rapport à {base}, la plus récente.",
+    "import_title": "Importer {file}",
+    "import_invalid": "Ce fichier est invalide ; rien ne sera écrit :",
+    "import_changes": "Écrire ce fichier modifie : {resources}.",
+    "import_unchanged": "Le clavier contient déjà ce fichier ; l'écrire réécrit chaque ressource telle quelle.",
+    "cancel": "Annuler",
+    "write": "Écrire sur le clavier"
   },
   "connection_type": {
     "cable": "Câble",

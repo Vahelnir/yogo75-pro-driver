@@ -70,7 +70,15 @@
     "restore": "Restore connection state",
     "done": "Written, and read back identical.",
     "mismatch": "Written, but the keyboard reads back differently for: {resources}",
-    "failed": "Could not write: {error}"
+    "failed": "Could not write: {error}",
+    "full_export": "Every value, not only what differs from the factory",
+    "no_base": "No factory base for firmware {firmware}: exported against {base}, the latest.",
+    "import_title": "Import {file}",
+    "import_invalid": "This file is invalid; nothing will be written:",
+    "import_changes": "Writing this file changes: {resources}.",
+    "import_unchanged": "The keyboard already holds this file; writing it rewrites every resource as it is.",
+    "cancel": "Cancel",
+    "write": "Write to the keyboard"
   },
   "connection_type": {
     "cable": "Cable",
