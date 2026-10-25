@@ -64,7 +64,7 @@ test("the diff export holds only what differs from the base", () => {
 
   assert.equal(
     profileToYaml(state, "1.26"),
-    "# Not included yet: macros, per-key colours and config. Loading this file leaves them as the keyboard has them.\n\n" +
+    "# Not included yet: macros, per-key colours and keyboard settings. Loading this file leaves them as the keyboard has them.\n\n" +
       HEADER +
       "layers:\n  0:\n    A: ESC\n  2:\n    KNOB_PRESS: NO\n",
   );
@@ -110,7 +110,6 @@ test("resources the format doesn't cover yet are left as the keyboard has them",
   const current = structuredClone(FIXTURE);
   const state = profileFromYaml(HEADER, current);
 
-  assert.deepEqual(state.config, current.config);
   assert.deepEqual(state.leds, current.leds);
   assert.deepEqual(state.macros, current.macros);
   assert.deepEqual(state.keymaps, BASE.keymaps);
@@ -201,4 +200,161 @@ test("end to end, an unchanged profile writes nothing", async () => {
       (p) => ![0x15, 0x1b, 0x1d, 0x1f, 0x21, 0x23, 0x2d].includes(p[1]),
     ),
   );
+});
+
+function withConfig(state: KeyboardState, bytes: Record<number, number>) {
+  const changed = structuredClone(state);
+  for (const [offset, value] of Object.entries(bytes)) {
+    changed.config[Number(offset)] = value;
+  }
+  return changed;
+}
+
+test("lighting and screen load in the configurator's units", () => {
+  const { config } = profileFromYaml(
+    HEADER +
+      [
+        "lighting:",
+        "  on: false",
+        "  mode: neon",
+        "  brightness: 50",
+        "  speed: 6",
+        '  color: "#ff8000"',
+        "  rainbow: true",
+        "  paletteIndex: 3",
+        "  keyColorProfile: 2",
+        "screen:",
+        "  on: false",
+        "  mode: 12",
+        "  brightness: 100",
+        "  speed: 0",
+        '  color: "#00ff00"',
+        "  rainbow: false",
+        "  paletteIndex: 5",
+        "",
+      ].join("\n"),
+  );
+
+  assert.deepEqual(
+    [...config.subarray(1, 11)],
+    [1, 12, 45, 0, 1, 3, 255, 128, 0, 2],
+  );
+  assert.deepEqual(
+    [...config.subarray(29, 38)],
+    [1, 12, 90, 6, 0, 5, 0, 255, 0],
+  );
+  assert.equal(config[59], 0);
+});
+
+test("the mode is a number or a name, and export writes the name", () => {
+  const state = profileFromYaml(HEADER + "lighting:\n  mode: 253\n");
+
+  assert.equal(state.config[2], 253);
+  assert.match(profileToYaml(state, "1.26"), /lighting:\n {2}mode: custom\n/);
+  assert.equal(
+    profileFromYaml(HEADER + "lighting:\n  mode: rainbow-flow-1\n").config[2],
+    1,
+  );
+});
+
+test("the diff export writes the lighting and screen settings that differ from the base", () => {
+  const state = withConfig(BASE, {
+    3: 30,
+    4: 0,
+    7: 0,
+    8: 0x80,
+    9: 0xff,
+    32: 6,
+    59: 0,
+  });
+
+  assert.match(
+    profileToYaml(state, "1.26"),
+    /\nlighting:\n {2}brightness: 33\n {2}speed: 6\n {2}color: "#0080ff"\nscreen:\n {2}speed: 0\n {2}rainbow: false\n$/,
+  );
+});
+
+test("a byte with no readable form round-trips as a number", () => {
+  const state = withConfig(BASE, {
+    1: 7,
+    2: 99,
+    3: 255,
+    4: 200,
+    5: 2,
+    29: 3,
+    30: 255,
+    31: 91,
+    32: 1,
+    59: 4,
+  });
+  const text = profileToYaml(state, "1.26");
+
+  assert.match(
+    text,
+    /lighting:\n {2}on: 7\n {2}mode: 99\n {2}brightness: 283\n {2}speed: -194\n {2}rainbow: 2\n/,
+  );
+  assert.match(
+    text,
+    /screen:\n {2}on: 3\n {2}mode: 255\n {2}brightness: 101\n {2}speed: 5\n {2}rainbow: 4\n/,
+  );
+  assert.deepEqual(profileFromYaml(text).config, state.config);
+});
+
+test("every byte of the fixture's lighting and screen round-trips", () => {
+  for (const full of [false, true]) {
+    const text = profileToYaml(FIXTURE, "1.26", { full });
+    assert.deepEqual(profileFromYaml(text, FIXTURE).config, FIXTURE.config);
+  }
+});
+
+test("screen.rainbow drives byte 59, not byte 33", () => {
+  const { config } = profileFromYaml(
+    HEADER + "screen:\n  rainbow: true\n",
+    withConfig(BASE, { 59: 0 }),
+  );
+
+  assert.equal(config[59], 1);
+  assert.equal(config[33], BASE.config[33]);
+});
+
+test("lighting and screen take the base's values; the rest of the config stays as the keyboard has it", () => {
+  const current = withConfig(BASE, { 2: 9, 30: 3, 59: 0, 38: 0, 46: 60 });
+  const { config } = profileFromYaml(
+    HEADER + "lighting:\n  speed: 1\n",
+    current,
+  );
+
+  assert.deepEqual(config, withConfig(BASE, { 4: 5, 38: 0, 46: 60 }).config);
+});
+
+test("lighting and screen errors carry their line and path", () => {
+  const message = errorsOf(
+    HEADER +
+      [
+        "lighting:",
+        "  mode: rainbow-flow-9",
+        "  brightness: 284",
+        "  speed: -250",
+        "  color: red",
+        "  rainbow: maybe",
+        "  paletteIndex: 256",
+        "  colour: '#ffffff'",
+        "screen:",
+        "  on:",
+        "  mode: 1.5",
+        "",
+      ].join("\n"),
+  );
+
+  assert.deepEqual(message.split("\n"), [
+    "line 4: lighting.mode: unknown mode name: rainbow-flow-9",
+    "line 5: lighting.brightness: must be 0 to 283",
+    "line 6: lighting.speed: must be -249 to 6",
+    'line 7: lighting.color: must be "#rrggbb"',
+    "line 8: lighting.rainbow: must be true, false or 0 to 255",
+    "line 9: lighting.paletteIndex: must be 0 to 255",
+    "line 10: lighting.colour: unknown key",
+    "line 12: screen.on: missing value",
+    "line 13: screen.mode: must be 0 to 255",
+  ]);
 });
