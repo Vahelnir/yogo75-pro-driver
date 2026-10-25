@@ -50,6 +50,7 @@ export {
   type LightingMode,
   type LightingSetting,
 } from "./lighting.ts";
+export { BASES, baseForFirmware, baseNamed, type Base } from "./factory.ts";
 export { keycode, keycodeName, MAX_MACRO } from "./keycode.ts";
 export { openKeyboard, type OpenOptions } from "./open.ts";
 export {
