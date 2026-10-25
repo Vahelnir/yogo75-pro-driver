@@ -51,7 +51,7 @@ import {
   isError,
   withoutDongleByte,
 } from "./packet.ts";
-import { loadMismatches, type KeyboardState } from "./state.ts";
+import { loadMismatches, stateDiff, type KeyboardState } from "./state.ts";
 
 /** HID link to the keyboard (node-hid, WebHID…). Timeouts are its business, with the values of `LINKS`. */
 export interface Transport {
@@ -464,20 +464,36 @@ export class Keyboard {
   }
 
   /**
-   * Rewrites every resource, in `readState`'s order, then reads them back: resolves with those that differ (see
-   * `loadMismatches`).
+   * Rewrites every resource, or with `current` (the state read before) only those that differ from it, in
+   * `readState`'s order, then reads them back: resolves with those that differ (see `loadMismatches`).
    */
-  async writeState(state: KeyboardState): Promise<string[]> {
-    await this.writeConfig(state.config);
-    for (const [layer, map] of state.keymaps.entries()) {
-      await this.writeKeymap(layer, map);
+  async writeState(
+    state: KeyboardState,
+    current?: KeyboardState,
+  ): Promise<string[]> {
+    const changed = current && stateDiff(state, current);
+    function writes(name: string) {
+      return !changed || changed.includes(name);
     }
 
-    await this.writeCustomLeds(state.leds);
-    await this.writeMacros(state.macros);
+    if (writes("config")) {
+      await this.writeConfig(state.config);
+    }
+    for (const [layer, map] of state.keymaps.entries()) {
+      if (writes(`keymap${layer}`)) {
+        await this.writeKeymap(layer, map);
+      }
+    }
+
+    if (writes("leds")) {
+      await this.writeCustomLeds(state.leds);
+    }
+    if (writes("macros")) {
+      await this.writeMacros(state.macros);
+    }
 
     await new Promise((resolve) => setTimeout(resolve, APPLY_DELAY_MS));
-    return loadMismatches(state, await this.readState());
+    return loadMismatches(state, await this.readState(), writes("leds"));
   }
 
   /** 6×6 RGB888 image, row by row, shown by dot screen mode 6. There is no read command. */

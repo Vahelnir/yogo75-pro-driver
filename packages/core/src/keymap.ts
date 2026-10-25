@@ -84,3 +84,24 @@ export function keyIndex(position: string): number {
 
   return matches[0];
 }
+
+/** The name `keyIndex` resolves to `index`: the knob action, the factory layer 0 name when unique, or `row,col`. */
+export function positionName(index: number): string {
+  const knob = Object.keys(KNOB_POSITIONS).find(
+    (name) => KNOB_POSITIONS[name] === index,
+  );
+  if (knob) {
+    return knob;
+  }
+
+  const name = keycodeName(keyAt(BASES[0].keymaps[0], index));
+  try {
+    if (keyIndex(name) === index) {
+      return name;
+    }
+  } catch {
+    // ambiguous or unnamed: row,col
+  }
+
+  return `${Math.floor(index / COLS)},${index % COLS}`;
+}

@@ -53,6 +53,7 @@ export function stateDiff(a: KeyboardState, b: KeyboardState): string[] {
 export function loadMismatches(
   wanted: KeyboardState,
   read: KeyboardState,
+  ledsWritten = true,
 ): string[] {
   return stateDiff(
     {
@@ -61,7 +62,10 @@ export function loadMismatches(
         map.subarray(0, wanted.keymaps[l].length),
       ),
     },
-    { ...wanted, leds: withoutFullBytes(wanted.leds) },
+    {
+      ...wanted,
+      leds: ledsWritten ? withoutFullBytes(wanted.leds) : wanted.leds,
+    },
   );
 }
 

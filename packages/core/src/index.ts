@@ -73,3 +73,4 @@ export {
   stateToJson,
   type KeyboardState,
 } from "./state.ts";
+export { profileFromYaml, profileToYaml } from "./profile/profile.ts";
