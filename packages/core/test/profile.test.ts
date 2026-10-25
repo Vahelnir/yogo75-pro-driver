@@ -2,13 +2,17 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   baseNamed,
+  EMPTY_MACRO,
+  encodeMacro,
   fromHex,
   hex,
+  joinMacros,
   keyAt,
   Keyboard,
   keyIndex,
   profileFromYaml,
   profileToYaml,
+  splitMacros,
   type KeyboardState,
 } from "../src/index.ts";
 import { FakeKeyboard } from "./fake-transport.ts";
@@ -60,14 +64,22 @@ test("an empty layers section changes nothing", () => {
   assert.deepEqual(state.keymaps.map(hex), BASE.keymaps.map(hex));
 });
 
-test("macros, colours and config come from the keyboard, not the base", async () => {
-  const current = await fixtureState();
+test("colours and config come from the keyboard, macros from the profile", async () => {
+  const current = clone(await fixtureState());
+  current.macros = joinMacros([encodeMacro(["A"])]);
   const state = profileFromYaml("version: 1\nbase: factory-1.26\n", current);
 
   assert.equal(hex(state.config), hex(current.config));
   assert.equal(hex(state.leds), hex(current.leds));
-  assert.equal(hex(state.macros), hex(current.macros));
+  assert.equal(hex(state.macros), hex(BASE.macros));
   assert.deepEqual(state.keymaps.map(hex), BASE.keymaps.map(hex));
+});
+
+test("a keyboard without macros keeps its area as is", async () => {
+  const current = await fixtureState();
+  const text = profileToYaml(current, "1.26").text;
+
+  assert.equal(hex(profileFromYaml(text, current).macros), hex(current.macros));
 });
 
 test("diff and full exports parse to the keyboard's layers", async () => {
@@ -98,7 +110,7 @@ test("export is stable", async () => {
 test("the factory state exports as the header alone", () => {
   assert.equal(
     profileToYaml(BASE, "1.26").text,
-    "# macros, per-key colours and config are not included yet\n\nversion: 1\nbase: factory-1.26\n",
+    "# per-key colours and config are not included yet\n\nversion: 1\nbase: factory-1.26\n",
   );
 });
 
@@ -227,5 +239,141 @@ test("end to end over the fake keyboard: only changed layers are written", async
   assert.equal(
     hex(keyAt(fake.data.keymap0, keyIndex("A"))),
     hex(fromHex("100029")),
+  );
+});
+
+// Saved from the keyboard: #0 made in the hub's editor (presses only), #1 typed into its recorder.
+const HUB_MACROS = fromHex(
+  "aa 55 98 00 02 00 00 00 0c 00 3c 00 0b 00 00 00 01 00 06 81 0a 00 0f 81 64 00 04 81 e8 03 18 81 10 27 07 81 e8 fd 08 81 64 00 2c 81 64 00 06 81 64 00 12 81 64 00 07 81 64 00 08 81 16 00 00 00 88 00 06 81 14 00 06 01 61 00 0f 81 30 00 0f 01 4c 00 14 81 24 00 14 01 53 00 18 81 17 00 18 01 3a 00 07 81 17 00 08 81 30 00 07 01 8e 04 08 01 7a 00 2c 81 13 00 06 81 45 00 2c 01 34 00 06 01 68 00 12 81 15 00 07 81 37 00 12 01 0e 00 08 81 22 00 07 01 00 00 08 01",
+);
+
+function withMacros(macros: Uint8Array): KeyboardState {
+  return { ...clone(BASE), macros };
+}
+
+function macrosOf(text: string) {
+  return splitMacros(
+    profileFromYaml(`version: 1\nbase: factory-1.26\nmacros:\n${text}`, BASE)
+      .macros,
+  );
+}
+
+test("the three macro forms load", () => {
+  assert.deepEqual(
+    macrosOf(
+      [
+        '  0: "LCTL(C) DELAY(480) LCTL(V)"',
+        "  1:",
+        "    delay: 5",
+        "    steps:",
+        "      - H",
+        "      - I",
+        '  3: { raw: "02 00 00 00 14 00 01 83 14 00 01 03" }',
+      ].join("\n"),
+    ),
+    [
+      encodeMacro(["LCTL(C)", "DELAY(480)", "LCTL(V)"]),
+      encodeMacro(["H", "I"], 5),
+      EMPTY_MACRO,
+      fromHex("02 00 00 00 14 00 01 83 14 00 01 03"),
+    ],
+  );
+});
+
+test("export picks one line, the list or raw", () => {
+  const long = Array(31).fill("A");
+  const state = withMacros(
+    joinMacros([
+      encodeMacro(["LSFT(H)", "I"]),
+      encodeMacro(["H", "I"], 5),
+      encodeMacro(long),
+      fromHex("02 00 00 00 14 00 01 83 14 00 01 03"),
+    ]),
+  );
+
+  const text = profileToYaml(state, "1.26").text;
+  assert.ok(
+    text.endsWith(
+      [
+        "macros:",
+        "  0: LSFT(H) I",
+        "  1:",
+        "    delay: 5",
+        "    steps:",
+        "      - H",
+        "      - I",
+        "  2:",
+        "    delay: 20",
+        "    steps:",
+        ...long.map((step) => `      - ${step}`),
+        '  3: { raw: "02 00 00 00 14 00 01 83 14 00 01 03" }',
+        "",
+      ].join("\n"),
+    ),
+    text,
+  );
+  assert.equal(hex(profileFromYaml(text, BASE).macros), hex(state.macros));
+});
+
+test("the hub's macros round-trip, the hand-made one as raw", () => {
+  const state = withMacros(HUB_MACROS);
+  for (const full of [false, true]) {
+    const text = profileToYaml(state, "1.26", { full }).text;
+    assert.match(text, /\n {2}0: \{ raw: "0b 00 00 00 01 00 06 81/);
+    assert.equal(hex(profileFromYaml(text, BASE).macros), hex(HUB_MACROS));
+    assert.equal(
+      profileToYaml(profileFromYaml(text, BASE), "1.26", { full }).text,
+      text,
+    );
+  }
+});
+
+test("gaps fill with empty macros, and a trailing empty one is kept", () => {
+  const state = withMacros(
+    joinMacros([EMPTY_MACRO, encodeMacro(["A"]), EMPTY_MACRO]),
+  );
+  const text = profileToYaml(state, "1.26").text;
+  assert.doesNotMatch(text, /\n {2}0:/);
+  assert.equal(hex(profileFromYaml(text, BASE).macros), hex(state.macros));
+});
+
+test("macro errors carry their line and path", () => {
+  assert.deepEqual(
+    errorOf(
+      [
+        "version: 1",
+        "base: factory-1.26",
+        "macros:",
+        "  0: A FOO",
+        "  1:",
+        "    steps:",
+        "      - H",
+        "      - NOPE",
+        "  2: DOWN(A)",
+        '  3: { raw: "01 00 00 00" }',
+        "  x: A",
+        "  4: { delay: 5 }",
+        '  "1": A',
+        "  5: { delay: 99999, steps: [A] }",
+      ].join("\n"),
+    ).split("\n"),
+    [
+      "line 4: macros.0: unknown key name: FOO",
+      "line 8: macros.1.steps.1: unknown key name: NOPE",
+      "line 9: macros.2: A left pressed: add UP(A)",
+      "line 10: macros.3.raw: not a macro's bytes",
+      "line 11: macros.x: unknown key",
+      "line 12: macros.4: expected a string of steps, { delay, steps } or { raw }",
+      "line 13: macros.1: same macro as 1",
+      "line 14: macros.5.delay: must be 0 to 65535 ms",
+    ],
+  );
+});
+
+test("macros that outgrow the area are refused", () => {
+  const steps = Array(130).fill("A").join(" ");
+  assert.equal(
+    errorOf(`version: 1\nbase: factory-1.26\nmacros:\n  0: ${steps}`),
+    "line 3: macros: macros would take 1054 bytes, over the 1024-byte area",
   );
 });

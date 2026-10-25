@@ -11,8 +11,7 @@ import {
 import { isYaml, SAVE_FIRST, stateFileArg } from "../args.ts";
 import { withKeyboard } from "../hid.ts";
 
-const NOT_IN_YAML =
-  "macros, per-key colours and config are not in YAML profiles yet";
+const NOT_IN_YAML = "per-key colours and config are not in YAML profiles yet";
 
 /** Throws `parse`'s error prefixed with the file name. */
 function parseFile<T>(file: string, parse: (text: string) => T): T {
@@ -29,7 +28,7 @@ export function registerStateCommands(program: Command): void {
   program
     .command("save")
     .description(
-      "Save config, layers 0-3 with their knob, per-key colours and macros to a file (layers only in YAML)",
+      "Save config, layers 0-3 with their knob, per-key colours and macros to a file (layers and macros only in YAML)",
     )
     .argument("<file>", "JSON or YAML file to write", stateFileArg)
     .option("--force", "Overwrite the file if it exists")
@@ -63,7 +62,7 @@ export function registerStateCommands(program: Command): void {
         writeFileSync(file, text, { flag: force ? "w" : "wx" });
         console.log(
           isYaml(file)
-            ? `layers 0-3 with their knob saved to ${file}; ${NOT_IN_YAML}`
+            ? `layers 0-3 with their knob and macros saved to ${file}; ${NOT_IN_YAML}`
             : `config, layers 0-3 with their knob, per-key colours and macros saved to ${file}`,
         );
       });
@@ -92,7 +91,7 @@ export function registerStateCommands(program: Command): void {
 
         console.log(
           isYaml(file)
-            ? `layers loaded from ${file} and read back identical; ${NOT_IN_YAML}, left as they were`
+            ? `layers and macros loaded from ${file} and read back identical; ${NOT_IN_YAML}, left as they were`
             : `${file} loaded and read back identical`,
         );
       });

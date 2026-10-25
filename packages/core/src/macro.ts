@@ -27,6 +27,7 @@ const OFFSET_BYTES = 2; // one offset table entry
 const ACTION_BYTES = 4;
 const ACTION_CODE_AT = 2; // in an action, after its LE delay
 const ACTION_TYPE_AT = 3;
+const DELAY_STEP = /^DELAY\((\d+)\)$/i;
 
 const ACTION_KEY = 1; // code: HID usage
 const ACTION_MODIFIER = 2; // code: one modifier's mask bit, as in the keymap
@@ -84,6 +85,14 @@ export const EMPTY_MACRO = macroBytes(
     down,
   })),
 );
+
+/** Whether `bytes` are one macro as the area holds it: its action count, then exactly that many actions. */
+export function isMacro(bytes: Uint8Array): boolean {
+  return (
+    bytes.length >= MACRO_HEADER_BYTES &&
+    MACRO_HEADER_BYTES + readU16le(bytes, 0) * ACTION_BYTES === bytes.length
+  );
+}
 
 export function isEmptyMacro(macro: Uint8Array): boolean {
   return hex(macro) === hex(EMPTY_MACRO);
@@ -156,6 +165,13 @@ function checkBalanced(actions: Action[]) {
   }
 }
 
+/** Throws on a step `encodeMacro` can't read (an unknown or non-plain key), whatever the steps around it. */
+export function checkStep(step: string): void {
+  if (!DELAY_STEP.test(step)) {
+    stepActions(step);
+  }
+}
+
 /** The bytes of one macro; throws on an unknown or non-plain key, a misplaced or too long delay, or an unbalanced press. */
 export function encodeMacro(
   steps: string[],
@@ -168,7 +184,7 @@ export function encodeMacro(
   const actions: Action[] = [];
   let wait: number | undefined;
   for (const step of steps) {
-    const extra = step.match(/^DELAY\((\d+)\)$/i);
+    const extra = step.match(DELAY_STEP);
     if (extra) {
       wait = (wait ?? 0) + Number(extra[1]);
       continue;
