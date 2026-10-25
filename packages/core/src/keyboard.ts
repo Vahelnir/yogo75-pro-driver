@@ -464,18 +464,37 @@ export class Keyboard {
   }
 
   /**
-   * Rewrites every resource, in `readState`'s order, then reads them back: resolves with those that differ.
+   * Rewrites every resource, or with `current` (the state just read) only those that differ from it, in
+   * `readState`'s order, then reads them back: resolves with those that differ.
    * Colours read back 0xFE where the state has 0xFF (see `writeCustomLeds`); a layer without its knob is compared
    * without it.
    */
-  async writeState(state: KeyboardState): Promise<string[]> {
-    await this.writeConfig(state.config);
-    for (const [layer, map] of state.keymaps.entries()) {
-      await this.writeKeymap(layer, map);
+  async writeState(
+    state: KeyboardState,
+    current?: KeyboardState,
+  ): Promise<string[]> {
+    const changed = current && stateDiff(state, current);
+    function writes(name: string) {
+      return !changed || changed.includes(name);
     }
 
-    await this.writeCustomLeds(state.leds);
-    await this.writeMacros(state.macros);
+    if (writes("config")) {
+      await this.writeConfig(state.config);
+    }
+
+    for (const [layer, map] of state.keymaps.entries()) {
+      if (writes(`keymap${layer}`)) {
+        await this.writeKeymap(layer, map);
+      }
+    }
+
+    if (writes("leds")) {
+      await this.writeCustomLeds(state.leds);
+    }
+
+    if (writes("macros")) {
+      await this.writeMacros(state.macros);
+    }
 
     await new Promise((resolve) => setTimeout(resolve, APPLY_DELAY_MS));
     const read = await this.readState();
@@ -486,7 +505,10 @@ export class Keyboard {
           map.subarray(0, state.keymaps[l].length),
         ),
       },
-      { ...state, leds: withoutFullBytes(state.leds) },
+      {
+        ...state,
+        leds: writes("leds") ? withoutFullBytes(state.leds) : state.leds,
+      },
     );
   }
 
