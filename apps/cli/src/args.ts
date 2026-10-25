@@ -57,12 +57,10 @@ export function rgbArg(value: string): Uint8Array {
   return fromHex(value);
 }
 
-/** Save/load file: the format follows the extension, and only JSON exists for now. */
+/** Save/load file: the format follows the extension. */
 export function stateFileArg(value: string): string {
-  if (!value.toLowerCase().endsWith(".json")) {
-    throw new InvalidArgumentError(
-      "must be a .json file (the only format supported)",
-    );
+  if (!/\.(json|ya?ml)$/i.test(value)) {
+    throw new InvalidArgumentError("must be a .json, .yaml or .yml file");
   }
 
   return value;

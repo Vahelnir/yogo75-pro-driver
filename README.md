@@ -31,7 +31,9 @@ pnpm yogo75 key set CAPS FN           # Fn on Caps Lock (QMK names; `key reset C
 pnpm yogo75 macro set 0 'LCTL(C)' 'DELAY(480)' 'LCTL(V)'  # QMK-style macro steps; `macro list` reads them back
 pnpm yogo75 key set INS 'MACRO(0)'    # run macro 0 on Insert
 pnpm yogo75 save gaming.json          # config, 4 layers, per-key colours, macros -> gaming.json (--force overwrites)
-pnpm yogo75 load gaming.json          # write it all back, then read back and compare
+pnpm yogo75 load gaming.json          # write what differs back, then read back and compare
+pnpm yogo75 save keymap.yaml          # readable profile: the layers that differ from the factory (--full: all of them)
+pnpm yogo75 check keymap.yaml         # validate a .yaml or .json file without the keyboard
 pnpm yogo75 raw 0x32 0 56             # send one packet and print the reply data (here: the start of the LED matrix)
 DEBUG=1 pnpm yogo75 info              # print every packet sent and received
 ```
