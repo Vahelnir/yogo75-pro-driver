@@ -2,17 +2,26 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   baseByName,
+  EMPTY_MACRO,
+  encodeMacro,
   fromHex,
   hex,
+  joinMacros,
   keyAt,
   Keyboard,
   keyIndex,
   profileFromYaml,
   profileToYaml,
+  splitMacros,
   stateDiff,
   type KeyboardState,
 } from "../src/index.ts";
-import { BACKUP, FakeKeyboard, LAYER_FIXTURE } from "./fake-transport.ts";
+import {
+  BACKUP,
+  FakeKeyboard,
+  HUB_MACROS,
+  LAYER_FIXTURE,
+} from "./fake-transport.ts";
 
 const BASE = baseByName("factory-1.26")!;
 const HEADER = "version: 1\nbase: factory-1.26\n";
@@ -64,7 +73,7 @@ test("the diff export holds only what differs from the base", () => {
 
   assert.equal(
     profileToYaml(state, "1.26"),
-    "# Not included yet: macros and keyboard settings. Loading this file leaves them as the keyboard has them.\n\n" +
+    "# Not included yet: keyboard settings. Loading this file leaves them as the keyboard has them.\n\n" +
       HEADER +
       "layers:\n  0:\n    A: ESC\n  2:\n    KNOB_PRESS: NO\n",
   );
@@ -112,7 +121,10 @@ test("resources the format doesn't cover yet are left as the keyboard has them",
   const current = structuredClone(FIXTURE);
   const state = profileFromYaml(HEADER, current);
 
-  assert.deepEqual(state.macros, current.macros);
+  assert.deepEqual(
+    state.config.subarray(38, 52),
+    current.config.subarray(38, 52),
+  );
   assert.deepEqual(state.keymaps, BASE.keymaps);
   assert.deepEqual(state.leds, BASE.leds);
 });
@@ -139,6 +151,13 @@ test("colours read back as fefefe export by position and round-trip", () => {
     /\nleds:\n {2}W: "#fefefe"\n {2}A: "#fefefe"\n {2}S: "#fefefe"\n {2}D: "#fefefe"\n {2}UP: "#fefefe"\n {2}LEFT: "#fefefe"\n {2}DOWN: "#fefefe"\n {2}RGHT: "#fefefe"\n$/,
   );
   assert.deepEqual(profileFromYaml(text).leds, state.leds);
+});
+
+test("absent macros are empty, as in the base; an area never written stays so", () => {
+  const current = { ...FIXTURE, macros: HUB_MACROS };
+
+  assert.deepEqual(profileFromYaml(HEADER, current).macros, BASE.macros);
+  assert.deepEqual(profileFromYaml(HEADER, FIXTURE).macros, BACKUP.macros);
 });
 
 test("every error is reported with its line and path", () => {
@@ -240,6 +259,108 @@ test("end to end, an unchanged profile writes nothing", async () => {
     fake.written.every(
       (p) => ![0x15, 0x1b, 0x1d, 0x1f, 0x21, 0x23, 0x2d].includes(p[1]),
     ),
+  );
+});
+
+test("a macro loads from one string, gaps filled with empty macros", () => {
+  const state = profileFromYaml(HEADER + 'macros:\n  1: "LSFT(H) I"\n');
+
+  assert.deepEqual(splitMacros(state.macros), [
+    EMPTY_MACRO,
+    encodeMacro(["LSFT(H)", "I"]),
+  ]);
+});
+
+test("a macro loads from a delay and a list of steps, or from raw", () => {
+  const state = profileFromYaml(
+    HEADER +
+      "macros:\n" +
+      "  0: { raw: 02 00 00 00 14 00 01 83 14 00 01 03 }\n" +
+      "  1:\n    delay: 5\n    steps:\n      - DOWN(LSFT)\n      - DELAY(30)\n      - H\n      - UP(LSFT)\n",
+  );
+
+  assert.deepEqual(splitMacros(state.macros), [
+    fromHex("02 00 00 00 14 00 01 83 14 00 01 03"),
+    encodeMacro(["DOWN(LSFT)", "DELAY(30)", "H", "UP(LSFT)"], 5),
+  ]);
+});
+
+test("export writes one line, a list, or raw, and loads back the same bytes", () => {
+  const long = Array(25).fill("LSFT(A)");
+  const area = joinMacros([
+    ...splitMacros(HUB_MACROS),
+    encodeMacro(["LCTL(C)", "DELAY(480)", "LCTL(V)"]),
+    encodeMacro(["A", "B"], 5),
+    encodeMacro(long),
+    EMPTY_MACRO,
+  ]);
+  const state = { ...BASE, macros: area };
+  const text = profileToYaml(state, "1.26");
+
+  assert.match(
+    text,
+    /\nmacros:\n {2}0: \{ raw: 0b 00 00 00 01 00 06 81 [0-9a-f ]+ \}\n/,
+  );
+  assert.match(
+    text,
+    /\n {2}1:\n {4}delay: 0\n {4}steps:\n {6}- DELAY\(136\)\n/,
+  );
+  assert.match(text, /\n {2}2: LCTL\(C\) DELAY\(480\) LCTL\(V\)\n/);
+  assert.match(text, /\n {2}3:\n {4}delay: 5\n {4}steps:\n {6}- A\n {6}- B\n/);
+  assert.match(
+    text,
+    /\n {2}4:\n {4}delay: 20\n {4}steps:\n( {6}- LSFT\(A\)\n){25}/,
+  );
+  assert.match(
+    text,
+    /\n {2}5: \{ raw: 02 00 00 00 00 00 00 82 00 00 00 02 \}\n$/,
+  );
+  assert.deepEqual(profileFromYaml(text).macros, area);
+  assert.equal(profileToYaml(profileFromYaml(text), "1.26"), text);
+});
+
+test("empty macros are left out of the diff export, but the last one", () => {
+  const area = joinMacros([EMPTY_MACRO, encodeMacro(["A"]), EMPTY_MACRO]);
+  const text = profileToYaml({ ...BASE, macros: area }, "1.26");
+
+  assert.match(text, /\nmacros:\n {2}1: A\n {2}2: \{ raw: [0-9a-f ]+ \}\n$/);
+  assert.deepEqual(profileFromYaml(text).macros, area);
+});
+
+test("macro errors carry their line and path", () => {
+  const message = errorsOf(
+    [
+      HEADER + "macros:",
+      "  0: LSFT FOO",
+      "  1:",
+      "    steps:",
+      "      - A",
+      "      - DOWN(BAR)",
+      "  2: { raw: 01 00 00 00 }",
+      "  x: A",
+      "  3: DOWN(A)",
+      "  4: { delay: 5, raw: 00 }",
+      "",
+    ].join("\n"),
+  );
+
+  assert.deepEqual(message.split("\n"), [
+    "line 4: macros.0: unknown key name: FOO",
+    "line 8: macros.1.steps.1: unknown key name: BAR",
+    "line 9: macros.2.raw: must be one macro's hex bytes: action count, 0 0, then 4 bytes per action",
+    "line 10: macros.x: unknown macro: macros are 0-255",
+    "line 11: macros.3: A left pressed: add UP(A)",
+    "line 12: macros.4.raw: raw goes alone, without delay or steps",
+    "line 12: macros.4.raw: must be one macro's hex bytes: action count, 0 0, then 4 bytes per action",
+  ]);
+});
+
+test("a macro set over the 1024-byte area is refused", () => {
+  const macro = `"${Array(64).fill("A").join(" ")}"`;
+
+  assert.match(
+    errorsOf(HEADER + `macros:\n  0: ${macro}\n  1: ${macro}\n`),
+    /^line 4: macros: macros would take 1044 bytes, over the 1024-byte area$/,
   );
 });
 

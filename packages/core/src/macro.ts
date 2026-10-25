@@ -121,6 +121,13 @@ function stepActions(step: string): Action[] {
   return downOrUp[1].toUpperCase() === "DOWN" ? pressed : releases(pressed);
 }
 
+/** Throws on a step that is invalid whatever the steps around it (unknown or non-plain key, bad syntax). */
+export function checkStep(step: string): void {
+  if (!/^DELAY\(\d+\)$/i.test(step)) {
+    stepActions(step);
+  }
+}
+
 function actionId(a: Action) {
   return `${a.type}:${a.code}`;
 }
