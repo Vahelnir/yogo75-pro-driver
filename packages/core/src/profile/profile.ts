@@ -14,14 +14,15 @@ import {
 import { baseByName, baseForFirmware, BASES, type Base } from "../base.ts";
 import type { KeyboardState } from "../state.ts";
 import { layers } from "./layers.ts";
+import { leds } from "./leds.ts";
 import { macros } from "./macros.ts";
 import { entries, Problems, text, type Section } from "./section.ts";
 
 const VERSION = 1;
 /** In export order. */
-const SECTIONS: Section[] = [layers, macros];
+const SECTIONS: Section[] = [layers, macros, leds];
 const NOT_INCLUDED =
-  " Not included yet: per-key colours and config. Loading this file leaves them as the keyboard has them.";
+  " Not included yet: config. Loading this file leaves it as the keyboard has it.";
 
 /** Diffed against the base matching `firmware` (as `firmwareVersion` gives it), else the latest; everything with `full`. */
 export function profileToYaml(
