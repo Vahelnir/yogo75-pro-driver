@@ -67,6 +67,7 @@ export {
 } from "./keymap.ts";
 export { KNOB, LAYOUT, type KeyRect } from "./layout.ts";
 export {
+  loadMismatches,
   stateDiff,
   stateFromJson,
   stateToJson,

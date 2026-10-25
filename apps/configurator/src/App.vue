@@ -2,6 +2,7 @@
 import IconLanguages from "~icons/lucide/languages";
 import IconUnplug from "~icons/lucide/unplug";
 import { TooltipProvider } from "reka-ui";
+import StateActions from "./components/StateActions.vue";
 import { device, disconnect, forget, session } from "./keyboard.ts";
 
 const { t, locale } = useI18n();
@@ -62,6 +63,7 @@ async function leave() {
           />
         </label>
       </header>
+      <StateActions v-if="session" class="border-b border-zinc-200 px-4 py-2" />
       <main class="p-4">
         <RouterView />
       </main>

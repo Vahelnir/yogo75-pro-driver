@@ -64,6 +64,14 @@
       "music_rhythm": "Rythme musical"
     }
   },
+  "state": {
+    "export": "Exporter",
+    "import": "Importer",
+    "restore": "Restaurer l'état de connexion",
+    "done": "Écrit, et relu à l'identique.",
+    "mismatch": "Écrit, mais le clavier relit autre chose pour : {resources}",
+    "failed": "Écriture impossible : {error}"
+  },
   "connection_type": {
     "cable": "Câble",
     "dongle": "Dongle 2,4 GHz"

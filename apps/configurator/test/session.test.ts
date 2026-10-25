@@ -193,3 +193,57 @@ test("the state is reactive: a watcher sees each read-back", async () => {
 
   expect(seen).toEqual(["config", "keymap1"]);
 });
+
+test("restore writes every resource of the snapshot, then reads them back into the state", async () => {
+  const fake = new FakeKeyboard(32);
+  const session = await connect(fake);
+  await session.update((s) => (s.config[LED_MODE] = 253));
+  await session.setKey(2, CAPS, FN);
+  keyAt(fake.data.keymap0, 0).set(FN); // changed behind the session's back, e.g. by an Fn key
+  fake.written = [];
+
+  const mismatches = await session.load(session.snapshot);
+
+  expect(mismatches).toEqual([]);
+  expect(resourcesSent(fake.written)).toEqual([
+    "config",
+    "keymap0",
+    "keymap1",
+    "keymap2",
+    "keymap3",
+    "leds",
+    "macros",
+  ]);
+  const held = await new Keyboard(fake).readState();
+  expect(session.state).toEqual(held);
+  expect(held.config).toEqual(session.snapshot.config);
+  expect(held.keymaps).toEqual(session.snapshot.keymaps);
+});
+
+test("a load reports the resources the keyboard did not apply", async () => {
+  const fake = new FakeKeyboard(32);
+  const session = await connect(fake);
+  const wanted = structuredClone(session.snapshot);
+  wanted.config[LED_MODE] = 253;
+  wanted.macros[wanted.macros.length - 1] ^= 1;
+  // the macro writes turn into start packets: acked, never applied
+  const transfer = fake.transfer.bind(fake);
+  fake.transfer = (r) => transfer(r?.[1] === 0x2d ? r.with(1, 0x10) : r);
+
+  expect(await session.load(wanted)).toEqual(["macros"]);
+  expect(session.state.config[LED_MODE]).toBe(253);
+});
+
+test("a failed load rejects, and the state is what the keyboard holds", async () => {
+  const fake = new FakeKeyboard(32);
+  const session = await connect(fake);
+  const wanted = structuredClone(session.snapshot);
+  wanted.config[LED_MODE] = 253;
+  wanted.leds.set([1, 2, 3]);
+  fake.replies = (r) => (r[1] === 0x23 ? [] : [r]);
+
+  await expect(session.load(wanted)).rejects.toThrow("cmd 0x23");
+
+  expect(session.state).toEqual(await new Keyboard(fake).readState());
+  expect(session.state.config[LED_MODE]).toBe(253);
+});

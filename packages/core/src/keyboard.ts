@@ -51,7 +51,7 @@ import {
   isError,
   withoutDongleByte,
 } from "./packet.ts";
-import { stateDiff, type KeyboardState } from "./state.ts";
+import { loadMismatches, type KeyboardState } from "./state.ts";
 
 /** HID link to the keyboard (node-hid, WebHID…). Timeouts are its business, with the values of `LINKS`. */
 export interface Transport {
@@ -464,9 +464,8 @@ export class Keyboard {
   }
 
   /**
-   * Rewrites every resource, in `readState`'s order, then reads them back: resolves with those that differ.
-   * Colours read back 0xFE where the state has 0xFF (see `writeCustomLeds`); a layer without its knob is compared
-   * without it.
+   * Rewrites every resource, in `readState`'s order, then reads them back: resolves with those that differ (see
+   * `loadMismatches`).
    */
   async writeState(state: KeyboardState): Promise<string[]> {
     await this.writeConfig(state.config);
@@ -478,16 +477,7 @@ export class Keyboard {
     await this.writeMacros(state.macros);
 
     await new Promise((resolve) => setTimeout(resolve, APPLY_DELAY_MS));
-    const read = await this.readState();
-    return stateDiff(
-      {
-        ...read,
-        keymaps: read.keymaps.map((map, l) =>
-          map.subarray(0, state.keymaps[l].length),
-        ),
-      },
-      { ...state, leds: withoutFullBytes(state.leds) },
-    );
+    return loadMismatches(state, await this.readState());
   }
 
   /** 6×6 RGB888 image, row by row, shown by dot screen mode 6. There is no read command. */

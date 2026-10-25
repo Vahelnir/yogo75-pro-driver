@@ -2,6 +2,7 @@ import {
   APPLY_DELAY_MS,
   firmwareVersion,
   Keyboard,
+  loadMismatches,
   openKeyboard,
   stateDiff,
   type KeyboardState,
@@ -11,7 +12,7 @@ import { reactive, toRaw } from "vue";
 
 /**
  * A connected keyboard: every request goes through its queue, one at a time, as the core requires. Pages write
- * only through `update` and `setKey`, which read what they wrote back into `state`.
+ * only through `update`, `setKey` and `load`, which read what they wrote back into `state`.
  */
 export interface Session {
   firmware: string;
@@ -32,6 +33,11 @@ export interface Session {
    * write fails, so that `state` shows what the keyboard really holds.
    */
   setKey(layer: number, index: number, code: Uint8Array): Promise<void>;
+  /**
+   * Writes every resource of `wanted`, as `yogo75 load` does, then reads them all back into `state`, even when a
+   * write fails. Resolves with the resources the keyboard doesn't hold as wanted.
+   */
+  load(wanted: KeyboardState): Promise<string[]>;
 }
 
 /** How a resource is written from a state and read back into `state`, by its `stateDiff` name. */
@@ -132,11 +138,30 @@ export async function connect(
     });
   }
 
+  // every resource, not only those that differ from `state`: the keyboard's own Fn keys change it unseen
+  function load(wanted: KeyboardState) {
+    return run(async () => {
+      try {
+        for (const [write] of Object.values(resources)) {
+          await write(wanted);
+        }
+      } finally {
+        await sleep(APPLY_DELAY_MS);
+        for (const [, read] of Object.values(resources)) {
+          await read();
+        }
+      }
+
+      return loadMismatches(wanted, toRaw(state));
+    });
+  }
+
   return {
     firmware: firmwareVersion(info),
     snapshot,
     state,
     update,
     setKey,
+    load,
   };
 }

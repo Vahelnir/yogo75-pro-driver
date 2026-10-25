@@ -1,6 +1,7 @@
 import { fromHex, hex } from "./bytes.ts";
 import { CMD_GET_KEYMAP, LAYER_BYTES, MATRIX_BYTES } from "./commands.ts";
 import { CONFIG_BYTES } from "./config.ts";
+import { withoutFullBytes } from "./flash.ts";
 import { MACRO_AREA_BYTES, macroAreaLength, splitMacros } from "./macro.ts";
 
 /** Everything the keyboard can read back (the dot screen image has no read command). */
@@ -43,6 +44,25 @@ export function stateDiff(a: KeyboardState, b: KeyboardState): string[] {
   return resources(a)
     .filter(([name, bytes]) => hex(bytes) !== hex(other.get(name)!))
     .map(([name]) => name);
+}
+
+/**
+ * Names of the resources that `read`, read back after writing `wanted`, doesn't hold. Colours read back 0xFE where
+ * `wanted` has 0xFF (see `withoutFullBytes`); a layer without its knob is compared without it.
+ */
+export function loadMismatches(
+  wanted: KeyboardState,
+  read: KeyboardState,
+): string[] {
+  return stateDiff(
+    {
+      ...read,
+      keymaps: read.keymaps.map((map, l) =>
+        map.subarray(0, wanted.keymaps[l].length),
+      ),
+    },
+    { ...wanted, leds: withoutFullBytes(wanted.leds) },
+  );
 }
 
 /** Version 2 file: one hex string per resource. Throws on a state without the knob (an older file's). */

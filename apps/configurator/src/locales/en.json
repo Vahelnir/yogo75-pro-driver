@@ -64,6 +64,14 @@
       "music_rhythm": "Music Rhythm"
     }
   },
+  "state": {
+    "export": "Export",
+    "import": "Import",
+    "restore": "Restore connection state",
+    "done": "Written, and read back identical.",
+    "mismatch": "Written, but the keyboard reads back differently for: {resources}",
+    "failed": "Could not write: {error}"
+  },
   "connection_type": {
     "cable": "Cable",
     "dongle": "2.4 GHz dongle"
