@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { FACTORY_1_26 } from "../src/factory.ts";
 import { keyNames, KEYS, KNOB, LAYOUT, type KeyRect } from "../src/index.ts";
-import { FACTORY_LAYER0 } from "../src/keymap.ts";
 
 const ABSENT_ISO = [60, 65];
 
@@ -12,7 +12,7 @@ function overlap(a: KeyRect, b: KeyRect): boolean {
 }
 
 test("every factory key has a position, the absent ISO slots none", () => {
-  const keys = keyNames(FACTORY_LAYER0)
+  const keys = keyNames(FACTORY_1_26.keymaps[0])
     .map((name, index) => ({ name, index }))
     .filter(({ name, index }) => name !== "NO" && !ABSENT_ISO.includes(index))
     .map(({ index }) => index);
