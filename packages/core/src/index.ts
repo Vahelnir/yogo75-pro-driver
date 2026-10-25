@@ -66,6 +66,7 @@ export {
   ROWS,
 } from "./keymap.ts";
 export { KNOB, LAYOUT, type KeyRect } from "./layout.ts";
+export { profileFromYaml, profileToYaml } from "./profile.ts";
 export {
   stateDiff,
   stateFromJson,
