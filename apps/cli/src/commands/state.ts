@@ -35,7 +35,7 @@ export function registerStateCommands(program: Command): void {
   program
     .command("save")
     .description(
-      "Save config, layers 0-3 with their knob, per-key colours and macros to a file (YAML: layers, lighting and dot screen only, for now)",
+      "Save config, layers 0-3 with their knob, per-key colours and macros to a file (YAML: layers, per-key colours, lighting and dot screen only, for now)",
     )
     .argument("<file>", "JSON, or YAML profile, file to write", stateFileArg)
     .option("--force", "Overwrite the file if it exists")
@@ -69,7 +69,7 @@ export function registerStateCommands(program: Command): void {
         writeFileSync(file, text, { flag: force ? "w" : "wx" });
         console.log(
           isYaml(file)
-            ? `layers 0-3 with their knob, lighting and dot screen saved to ${file} (macros, per-key colours and keyboard settings not included yet)`
+            ? `layers 0-3 with their knob, per-key colours, lighting and dot screen saved to ${file} (macros and keyboard settings not included yet)`
             : `config, layers 0-3 with their knob, per-key colours and macros saved to ${file}`,
         );
       });

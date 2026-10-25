@@ -64,18 +64,20 @@ test("the diff export holds only what differs from the base", () => {
 
   assert.equal(
     profileToYaml(state, "1.26"),
-    "# Not included yet: macros, per-key colours and keyboard settings. Loading this file leaves them as the keyboard has them.\n\n" +
+    "# Not included yet: macros and keyboard settings. Loading this file leaves them as the keyboard has them.\n\n" +
       HEADER +
       "layers:\n  0:\n    A: ESC\n  2:\n    KNOB_PRESS: NO\n",
   );
 });
 
-test("diff and full exports parse to the same layers, the fixture's", () => {
+test("diff and full exports parse to the same layers and colours, the fixture's", () => {
   const diff = profileFromYaml(profileToYaml(FIXTURE, "1.26"));
   const full = profileFromYaml(profileToYaml(FIXTURE, "1.26", { full: true }));
 
   assert.deepEqual(diff.keymaps, LAYER_FIXTURE);
   assert.deepEqual(full.keymaps, LAYER_FIXTURE);
+  assert.deepEqual(diff.leds, FIXTURE.leds);
+  assert.deepEqual(full.leds, FIXTURE.leds);
 });
 
 test("export is stable: exporting a parsed export gives the same text", () => {
@@ -110,9 +112,33 @@ test("resources the format doesn't cover yet are left as the keyboard has them",
   const current = structuredClone(FIXTURE);
   const state = profileFromYaml(HEADER, current);
 
-  assert.deepEqual(state.leds, current.leds);
   assert.deepEqual(state.macros, current.macros);
   assert.deepEqual(state.keymaps, BASE.keymaps);
+  assert.deepEqual(state.leds, BASE.leds);
+});
+
+test("a colour is set on its key's LED, by position", () => {
+  const state = profileFromYaml(
+    HEADER + 'leds:\n  ESC: "#FF0000"\n  5,15: "#0000ff"\n',
+  );
+
+  const leds = BASE.leds.slice();
+  leds.set([0xff, 0, 0], 0); // ESC: LED 0
+  leds.set([0, 0, 0xff], 83 * 3); // 5,15 (right arrow): LED 83
+  assert.deepEqual(state.leds, leds);
+});
+
+test("colours read back as fefefe export by position and round-trip", () => {
+  // what a keyboard reads back after our tools wrote the factory white
+  const state = structuredClone(BASE);
+  state.leds = BASE.leds.map((b) => (b === 0xff ? 0xfe : b));
+  const text = profileToYaml(state, "1.26");
+
+  assert.match(
+    text,
+    /\nleds:\n {2}W: "#fefefe"\n {2}A: "#fefefe"\n {2}S: "#fefefe"\n {2}D: "#fefefe"\n {2}UP: "#fefefe"\n {2}LEFT: "#fefefe"\n {2}DOWN: "#fefefe"\n {2}RGHT: "#fefefe"\n$/,
+  );
+  assert.deepEqual(profileFromYaml(text).leds, state.leds);
 });
 
 test("every error is reported with its line and path", () => {
@@ -133,6 +159,14 @@ test("every error is reported with its line and path", () => {
       "    A: ESC",
       "  1:",
       "    FOO: ESC",
+      "leds:",
+      "  KNOB_PRESS: '#ffffff'",
+      "  2,14: '#ffffff'",
+      "  NUBS: '#ffffff'",
+      "  A: red",
+      "  ESC: '#12345'",
+      "  0,0: '#000000'",
+      "  CAPS:",
       "",
     ].join("\n"),
   );
@@ -148,6 +182,13 @@ test("every error is reported with its line and path", () => {
     "line 11: layers.0.D: missing binding",
     "line 12: layers.4: unknown layer: layers are 0-3",
     "line 15: layers.1.FOO: unknown key name: FOO",
+    "line 17: leds.KNOB_PRESS: this key has no LED",
+    "line 18: leds.2,14: this key has no LED",
+    "line 19: leds.NUBS: this key has no LED",
+    "line 20: leds.A: must be a colour #rrggbb",
+    "line 21: leds.ESC: must be a colour #rrggbb",
+    "line 22: leds.0,0: same key as leds.ESC",
+    "line 23: leds.CAPS: must be a colour #rrggbb",
   ]);
 });
 
