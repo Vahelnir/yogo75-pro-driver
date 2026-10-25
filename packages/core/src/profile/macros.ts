@@ -62,11 +62,6 @@ export const macros: Section = {
       }
     }
 
-    // the same macros keep the keyboard's bytes: an area never written (no header) stays so
-    if (list.map(hex).join("|") === currentMacros(state.macros)) {
-      return;
-    }
-
     try {
       state.macros = joinMacros(list);
     } catch (e) {
@@ -90,8 +85,13 @@ function macroValue(macro: Uint8Array): unknown {
       ]);
 }
 
+/** Whether two areas hold the same macros, whatever their bytes past them (an area never written has no header). */
+export function sameMacros(a: Uint8Array, b: Uint8Array): boolean {
+  return macroList(a) === macroList(b);
+}
+
 /** The macros of `area` as `|`-separated hex, or undefined for an area `splitMacros` refuses. */
-function currentMacros(area: Uint8Array) {
+function macroList(area: Uint8Array) {
   try {
     return splitMacros(area).map(hex).join("|");
   } catch {

@@ -3,12 +3,12 @@ import { isMap, isScalar, type LineCounter, type Node } from "yaml";
 import type { Base } from "../base.ts";
 import type { KeyboardState } from "../state.ts";
 
-/** One top-level key of the profile. A resource no section covers is left as the keyboard has it on load. */
+/** One top-level key of the profile. */
 export interface Section {
   key: string;
   /** The section's value (plain values, `Map` for ordered keys), or undefined when it has nothing to write. */
   toYaml(state: KeyboardState, base: Base, full: boolean): unknown;
-  /** Sets the section's resources on `state` to the base's, then applies `node` (undefined: absent). */
+  /** Applies `node` (undefined: absent) to `state`, which starts as the base (Mac mode aside). */
   fromYaml(
     node: Node | undefined,
     base: Base,

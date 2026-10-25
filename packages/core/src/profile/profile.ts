@@ -12,18 +12,18 @@ import {
   type Node,
 } from "yaml";
 import { baseByName, baseForFirmware, BASES, type Base } from "../base.ts";
+import { FIELDS } from "../config.ts";
 import type { KeyboardState } from "../state.ts";
-import { lighting, screen } from "./config.ts";
+import { keyboard, lighting, screen } from "./config.ts";
 import { layers } from "./layers.ts";
 import { leds } from "./leds.ts";
-import { macros } from "./macros.ts";
+import { macros, sameMacros } from "./macros.ts";
 import { entries, Problems, text, type Section } from "./section.ts";
 
 const VERSION = 1;
 /** In export order. */
-const SECTIONS: Section[] = [layers, macros, leds, lighting, screen];
-const NOT_INCLUDED =
-  " Not included yet: keyboard settings. Loading this file leaves them as the keyboard has them.";
+const SECTIONS: Section[] = [layers, macros, leds, lighting, screen, keyboard];
+const MAC = FIELDS.indexOf("macWin");
 
 /** Diffed against the base matching `firmware` (as `firmwareVersion` gives it), else the latest; everything with `full`. */
 export function profileToYaml(
@@ -44,7 +44,6 @@ export function profileToYaml(
   }
 
   const doc = new Document(profile);
-  doc.commentBefore = NOT_INCLUDED;
   // `{ raw: 30 9f 02 }` on one line
   visit(doc, {
     Map(_, map) {
@@ -63,8 +62,8 @@ export function profileToYaml(
 }
 
 /**
- * The state a profile gives: its base, with what it sets, and what the format doesn't cover yet as `current` has it
- * (the base's when absent, to check a file offline). Throws one error listing every problem, each with its line.
+ * The state a profile gives: its base, with what it sets, and Mac mode as `current` has it unless the profile sets it
+ * (the base's when `current` is absent, to check a file offline). Throws one error listing every problem, each with its line.
  */
 export function profileFromYaml(
   source: string,
@@ -135,15 +134,23 @@ function merge(
 
   // without a valid base, the sections are still checked, against the latest
   const merged = chosen ?? BASES.at(-1)!;
-  const from = current ?? merged;
   const state = structuredClone({
-    config: from.config,
-    keymaps: from.keymaps,
-    leds: from.leds,
-    macros: from.macros,
+    config: merged.config,
+    keymaps: merged.keymaps,
+    leds: merged.leds,
+    macros: merged.macros,
   });
+  if (current) {
+    state.config[MAC] = current.config[MAC];
+  }
+
   for (const section of SECTIONS) {
     section.fromYaml(found.get(section.key)?.value, merged, state, problems);
+  }
+
+  // the same macros keep the keyboard's bytes, so they aren't rewritten: an area never written (no header) stays so
+  if (current && sameMacros(state.macros, current.macros)) {
+    state.macros = current.macros.slice();
   }
 
   return state;

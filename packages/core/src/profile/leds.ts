@@ -36,9 +36,7 @@ export const leds: Section = {
     return colors.size ? colors : undefined;
   },
 
-  fromYaml(node, base, state, problems) {
-    state.leds = base.leds.slice();
-
+  fromYaml(node, _, state, problems) {
     const seen = new Map<number, string>();
     for (const { key, keyNode, value, path } of entries(
       node,

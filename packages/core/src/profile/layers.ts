@@ -45,9 +45,7 @@ export const layers: Section = {
     return layers.size ? layers : undefined;
   },
 
-  fromYaml(node, base, state, problems) {
-    state.keymaps = base.keymaps.map((map) => map.slice());
-
+  fromYaml(node, _, state, problems) {
     for (const layer of entries(node, "layers", problems)) {
       if (!LAYER.test(layer.key)) {
         problems.add(

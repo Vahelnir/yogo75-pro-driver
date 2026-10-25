@@ -1,9 +1,9 @@
 /**
- * The config sections (`lighting`, `screen`): readable keys over config bytes, in the configurator's units.
+ * The config sections (`lighting`, `screen`, `keyboard`): readable keys over config bytes, in the configurator's units.
  * A byte with no readable form is written as a number under the same key, so every byte round-trips.
  */
 import { isScalar, type Node } from "yaml";
-import { fromHex, hex } from "../bytes.ts";
+import { fromHex, hex, readU24le, u24le } from "../bytes.ts";
 import { FIELDS } from "../config.ts";
 import {
   brightnessPercent,
@@ -20,6 +20,7 @@ interface Field {
   key: string;
   offset: number;
   size: number;
+  /** Undefined: never exported. */
   read(bytes: Uint8Array): unknown;
   parse(node: Node): number[];
 }
@@ -136,6 +137,33 @@ function color(key: string, offset: number): Field {
   };
 }
 
+const NEVER = 65535;
+const MAX_U24 = 0xffffff;
+
+/** Seconds on 24 bits LE, `never` for 65535 as the hub offers it. */
+function seconds(key: string, offset: number): Field {
+  return {
+    key,
+    offset,
+    size: 3,
+    read(bytes) {
+      const value = readU24le(bytes, 0);
+      return value === NEVER ? "never" : value;
+    },
+    parse(node) {
+      if (text(node) === "never") {
+        return u24le(NEVER);
+      }
+
+      try {
+        return u24le(integer(node, 0, MAX_U24));
+      } catch {
+        throw new Error(`must be never or 0 to ${MAX_U24} seconds`);
+      }
+    },
+  };
+}
+
 function configSection(key: string, fields: Field[]): Section {
   return {
     key,
@@ -144,19 +172,19 @@ function configSection(key: string, fields: Field[]): Section {
       const values = new Map<string, unknown>();
       for (const field of fields) {
         const bytes = own(state.config, field);
-        if (full || hex(bytes) !== hex(own(base.config, field))) {
-          values.set(field.key, field.read(bytes));
+        const value = field.read(bytes);
+        if (
+          value !== undefined &&
+          (full || hex(bytes) !== hex(own(base.config, field)))
+        ) {
+          values.set(field.key, value);
         }
       }
 
       return values.size ? values : undefined;
     },
 
-    fromYaml(node, base, state, problems) {
-      for (const field of fields) {
-        state.config.set(own(base.config, field), field.offset);
-      }
-
+    fromYaml(node, _, state, problems) {
       for (const entry of entries(node, key, problems)) {
         const field = fields.find((f) => f.key === entry.key);
         if (!field) {
@@ -232,4 +260,18 @@ export const screen = configSection("screen", [
   color("color", at("LedTFTColorR")),
   flag("rainbow", SCREEN_RAINBOW, 1, 0),
   byte("paletteIndex", at("LedTFTColorIndex")),
+]);
+
+export const keyboard = configSection("keyboard", [
+  // the physical Win/Mac switch owns it: never exported, kept from the keyboard unless a profile forces it
+  { ...flag("mac", at("macWin"), 1, 0), read: () => undefined },
+  flag("nkro", at("sixN"), 1, 0),
+  flag("winLock", at("winLock"), 1, 0),
+  flag("wasdArrows", at("wasd"), 1, 0),
+  flag("lowLatency", at("scanDelay"), 0, 2),
+  byte("baseLayer", at("layer")),
+  flag("fkeySwap", at("fkeyChange"), 1, 0),
+  flag("knobLocked", at("wheelMode"), 1, 0),
+  seconds("sleep", at("sleepL")),
+  seconds("radioSleep", at("dsSleepL")),
 ]);

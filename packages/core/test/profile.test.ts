@@ -73,9 +73,7 @@ test("the diff export holds only what differs from the base", () => {
 
   assert.equal(
     profileToYaml(state, "1.26"),
-    "# Not included yet: keyboard settings. Loading this file leaves them as the keyboard has them.\n\n" +
-      HEADER +
-      "layers:\n  0:\n    A: ESC\n  2:\n    KNOB_PRESS: NO\n",
+    HEADER + "layers:\n  0:\n    A: ESC\n  2:\n    KNOB_PRESS: NO\n",
   );
 });
 
@@ -117,16 +115,15 @@ test("NO is 10 00 00, row,col and numbers name positions", () => {
   assert.equal(hex(keyAt(state.keymaps[3], keyIndex("1"))), "10 00 1f");
 });
 
-test("resources the format doesn't cover yet are left as the keyboard has them", () => {
-  const current = structuredClone(FIXTURE);
+test("an empty profile loads as the base, Mac mode aside", () => {
+  const current = withConfig({ ...FIXTURE, macros: HUB_MACROS }, { 39: 1 });
   const state = profileFromYaml(HEADER, current);
 
-  assert.deepEqual(
-    state.config.subarray(38, 52),
-    current.config.subarray(38, 52),
-  );
+  assert.deepEqual(state.config, withConfig(BASE, { 39: 1 }).config);
   assert.deepEqual(state.keymaps, BASE.keymaps);
   assert.deepEqual(state.leds, BASE.leds);
+  assert.deepEqual(state.macros, BASE.macros);
+  assert.equal(profileFromYaml(HEADER).config[39], BASE.config[39]);
 });
 
 test("a colour is set on its key's LED, by position", () => {
@@ -462,10 +459,16 @@ test("a byte with no readable form round-trips as a number", () => {
   assert.deepEqual(profileFromYaml(text).config, state.config);
 });
 
-test("every byte of the fixture's lighting and screen round-trips", () => {
+test("export then load gives back the fixture's bytes, dead bytes aside", () => {
+  const dead = [0, 11, 20, 28, 33, 52, 58, 60, 63];
+  const current = withConfig(
+    FIXTURE,
+    Object.fromEntries(dead.map((offset) => [offset, 0x5a])),
+  );
+
   for (const full of [false, true]) {
-    const text = profileToYaml(FIXTURE, "1.26", { full });
-    assert.deepEqual(profileFromYaml(text, FIXTURE).config, FIXTURE.config);
+    const text = profileToYaml(current, "1.26", { full });
+    assert.deepEqual(profileFromYaml(text, current), FIXTURE);
   }
 });
 
@@ -477,16 +480,6 @@ test("screen.rainbow drives byte 59, not byte 33", () => {
 
   assert.equal(config[59], 1);
   assert.equal(config[33], BASE.config[33]);
-});
-
-test("lighting and screen take the base's values; the rest of the config stays as the keyboard has it", () => {
-  const current = withConfig(BASE, { 2: 9, 30: 3, 59: 0, 38: 0, 46: 60 });
-  const { config } = profileFromYaml(
-    HEADER + "lighting:\n  speed: 1\n",
-    current,
-  );
-
-  assert.deepEqual(config, withConfig(BASE, { 4: 5, 38: 0, 46: 60 }).config);
 });
 
 test("lighting and screen errors carry their line and path", () => {
@@ -519,4 +512,88 @@ test("lighting and screen errors carry their line and path", () => {
     "line 12: screen.on: missing value",
     "line 13: screen.mode: must be 0 to 255",
   ]);
+});
+
+test("keyboard settings load, with numbers for other byte values", () => {
+  const { config } = profileFromYaml(
+    HEADER +
+      [
+        "keyboard:",
+        "  nkro: false",
+        "  winLock: true",
+        "  wasdArrows: true",
+        "  lowLatency: true",
+        "  baseLayer: 2",
+        "  fkeySwap: true",
+        "  knobLocked: 2",
+        "  sleep: 600",
+        "  radioSleep: never",
+        "",
+      ].join("\n"),
+  );
+
+  assert.deepEqual(
+    [...config.subarray(38, 52)],
+    [0, BASE.config[39], 1, 1, 0, 2, 1, 2, 0x58, 2, 0, 0xff, 0xff, 0],
+  );
+});
+
+test("the diff export writes the keyboard settings that differ from the base, never mac", () => {
+  const state = withConfig(BASE, {
+    38: 0,
+    39: 1,
+    42: 3,
+    45: 1,
+    46: 0xff,
+    47: 0xff,
+    48: 0,
+    49: 0x3c,
+    50: 0,
+  });
+  const text = profileToYaml(state, "1.26");
+
+  assert.match(
+    text,
+    /\nkeyboard:\n {2}nkro: false\n {2}lowLatency: 3\n {2}knobLocked: true\n {2}sleep: never\n {2}radioSleep: 60\n$/,
+  );
+  assert.doesNotMatch(profileToYaml(state, "1.26", { full: true }), /mac/);
+  assert.deepEqual(profileFromYaml(text, state).config, state.config);
+});
+
+test("keyboard.mac forces Mac mode, over the keyboard's", () => {
+  const current = withConfig(BASE, { 39: 1 });
+
+  assert.equal(
+    profileFromYaml(HEADER + "keyboard:\n  mac: false\n", current).config[39],
+    0,
+  );
+  assert.equal(
+    profileFromYaml(HEADER + "keyboard:\n  mac: true\n").config[39],
+    1,
+  );
+});
+
+test("keyboard errors carry their line and path; the same key twice is refused", () => {
+  const message = errorsOf(
+    HEADER +
+      [
+        "keyboard:",
+        "  sleep: forever",
+        "  radioSleep: 16777216",
+        "  nkro: yes",
+        "  fnLock: true",
+        "",
+      ].join("\n"),
+  );
+
+  assert.deepEqual(message.split("\n"), [
+    "line 4: keyboard.sleep: must be never or 0 to 16777215 seconds",
+    "line 5: keyboard.radioSleep: must be never or 0 to 16777215 seconds",
+    "line 6: keyboard.nkro: must be true, false or 0 to 255",
+    "line 7: keyboard.fnLock: unknown key",
+  ]);
+  assert.match(
+    errorsOf(HEADER + "keyboard:\n  nkro: true\n  nkro: false\n"),
+    /^line 5: Map keys must be unique/,
+  );
 });
