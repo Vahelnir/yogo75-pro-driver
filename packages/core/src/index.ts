@@ -2,6 +2,7 @@
  * ATK Yogo 75 PRO protocol (EVISION_V2, reversed from v3-hub.atk.store), browser-safe: the keyboard is reached
  * through an injected `Transport`. Packet layout in packet.ts.
  */
+export { baseByName, baseForFirmware, BASES, type Base } from "./base.ts";
 export { fromHex, hex } from "./bytes.ts";
 export { rgb565, toRgb565le } from "./color.ts";
 export {
